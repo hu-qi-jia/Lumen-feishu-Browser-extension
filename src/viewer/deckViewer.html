@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>演示文稿</title>
+</head>
+<body>
+  <!-- The paged stage (one slide at a time) — same structure as the exported HTML, so SLIDES_CSS
+       (shared with the export) styles it identically. The .slide-frame is a fixed 1920×1080
+       design canvas, transform-scaled to fit; the deck's SlideTheme is injected as CSS vars. -->
+  <div class="slides-stage" tabindex="0">
+    <div class="slide-frame-wrap"><div class="slide-frame-outer"><div class="slide-frame"></div></div></div>
+    <div class="slides-bar-zone">
+      <div class="slides-bar">
+        <div class="slides-nav">
+          <button class="page slides-prev" type="button">‹</button>
+          <span class="slides-count"></span>
+        </div>
+        <div class="slides-dots"></div>
+        <div class="slides-nav">
+          <button class="page slides-play" type="button" title="全屏播放"></button>
+          <button class="page slides-next" type="button">›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Off-screen sheet used only when printing (one slide per page). Charts are hydrated
+       here too so ECharts canvases render into the PDF. -->
+  <div class="slides-print"></div>
+  <script type="module" src="./deckViewer.ts"></script>
+</body>
+</html>

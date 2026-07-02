@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.cjs",
+    "css": "src/sidepanel/ui/tokens.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@/sidepanel/ui",
+    "utils": "@/sidepanel/ui/cn",
+    "ui": "@/sidepanel/ui",
+    "lib": "@/sidepanel/ui",
+    "hooks": "@/sidepanel/hooks"
+  },
+  "registries": {
+    "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json"
+  }
+}

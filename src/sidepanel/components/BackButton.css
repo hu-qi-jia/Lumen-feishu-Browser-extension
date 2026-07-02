@@ -1,0 +1,26 @@
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 4px 2px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: color .15s ease, background .15s ease;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.back-btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

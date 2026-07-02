@@ -1,0 +1,85 @@
+/* iOS-style confirmation alert — centered card, dimmed blur backdrop, hairline-separated
+   stacked buttons. Handles delete / write / create_base. */
+.confirm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, .35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: confirmFade .18s ease;
+}
+@keyframes confirmFade { from { opacity: 0; } to { opacity: 1; } }
+
+.confirm-card {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  background: var(--color-bg);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .22);
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-overlay { animation: none; }
+}
+
+.confirm-body {
+  padding: 18px 16px 14px;
+  text-align: center;
+}
+.confirm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 6px;
+}
+.confirm-msg {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+.confirm-msg b { color: var(--color-text); font-weight: 600; }
+.confirm-warn {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 10px 0 0;
+  text-align: left;
+}
+.confirm-warn b { color: var(--color-error); }
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+}
+.confirm-btn {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.confirm-btn:last-child { border-bottom: none; }
+.confirm-btn:hover { background: var(--color-surface-2); }
+.confirm-btn:active { background: var(--color-surface); }
+.confirm-btn--primary { font-weight: 600; color: var(--color-primary); }
+.confirm-btn--secondary { color: var(--color-primary); }
+.confirm-btn--danger { color: var(--color-error); font-weight: 600; }
+.confirm-btn--ghost { color: var(--color-text-secondary); font-weight: 600; }

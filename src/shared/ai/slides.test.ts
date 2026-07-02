@@ -1,0 +1,166 @@
+import { describe, it, expect } from 'vitest'
+import { vi } from 'vitest'
+vi.mock('./llm', () => ({ chatCompleteStream: vi.fn(async (_s: unknown, content: string) => {
+  // adjustDeck expects a bare JSON array; runMaterialsToSlides expects {title, slides}.
+  // Distinguish by the adjustDeck-specific marker so the shared mock serves both call sites.
+  if (/【修改要求】/.test(content)) {
+    if (/可用图片/.test(content)) return JSON.stringify([{ layout: 'image-split', title: 'x', image: 'upload-产品图' }])
+    return JSON.stringify([{ layout: 'bullets', title: '无图', bullets: ['a'] }])
+  }
+  // runMaterialsToSlides path: echo a pool-aware slide when the prompt lists available images.
+  if (/可用图片/.test(content)) return JSON.stringify({ title: 'T', slides: [{ layout: 'image-split', title: 'x', image: 'doc-1' }] })
+  return JSON.stringify({ title: 'T', slides: [{ layout: 'bullets', title: '无图', bullets: ['a'] }] })
+}) }))
+import { sanitizeSlides, runMaterialsToSlides, adjustDeck } from './slides'
+
+describe('sanitizeSlides — coerce model output into safe, well-formed slides', () => {
+  it('returns [] for non-array input', () => {
+    expect(sanitizeSlides(null)).toEqual([])
+    expect(sanitizeSlides({})).toEqual([])
+    expect(sanitizeSlides('x')).toEqual([])
+  })
+
+  it('keeps a valid layout and defaults an unknown/missing one to bullets', () => {
+    const out = sanitizeSlides([
+      { layout: 'title', title: '封面', subtitle: '副标题' },
+      { layout: 'made-up', title: '内容', bullets: ['a', 'b'] },
+      { title: '无 layout', bullets: ['x'] },
+    ])
+    expect(out.map((s) => s.layout)).toEqual(['title', 'bullets', 'bullets'])
+  })
+
+  it('drops slides with no content at all', () => {
+    const out = sanitizeSlides([
+      { layout: 'bullets' },                 // empty → dropped
+      { layout: 'bullets', bullets: [] },    // empty bullets → dropped
+      { layout: 'section', title: '第一章' },// has a title → kept
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0].title).toBe('第一章')
+  })
+
+  it('coerces bullets to a trimmed array of strings and skips blanks', () => {
+    const out = sanitizeSlides([{ layout: 'bullets', title: 't', bullets: ['a', '', '  ', 'b', 123] }])
+    expect(out[0].bullets).toEqual(['a', 'b', '123'])
+  })
+
+  it('normalizes stats entries to {num,label} strings', () => {
+    const out = sanitizeSlides([{ layout: 'stats', title: 'KPI', stats: [{ num: 42, label: '用户' }, { num: '3x' }] }])
+    expect(out[0].stats).toEqual([{ num: '42', label: '用户' }, { num: '3x', label: '' }])
+  })
+
+  it('caps the deck length and per-slide arrays', () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ layout: 'bullets', title: `s${i}`, bullets: ['x'] }))
+    expect(sanitizeSlides(many)).toHaveLength(40)
+    const bigBullets = sanitizeSlides([{ layout: 'bullets', title: 't', bullets: Array.from({ length: 20 }, () => 'b') }])
+    expect(bigBullets[0].bullets!.length).toBeLessThanOrEqual(12)
+  })
+
+  it('preserves two-col second column', () => {
+    const out = sanitizeSlides([{ layout: 'two-col', title: '对比', bullets: ['优点'], bullets2: ['缺点'] }])
+    expect(out[0].bullets).toEqual(['优点'])
+    expect(out[0].bullets2).toEqual(['缺点'])
+  })
+
+  it('keeps a chart slide with its ECharts option object', () => {
+    const opt = { series: [{ type: 'pie', data: [{ name: 'A', value: 3 }] }] }
+    const out = sanitizeSlides([{ layout: 'chart', title: '占比', chart: opt }])
+    expect(out).toHaveLength(1)
+    expect(out[0].layout).toBe('chart')
+    expect(out[0].chart).toEqual(opt)
+  })
+
+  it('drops a chart slide whose chart is missing or not an object', () => {
+    const out = sanitizeSlides([
+      { layout: 'chart' },                 // no chart, no other content → dropped
+      { layout: 'chart', chart: 'nope' },  // chart not an object, no other content → dropped
+    ])
+    expect(out).toHaveLength(0)
+  })
+
+  it('keeps an embed slide with its render code string', () => {
+    const out = sanitizeSlides([{ layout: 'embed', title: '看板', code: 'ui.dashboard(container,{data})' }])
+    expect(out).toHaveLength(1)
+    expect(out[0].layout).toBe('embed')
+    expect(out[0].code).toContain('ui.dashboard')
+  })
+})
+
+describe('sanitizeSlides — new layouts & fields', () => {
+  it('accepts cover / cards / image-split layouts', () => {
+    const raw = [
+      { layout: 'cover', title: '封面', image: 'doc-1' },
+      { layout: 'cards', title: '卡片页', eyebrow: '优势', cards: [
+        { title: '快', body: '极速', num: '10x' },
+        { title: '稳', body: '可靠', image: 'upload-a' },
+      ] },
+      { layout: 'image-split', title: '图文', image: 'doc-2', imageSide: 'left', imageCaption: '示意图' },
+    ]
+    const out = sanitizeSlides(raw)
+    expect(out).toHaveLength(3)
+    expect(out[0].layout).toBe('cover')
+    expect(out[1].cards?.length).toBe(2)
+    expect(out[2].imageSide).toBe('left')
+    expect(out[2].imageCaption).toBe('示意图')
+  })
+
+  it('drops image references when image is not a non-empty string', () => {
+    const out = sanitizeSlides([{ layout: 'image-split', title: 'x', image: '' }])
+    expect(out[0].image).toBeUndefined()
+  })
+
+  it('trims surrounding whitespace from image ids so they match the pool exactly', () => {
+    const out = sanitizeSlides([
+      { layout: 'image-split', title: 'x', image: ' doc-1 ' },
+      { layout: 'cards', title: 'y', cards: [{ title: 'a', image: '\tupload-b\n' }] },
+    ])
+    expect(out[0].image).toBe('doc-1')
+    expect(out[1].cards![0].image).toBe('upload-b')
+  })
+
+  it('caps cards at 6 and truncates long fields', () => {
+    const cards = Array.from({ length: 9 }, (_, i) => ({ title: `t${i}`, body: 'b'.repeat(300) }))
+    const out = sanitizeSlides([{ layout: 'cards', cards }])[0]
+    expect(out.cards?.length).toBe(6)
+    expect(out.cards![0].body!.length).toBeLessThanOrEqual(160)
+  })
+
+  it('keeps new fields optional (old decks load unchanged)', () => {
+    const out = sanitizeSlides([{ layout: 'bullets', title: '老页', bullets: ['a'] }])[0]
+    expect(out.eyebrow).toBeUndefined()
+    expect(out.image).toBeUndefined()
+  })
+})
+
+describe('runMaterialsToSlides image orchestration', () => {
+  it('orchestrates: remap global numbering, harvest via injected fetcher, strip failed markers, pass pool to prompt', async () => {
+    const fetcher = vi.fn(async () => ({
+      // 输入 imageTokens=[t1]，成功→doc-1
+      images: [{ id: 'doc-1', source: 'doc', label: '文档图1', dataUrl: 'data:ok', context: '标题' }],
+      failedTokens: [],
+    }))
+    const materials = [{ kind: 'doc', label: 'D', url: 'u', text: '# 标题\n【图1】正文', imageTokens: [{ token: 't1', context: '标题' }] }]
+    const r = await runMaterialsToSlides({} as never, materials as never, undefined, { imageFetcher: fetcher as never })
+    expect(fetcher).toHaveBeenCalled()
+    const { chatCompleteStream } = await import('./llm')
+    const content = (chatCompleteStream as unknown as { mock: { calls: string[][] } }).mock.calls.at(-1)?.[1] as string
+    expect(content).toContain('【图1】')          // marker survived in prompt text
+    expect(content).toContain('可用图片')
+    expect(content).toContain('doc-1')
+    expect(r.images.map((i: { id: string }) => i.id)).toEqual(['doc-1'])
+  })
+})
+
+describe('adjustDeck prompt includes pool', () => {
+  it('lists available images when pool non-empty', async () => {
+    await adjustDeck({} as never, {
+      slides: [{ layout: 'bullets', title: 'a' }],
+      images: [{ id: 'upload-产品图', source: 'upload', label: '产品图', dataUrl: 'data:x' }],
+      instruction: '把 产品图 放第1页',
+    } as never)
+    const { chatCompleteStream } = await import('./llm')
+    const content = (chatCompleteStream as unknown as { mock: { calls: string[][] } }).mock.calls.at(-1)?.[1] as string
+    expect(content).toContain('可用图片')
+    expect(content).toContain('upload-产品图')
+  })
+})

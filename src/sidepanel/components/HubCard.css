@@ -1,0 +1,87 @@
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hub-card--clickable {
+  cursor: pointer;
+}
+
+.hub-card--clickable:hover {
+  border-color: var(--color-primary-border);
+  box-shadow: 0 4px 12px rgba(79, 107, 255, .12);
+  transform: translateY(-1px);
+}
+
+.hub-card--dim {
+  opacity: .45;
+}
+
+.hub-card--dim.hub-card--clickable:hover {
+  border-color: var(--color-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transform: none;
+}
+
+.hub-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--color-primary-soft, #eef1ff);
+  color: var(--color-primary, #4f6bff);
+  flex-shrink: 0;
+}
+
+.hub-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hub-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+
+.hub-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-card-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.hub-card-desc {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}

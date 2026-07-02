@@ -1,0 +1,100 @@
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  width: max-content;
+  max-width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  position: absolute;
+  z-index: 200;
+  transition: opacity .2s ease, visibility .2s ease;
+  pointer-events: none;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Arrow */
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  border-width: 5px;
+  border-style: solid;
+}
+
+/* ── Position: top (default) ── */
+.tooltip--top .tooltip-text {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.tooltip--top .tooltip-text::after {
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* ── Position: bottom ── */
+.tooltip--bottom .tooltip-text {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.tooltip--bottom .tooltip-text::after {
+  bottom: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-color: transparent transparent #333 transparent;
+}
+
+/* ── Position: left ── */
+.tooltip--left .tooltip-text {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.tooltip--left .tooltip-text::after {
+  left: 100%;
+  top: 50%;
+  margin-top: -5px;
+  border-color: transparent transparent transparent #333;
+}
+
+/* ── Position: right ── */
+.tooltip--right .tooltip-text {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.tooltip--right .tooltip-text::after {
+  right: 100%;
+  top: 50%;
+  margin-top: -5px;
+  border-color: transparent #333 transparent transparent;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] .tooltip-text {
+  background-color: #555;
+}
+[data-theme="dark"] .tooltip--top .tooltip-text::after    { border-color: #555 transparent transparent transparent; }
+[data-theme="dark"] .tooltip--bottom .tooltip-text::after { border-color: transparent transparent #555 transparent; }
+[data-theme="dark"] .tooltip--left .tooltip-text::after   { border-color: transparent transparent transparent #555; }
+[data-theme="dark"] .tooltip--right .tooltip-text::after  { border-color: transparent #555 transparent transparent; }

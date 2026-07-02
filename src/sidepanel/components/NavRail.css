@@ -1,0 +1,92 @@
+/* Fixed left icon rail — slim vertical navigation, always visible.
+   .nav-rail width is the single source of truth: the .app grid sizes its
+   left column to this (grid-template-columns: auto 1fr in App.css).
+   Tuned to a ChatGPT / iOS feel: narrow, quiet, brand-tinted active state. */
+.nav-rail {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 40px;
+  height: 100%;
+  padding: 12px 4px;
+  background: transparent;
+  border-right: 1px solid var(--color-border, #ebedf3);
+}
+
+.nav-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Bottom group (e.g. settings) sticks to the foot of the rail */
+.nav-rail-list--bottom {
+  margin-top: auto;
+}
+
+.nav-rail-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-secondary, #888f9c);
+  cursor: pointer;
+  transition:
+    background-color 200ms cubic-bezier(.22, 1, .36, 1),
+    color 200ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.nav-rail-item:hover:not(:disabled) {
+  background: var(--color-surface, #f6f7fb);
+  color: var(--color-text, #181b24);
+}
+
+.nav-rail-item--active {
+  background: var(--color-primary-soft, #eef1ff);
+  color: var(--color-primary, #4f6bff);
+}
+
+.nav-rail-item:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.nav-rail-item:focus-visible {
+  outline: 2px solid var(--color-primary, #4f6bff);
+  outline-offset: 1px;
+}
+
+.nav-rail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-rail-icon svg {
+  display: block;
+  width: 19px;
+  height: 19px;
+}
+
+/* ─────────────── Dark theme ─────────────── */
+[data-theme="dark"] .nav-rail {
+  border-right-color: var(--color-border, #2b2f39);
+}
+
+[data-theme="dark"] .nav-rail-item--active {
+  background: var(--color-primary-soft, #232a45);
+  color: var(--color-primary, #7c8dff);
+}

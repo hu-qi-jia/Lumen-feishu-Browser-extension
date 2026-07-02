@@ -1,0 +1,147 @@
+/* Scrollable region — TopBar stays pinned; the compose form (themes/sources/image
+   picker/generate button) scrolls when it exceeds the panel height. Mirrors the
+   flex:1 + overflow-y:auto + min-height:0 pattern used by .sc-detail-body. */
+.sl-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 12px; }
+/* Children must NOT shrink along the main axis — otherwise, when content overflows,
+   flex compresses items (the 生成 button has only height:32px and no min-height, so it
+   got squashed after uploading an image). Keep natural heights and let the container scroll. */
+.sl-body > * { flex-shrink: 0; }
+.sl-sub { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; margin: 0; }
+.sl-field { display: flex; flex-direction: column; gap: 6px; }
+.sl-label { font-size: 12px; font-weight: 600; color: var(--color-text); }
+.sl-label-hint { font-weight: 400; color: var(--color-text-secondary); }
+
+/* ── Theme picker grid (3-up of ThemeThumb tiles) ──────────────────────── */
+/* The thumb styling (.sl-theme / .sl-theme--active / .sl-theme:disabled) lives in ThemeThumb.css;
+   this panel only owns the grid layout. */
+.sl-themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sl-req {
+  width: 100%; min-height: 56px; resize: vertical; padding: 8px 10px; font-size: 13px; line-height: 1.5;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-bg); color: var(--color-text); outline: none;
+  transition: border-color .15s, box-shadow .15s; font-family: inherit; box-sizing: border-box;
+}
+.sl-req:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.sl-req::placeholder { color: var(--color-text-secondary); }
+
+/* Action rows: buttons share width equally; min-width:0 lets them shrink below
+   their label's natural width so a row never overflows the narrow side panel. */
+.sl-actions { display: flex; gap: 8px; }
+.sl-actions > .btn { flex: 1; min-width: 0; }
+
+/* Export pair (2 secondary buttons) */
+.sl-export-row { display: flex; gap: 8px; }
+.sl-export-row > .btn { flex: 1; min-width: 0; }
+
+.sl-hint { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
+.sl-hint--warn { color: #b8860b; }
+.sl-hint--err { color: #e5484d; }
+.sl-status { margin: 0; }
+
+/* ── Result card (shown once a deck exists) ─────────────────────────────── */
+.sl-result {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface);
+}
+.sl-result-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(51,112,255,.1); color: var(--color-primary);
+}
+.sl-result-icon svg { width: 18px; height: 18px; display: block; }
+.sl-result-meta { min-width: 0; flex: 1; }
+.sl-result-name {
+  font-size: 13px; font-weight: 600; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sl-result-sub { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+/* 修改 is a plain .sl-field now (see SlidesPanel.tsx) — no dedicated adjust CSS. */
+
+/* ── TopBar right-slot icon buttons (new + history) ─────────────────────── */
+.sl-history-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-secondary); padding: 6px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.sl-history-btn svg { display: block; width: 18px; height: 18px; }
+.sl-history-btn:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
+.sl-history-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Link input + chips ─────────────────────────────────────────────────── */
+.sl-add { display: flex; gap: 8px; }
+.sl-add-input-wrap {
+  flex: 1; min-width: 0; position: relative; display: flex; align-items: center;
+}
+.sl-add-input {
+  width: 100%; height: 32px; padding: 0 32px 0 10px; font-size: 13px;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-bg); color: var(--color-text); outline: none;
+  transition: border-color .15s, box-shadow .15s; font-family: inherit; box-sizing: border-box;
+}
+.sl-add-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.sl-add-input::placeholder { color: var(--color-text-secondary); }
+.sl-add-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--color-text-secondary);
+  padding: 3px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+}
+.sl-add-clear svg { width: 14px; height: 14px; display: block; }
+.sl-add-clear:hover { color: var(--color-text); background: var(--color-surface-2); }
+
+.sl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sl-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 100%; padding: 3px 4px 3px 8px;
+  border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-surface); color: var(--color-text);
+  font-size: 12px;
+}
+.sl-chip-tag {
+  font-size: 10px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px;
+  color: #fff; flex-shrink: 0;
+}
+/* doc=蓝, base=紫, sheet=绿 */
+.sl-chip-tag--doc { background: #3370ff; }
+.sl-chip-tag--base { background: #8b5cf6; }
+.sl-chip-tag--sheet { background: #2f9e44; }
+.sl-chip-label {
+  font-size: 12px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px;
+}
+.sl-chip-x {
+  flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--color-text-secondary);
+  padding: 2px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+}
+.sl-chip-x svg { display: block; width: 13px; height: 13px; }
+.sl-chip-x:hover:not(:disabled) { color: #e5484d; }
+.sl-chip-x:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── History drawer deck rows ───────────────────────────────────────────── */
+.sl-decks {
+  flex: 1; overflow-y: auto; padding: 0 8px 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.sl-decks-empty { padding: 16px 10px; font-size: 12px; color: var(--color-text-secondary); text-align: center; }
+.sl-deck {
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  border-radius: var(--radius); border: 1px solid transparent;
+}
+.sl-deck:hover { background: var(--color-surface); }
+/* Active row reuses the session drawer's selected look (primary-soft fill + border). */
+.sl-deck--active { background: var(--color-primary-soft); border-color: var(--color-primary-border); }
+.sl-deck-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  background: none; border: none; text-align: left; cursor: pointer; font-family: inherit; padding: 0;
+}
+.sl-deck-main:disabled { cursor: default; }
+.sl-deck-name {
+  font-size: 12.5px; font-weight: 600; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sl-deck-meta { font-size: 10.5px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Hover-revealed delete action — reuses .drawer-row-btn from SessionDrawer.css */
+.sl-deck-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
+.sl-deck:hover .sl-deck-actions { opacity: 1; }
