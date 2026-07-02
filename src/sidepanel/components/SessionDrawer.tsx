@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { SessionMeta } from '../../shared/types'
 import type { SessionsApi } from '../sessions/useSessions'
+import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../sessions/logic'
+import { KindIcon } from './DocSelector'
 import SideDrawer from './SideDrawer'
 import Tooltip from './Tooltip'
 import './SessionDrawer.css'
@@ -14,43 +16,205 @@ interface Props {
 
 export default function SessionDrawer({ sessions, busy, onClose }: Props) {
   const { index, switchTo, removeSession, renameSession } = sessions
+  const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
-  const ordered = [...index.sessions].sort((a, b) => b.updatedAt - a.updatedAt)
+  // One-shot init: collapse every group EXCEPT the active session's, so opening the
+  // drawer lands on the relevant doc and the rest wait behind their headers. The drawer
+  // is conditionally rendered ({drawerOpen && …}), so it remounts each open → this
+  // re-runs and re-targets the now-active group.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    const active = index.sessions.find((s) => s.id === index.activeId)
+    const activeKey = active?.appToken ?? GENERAL_GROUP_KEY
+    const out = new Set<string>()
+    for (const s of index.sessions) {
+      const k = s.appToken ?? GENERAL_GROUP_KEY
+      if (k !== activeKey) out.add(k)
+    }
+    return out
+  })
+
+  const groups = useMemo(() => groupSessions(index.sessions), [index.sessions])
+
+  const q = query.trim().toLowerCase()
+  const searching = q.length > 0
+  const flatResults = useMemo(
+    () =>
+      searching
+        ? [...index.sessions]
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .filter((s) => s.title.toLowerCase().includes(q) || (s.preview ?? '').toLowerCase().includes(q))
+        : [],
+    [index.sessions, q, searching],
+  )
+
+  // Doc name per group key — used as a badge on flat search rows (which lost their group
+  // header when the query flattened the list).
+  const labelByKey = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const g of groups) m.set(g.key, g.label)
+    return m
+  }, [groups])
 
   function commitRename(id: string) {
     if (draft.trim()) renameSession(id, draft)
     setEditingId(null)
   }
 
+  function toggle(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const pick = (id: string) => { if (!busy) { switchTo(id); onClose() } }
+
   return (
     <SideDrawer title="历史会话" onClose={onClose}>
+      <div className="drawer-search">
+        <svg className="drawer-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          className="drawer-search-input"
+          placeholder="搜索会话标题或内容"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="搜索会话"
+        />
+        {query && (
+          <button className="drawer-search-clear" onClick={() => setQuery('')} type="button" aria-label="清除搜索">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       <div className="drawer-list">
-        {ordered.map((s) => (
-          <SessionRow
-            key={s.id}
-            meta={s}
-            active={s.id === index.activeId}
-            busy={busy}
-            editing={editingId === s.id}
-            draft={draft}
-            onPick={() => { if (!busy) { switchTo(s.id); onClose() } }}
-            onStartRename={() => { setEditingId(s.id); setDraft(s.title) }}
-            onDraft={setDraft}
-            onCommit={() => commitRename(s.id)}
-            onCancelRename={() => setEditingId(null)}
-            onDelete={() => removeSession(s.id)}
-          />
-        ))}
+        {searching ? (
+          flatResults.length === 0 ? (
+            <div className="drawer-empty">没有匹配「{query.trim()}」的会话</div>
+          ) : (
+            flatResults.map((s) => (
+              <SessionRow
+                key={s.id}
+                meta={s}
+                docBadge={labelByKey.get(s.appToken ?? GENERAL_GROUP_KEY)}
+                active={s.id === index.activeId}
+                busy={busy}
+                editing={editingId === s.id}
+                draft={draft}
+                onPick={() => pick(s.id)}
+                onStartRename={() => { setEditingId(s.id); setDraft(s.title) }}
+                onDraft={setDraft}
+                onCommit={() => commitRename(s.id)}
+                onCancelRename={() => setEditingId(null)}
+                onDelete={() => removeSession(s.id)}
+              />
+            ))
+          )
+        ) : groups.length === 0 ? (
+          <div className="drawer-empty">还没有会话</div>
+        ) : (
+          groups.map((g) => (
+            <SessionGroupView
+              key={g.key}
+              group={g}
+              collapsed={collapsed.has(g.key)}
+              activeId={index.activeId}
+              busy={busy}
+              editingId={editingId}
+              draft={draft}
+              onToggle={() => toggle(g.key)}
+              onPick={pick}
+              onStartRename={(id, title) => { setEditingId(id); setDraft(title) }}
+              onDraft={setDraft}
+              onCommit={commitRename}
+              onCancelRename={() => setEditingId(null)}
+              onDelete={removeSession}
+            />
+          ))
+        )}
       </div>
       {busy && <p className="drawer-hint">回复进行中，暂不能切换会话</p>}
     </SideDrawer>
   )
 }
 
+// A doc bucket: a collapsible header (icon + doc name + session count) over its sessions.
+// Collapsed by default except the active session's group (see one-shot init above).
+function SessionGroupView({
+  group, collapsed, activeId, busy, editingId, draft,
+  onToggle, onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete,
+}: {
+  group: SessionGroup
+  collapsed: boolean
+  activeId: string | null
+  busy: boolean
+  editingId: string | null
+  draft: string
+  onToggle: () => void
+  onPick: (id: string) => void
+  onStartRename: (id: string, title: string) => void
+  onDraft: (v: string) => void
+  onCommit: (id: string) => void
+  onCancelRename: () => void
+  onDelete: (id: string) => void
+}) {
+  const isGeneral = group.key === GENERAL_GROUP_KEY
+  return (
+    <div className="drawer-group">
+      <button className="drawer-group-head" onClick={onToggle} type="button" aria-expanded={!collapsed}>
+        <span className="drawer-group-icon" aria-hidden="true">
+          {isGeneral ? <GeneralIcon /> : <KindIcon kind={group.kind ?? 'doc'} />}
+        </span>
+        <span className="drawer-group-label">{group.label}</span>
+        <span className="drawer-group-count">{group.sessions.length}</span>
+        <svg className={`drawer-group-chev${collapsed ? '' : ' drawer-group-chev--open'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {!collapsed && (
+        <div className="drawer-group-body">
+          {group.sessions.map((s) => (
+            <SessionRow
+              key={s.id}
+              meta={s}
+              active={s.id === activeId}
+              busy={busy}
+              editing={editingId === s.id}
+              draft={draft}
+              onPick={() => onPick(s.id)}
+              onStartRename={() => onStartRename(s.id, s.title)}
+              onDraft={onDraft}
+              onCommit={() => onCommit(s.id)}
+              onCancelRename={onCancelRename}
+              onDelete={() => onDelete(s.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GeneralIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  )
+}
+
 function SessionRow({
-  meta, active, busy, editing, draft,
+  meta, active, busy, editing, draft, docBadge,
   onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete,
 }: {
   meta: SessionMeta
@@ -58,6 +222,9 @@ function SessionRow({
   busy: boolean
   editing: boolean
   draft: string
+  /** Doc name — shown as a muted subtitle when there's no first-message preview
+   *  (only on flat search rows, which lost their group header). */
+  docBadge?: string
   onPick: () => void
   onStartRename: () => void
   onDraft: (v: string) => void
@@ -66,7 +233,7 @@ function SessionRow({
   onDelete: () => void
 }) {
   return (
-    <div className={`drawer-row ${active ? 'drawer-row--active' : ''}`}>
+    <div className={`drawer-row${active ? ' drawer-row--active' : ''}`}>
       {editing ? (
         <input
           className="drawer-rename"
@@ -82,7 +249,14 @@ function SessionRow({
       ) : (
         <button className="drawer-row-main" onClick={onPick} disabled={busy}>
           <span className="drawer-row-title">{meta.title}</span>
-          <span className="drawer-row-meta">{meta.messageCount} 条 · {timeAgo(meta.updatedAt)}</span>
+          <span className="drawer-row-sub">
+            {meta.preview ? (
+              <span className="drawer-row-preview">{meta.preview}</span>
+            ) : docBadge ? (
+              <span className="drawer-row-preview drawer-row-preview--muted">{docBadge}</span>
+            ) : null}
+            <span className="drawer-row-time">{timeAgo(meta.updatedAt)}</span>
+          </span>
         </button>
       )}
       {!editing && (

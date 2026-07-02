@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import type { SessionIndex, SessionMeta } from '../../shared/types'
-import { emptyIndex, ensureSession, removeSession, capSessions, MAX_SESSIONS } from './logic'
+import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
+import {
+  emptyIndex, ensureSession, removeSession, capSessions, MAX_SESSIONS,
+  previewFromMessages, groupSessions, GENERAL_GROUP_KEY,
+} from './logic'
 
 // Deterministic id generator for assertions.
 function ids() {
@@ -42,6 +45,18 @@ describe('ensureSession', () => {
     expect(both.idx.sessions).toHaveLength(2)
     expect(both.idx.byAppToken).toEqual({ appA: 's1' })
     expect(both.idx.generalId).toBe('s2')
+  })
+
+  it('stamps the Feishu kind onto a newly created session', () => {
+    const { idx } = ensureSession(emptyIndex(), 'appA', ids(), 'sheet')
+    expect(idx.sessions[0].kind).toBe('sheet')
+  })
+
+  it('does not overwrite an existing session when called again with a different kind', () => {
+    const first = ensureSession(emptyIndex(), 'appA', ids(), 'sheet')
+    const again = ensureSession(first.idx, 'appA', ids(), 'doc')
+    expect(again.created).toBe(false)
+    expect(again.idx).toBe(first.idx) // reused unchanged — kind NOT clobbered
   })
 })
 
@@ -113,5 +128,66 @@ describe('capSessions — bound the number of conversation WINDOWS (not messages
   it('defaults to MAX_SESSIONS (20)', () => {
     expect(MAX_SESSIONS).toBe(20)
     expect(capSessions(mk(Array.from({ length: 25 }, (_, i) => sess(`s${i}`, i)))).idx.sessions).toHaveLength(20)
+  })
+})
+
+describe('previewFromMessages', () => {
+  const msg = (id: string, role: ChatMessage['role'], content: string | null): ChatMessage =>
+    ({ id, role, content, createdAt: 0 })
+
+  it('returns the first user message, truncated to 60 chars', () => {
+    const long = 'x'.repeat(80)
+    expect(previewFromMessages([msg('1', 'assistant', 'hi'), msg('2', 'user', long)])).toBe('x'.repeat(60))
+  })
+
+  it('skips assistant / tool / empty user messages', () => {
+    expect(
+      previewFromMessages([msg('1', 'assistant', 'a'), msg('2', 'user', '   '), msg('3', 'user', 'hello world')]),
+    ).toBe('hello world')
+  })
+
+  it('returns undefined when there is no user text', () => {
+    expect(previewFromMessages([msg('1', 'assistant', 'a')])).toBeUndefined()
+    expect(previewFromMessages([])).toBeUndefined()
+  })
+})
+
+describe('groupSessions — bucket the history by document', () => {
+  const s = (id: string, appToken: string | null, opts: Partial<SessionMeta> = {}): SessionMeta => ({
+    id, title: id, appToken, createdAt: 0, updatedAt: 0, messageCount: 0, titleResolved: false, ...opts,
+  })
+
+  it('buckets by appToken, newest group first, newest session first within a group', () => {
+    const groups = groupSessions([
+      s('a', 'doc1', { updatedAt: 1 }),
+      s('b', 'doc1', { updatedAt: 5 }),
+      s('c', 'doc2', { updatedAt: 10 }),
+    ])
+    expect(groups.map((g) => g.key)).toEqual(['doc2', 'doc1'])
+    expect(groups.find((g) => g.key === 'doc1')!.sessions.map((x) => x.id)).toEqual(['b', 'a'])
+  })
+
+  it('puts unbound sessions in the general bucket', () => {
+    const groups = groupSessions([s('g', null, { updatedAt: 1 })])
+    expect(groups[0].key).toBe(GENERAL_GROUP_KEY)
+    expect(groups[0].label).toBe('通用会话')
+  })
+
+  it('uses a resolved real title as the group label over placeholders', () => {
+    const groups = groupSessions([
+      s('a', 'doc1', { title: '会话 Abcdefgh…', updatedAt: 10 }),
+      s('b', 'doc1', { title: 'Q3 季度报告', titleResolved: true, updatedAt: 1 }),
+    ])
+    expect(groups[0].label).toBe('Q3 季度报告')
+  })
+
+  it('falls back to the first-message preview when no resolved title exists', () => {
+    const groups = groupSessions([s('a', 'doc1', { title: '会话 Abcdefgh…', preview: '帮我建个表', updatedAt: 1 })])
+    expect(groups[0].label).toBe('帮我建个表')
+  })
+
+  it('picks up the kind from any session in the group', () => {
+    const groups = groupSessions([s('a', 'doc1', { updatedAt: 1 }), s('b', 'doc1', { kind: 'sheet', updatedAt: 2 })])
+    expect(groups[0].kind).toBe('sheet')
   })
 })

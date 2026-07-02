@@ -90,6 +90,8 @@ import { DEFAULT_PROVIDER } from './providers'
 
 // ─── Sessions (persisted conversations) ───────────────────────────────────────
 
+export type SessionKind = 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt'
+
 export interface SessionMeta {
   id: string
   /** Display name — for doc sessions this becomes the Base/document title. */
@@ -102,6 +104,12 @@ export interface SessionMeta {
   messageCount: number
   /** Whether `title` has been filled from the real Base appName (vs a placeholder). */
   titleResolved: boolean
+  /** Feishu resource kind — drives the doc icon when grouping the history by document.
+   *  Undefined on legacy sessions created before this field existed. */
+  kind?: SessionKind
+  /** Truncated first user message — a one-line preview so the flat list reads at a glance
+   *  and powers search without loading message bodies. Set once (never overwritten). */
+  preview?: string
 }
 
 export interface SessionIndex {

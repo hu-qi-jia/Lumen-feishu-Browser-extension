@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
+import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
 import * as store from './store'
-import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, capSessions } from './logic'
+import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, capSessions, previewFromMessages } from './logic'
 
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
@@ -21,15 +21,16 @@ export interface SessionsApi {
   /** Start a fresh session. Binds to the active resource by default; pass `appToken` to bind
    *  it to a SPECIFIC resource (used by the switch-doc popup to open a new session for the
    *  tab the user just switched to, regardless of which session is currently held active). */
-  createSession: (opts?: { appToken?: string; title?: string }) => void
+  createSession: (opts?: { appToken?: string; title?: string; kind?: SessionKind }) => void
   removeSession: (id: string) => void
   renameSession: (id: string, title: string) => void
   /** Re-bind an existing session to a different resource, keeping its messages (the
    *  "在原会话中继续工作" choice on the switch-doc popup — follow the new tab without
    *  starting over). Updates `appToken` + the `byAppToken` shortcut map. */
   rebindSession: (sessionId: string, newAppToken: string, title?: string) => void
-  /** Backfill a document session's placeholder title with the real Base name. */
-  resolveTitle: (appToken: string, title: string) => void
+  /** Backfill a document session's placeholder title with the real Base name, and/or stamp
+   *  its Feishu resource kind (for the doc icon in the history list). */
+  resolveTitle: (appToken: string, title: string, kind?: SessionKind) => void
 }
 
 /**
@@ -84,9 +85,11 @@ export function useSessions(activeAppToken: string | null, streaming: boolean): 
     }
     timers.clear()
     const idx = indexRef.current
-    const sessions = idx.sessions.map((s) =>
-      flushed.includes(s.id) ? { ...s, updatedAt: now(), messageCount: (cache.current.get(s.id) ?? []).length } : s
-    )
+    const sessions = idx.sessions.map((s) => {
+      if (!flushed.includes(s.id)) return s
+      const msgs = cache.current.get(s.id) ?? []
+      return { ...s, updatedAt: now(), messageCount: msgs.length, preview: s.preview ?? previewFromMessages(msgs) }
+    })
     persistIndex({ ...idx, sessions })
   }, [persistIndex])
 
@@ -164,7 +167,9 @@ export function useSessions(activeAppToken: string | null, streaming: boolean): 
       void store.saveMessages(sessionId, next)
       const idx = indexRef.current
       const sessions = idx.sessions.map((s) =>
-        s.id === sessionId ? { ...s, updatedAt: now(), messageCount: next.length } : s
+        s.id === sessionId
+          ? { ...s, updatedAt: now(), messageCount: next.length, preview: s.preview ?? previewFromMessages(next) }
+          : s
       )
       persistIndex({ ...idx, sessions })
       timers.delete(sessionId)
@@ -196,11 +201,11 @@ export function useSessions(activeAppToken: string | null, streaming: boolean): 
   // auto-switch effect (which re-runs when streaming ends) would resolve the OLD
   // resource-bound session and jump the view back to it — the "new session jumps away
   // after I send" bug. An explicit `appToken` overrides the binding (switch-doc popup).
-  const createSession = useCallback((opts?: { appToken?: string; title?: string }) => {
+  const createSession = useCallback((opts?: { appToken?: string; title?: string; kind?: SessionKind }) => {
     const token = opts?.appToken ?? activeAppToken
     const id = uid()
     const meta: SessionMeta = {
-      id, title: opts?.title ?? '新会话', appToken: token,
+      id, title: opts?.title ?? '新会话', appToken: token, kind: opts?.kind,
       createdAt: now(), updatedAt: now(), messageCount: 0, titleResolved: true,
     }
     cache.current.set(id, [])
@@ -248,15 +253,24 @@ export function useSessions(activeAppToken: string | null, streaming: boolean): 
     persistIndex({ ...idx, sessions, byAppToken })
   }, [persistIndex])
 
-  const resolveTitle = useCallback((appToken: string, title: string) => {
+  const resolveTitle = useCallback((appToken: string, title: string, kind?: SessionKind) => {
     const idx = indexRef.current
     const id = idx.byAppToken[appToken]
     if (!id) return
     const target = idx.sessions.find((s) => s.id === id)
-    if (!target || target.titleResolved || target.title === title) return
+    if (!target) return
+    const titleNeeds = !target.titleResolved && target.title !== title
+    const kindNeeds = !!kind && target.kind !== kind
+    if (!titleNeeds && !kindNeeds) return
     persistIndex({
       ...idx,
-      sessions: idx.sessions.map((s) => (s.id === id ? { ...s, title, titleResolved: true } : s)),
+      sessions: idx.sessions.map((s) => {
+        if (s.id !== id) return s
+        const next = { ...s }
+        if (titleNeeds) { next.title = title; next.titleResolved = true }
+        if (kindNeeds && kind) next.kind = kind
+        return next
+      }),
     })
   }, [persistIndex])
 

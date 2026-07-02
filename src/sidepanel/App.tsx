@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppSettings, PageContext } from '../shared/types'
+import type { AppSettings, PageContext, SessionKind } from '../shared/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
 import { mergeResolvedWiki } from './wikiResolve'
 
@@ -207,10 +207,11 @@ export default function App() {
     if (chatStreaming) return
     // createSession binds to effectiveResource — in pin mode that's the pinned doc, so a new
     // session stays in that doc ("若固定工作文档，新建会话也是在该文档中工作").
-    sessions.createSession()
+    const kind: SessionKind | undefined = docMode === 'pin' ? (pinned?.kind as SessionKind | undefined) : ctx.feishu?.kind
+    sessions.createSession({ kind })
     setTab('chat')
     newSessionPinRef.current = true
-  }, [chatStreaming, sessions])
+  }, [chatStreaming, sessions, docMode, pinned, ctx.feishu?.kind])
 
   // In pin mode the assistant must operate on the PINNED doc, not the focused tab — synthesize
   // the agent-facing context. Live `ctx` (selected text etc.) isn't available for a doc whose
@@ -240,7 +241,7 @@ export default function App() {
     const to = pendingSwitch?.to ?? liveResource
     const title = cleanDocTitle(ctx.title) || undefined
     setHeldResource(null); setPendingSwitch(null)
-    if (to) sessions.createSession({ appToken: to, title })
+    if (to) sessions.createSession({ appToken: to, title, kind: ctx.feishu?.kind })
   }
   function handleSwitchStay() {
     const to = pendingSwitch?.to ?? liveResource
@@ -414,7 +415,7 @@ export default function App() {
     const token = fz?.wikiToken ?? fz?.spreadsheetToken ?? fz?.documentId
     if (!token || !ctx.title || !sessionsReady) return
     const name = cleanDocTitle(ctx.title)
-    if (name) resolveTitle(token, name)
+    if (name) resolveTitle(token, name, fz?.kind)
   }, [ctx.feishu, ctx.title, sessionsReady, activeSessionId, resolveTitle])
 
   useEffect(() => {
@@ -748,7 +749,7 @@ export default function App() {
               setMessagesFor={sessions.setMessagesFor}
               activeSessionId={sessions.activeSession?.id}
               onStreamingChange={setChatStreaming}
-              onBaseName={sessions.resolveTitle}
+              onBaseName={(appToken, name) => sessions.resolveTitle(appToken, name, 'base')}
               sessionTitle={docMode === 'pin' && pinned ? pinned.title : sessions.activeSession?.title}
               onOpenSessions={() => setDrawerOpen(true)}
               onNewSession={handleNewSession}

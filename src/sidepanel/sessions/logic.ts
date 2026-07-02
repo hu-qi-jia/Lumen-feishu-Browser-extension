@@ -3,7 +3,7 @@
  * (find-or-create by document, byAppToken bookkeeping, delete fallback). Kept
  * side-effect-free so they can be unit-tested without React or chrome.storage.
  */
-import type { SessionIndex, SessionMeta } from '../../shared/types'
+import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
 
 const now = () => Date.now()
 
@@ -52,17 +52,20 @@ function meta(partial: Partial<SessionMeta> & { id: string; title: string; appTo
 
 /**
  * Return the session bound to `appToken` (or the general session when null),
- * creating it if missing. `newId` lets tests inject deterministic ids.
+ * creating it if missing. `newId` lets tests inject deterministic ids. `kind`
+ * (the Feishu resource type) is stamped onto a newly created session so the
+ * history list can show the right doc icon immediately.
  */
 export function ensureSession(
   idx: SessionIndex,
   appToken: string | null,
-  newId: () => string
+  newId: () => string,
+  kind?: SessionKind,
 ): { idx: SessionIndex; id: string; created: boolean } {
   if (appToken) {
     const existing = idx.byAppToken[appToken]
     if (existing && idx.sessions.some((s) => s.id === existing)) return { idx, id: existing, created: false }
-    const m = meta({ id: newId(), title: `会话 ${appToken.slice(0, 8)}…`, appToken })
+    const m = meta({ id: newId(), title: `会话 ${appToken.slice(0, 8)}…`, appToken, kind })
     return {
       idx: { ...idx, sessions: [m, ...idx.sessions], byAppToken: { ...idx.byAppToken, [appToken]: m.id } },
       id: m.id,
@@ -106,4 +109,65 @@ export function removeSession(
     activeId = ensured.id
   }
   return { idx: { ...next, activeId }, activeId }
+}
+
+// ── History drawer support ────────────────────────────────────────────────────
+
+/** Truncate the first user message into a one-line preview (powers the row subtitle
+ *  + search). Returns undefined when there's no user text yet. */
+export function previewFromMessages(msgs: ChatMessage[]): string | undefined {
+  const first = msgs.find((m) => m.role === 'user' && m.content != null && m.content.trim() !== '')
+  const text = first?.content?.trim()
+  return text ? text.slice(0, 60) : undefined
+}
+
+// A title that's a generated placeholder, not a real doc/user name — the group header
+// should prefer a resolved name or the first-message preview over these.
+function isPlaceholderTitle(title: string): boolean {
+  return title === '新会话' || title === '通用会话' || /^会话\s.+…$/.test(title)
+}
+
+/** Key for the catch-all group holding sessions with no bound document. */
+export const GENERAL_GROUP_KEY = '__general__'
+
+export interface SessionGroup {
+  /** appToken, or GENERAL_GROUP_KEY for unbound sessions. */
+  key: string
+  /** Best available label (resolved doc name > preview > placeholder). */
+  label: string
+  /** Feishu resource kind shared by the group's sessions, if any is known. */
+  kind?: SessionKind
+  /** Sessions within the group, newest first. */
+  sessions: SessionMeta[]
+  /** Most recent activity across the group (drives group ordering). */
+  updatedAt: number
+}
+
+/**
+ * Bucket sessions by bound document so the history drawer reads as typed sections
+ * (one per doc) instead of one flat mixed list. Pure + side-effect-free → unit-testable.
+ */
+export function groupSessions(sessions: SessionMeta[]): SessionGroup[] {
+  const byKey = new Map<string, SessionMeta[]>()
+  for (const s of [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)) {
+    const key = s.appToken ?? GENERAL_GROUP_KEY
+    const arr = byKey.get(key)
+    if (arr) arr.push(s)
+    else byKey.set(key, [s])
+  }
+  const groups: SessionGroup[] = []
+  for (const [key, sess] of byKey) {
+    const latest = sess[0]
+    const resolved = sess.find((s) => s.titleResolved && !isPlaceholderTitle(s.title))
+    const label =
+      key === GENERAL_GROUP_KEY
+        ? '通用会话'
+        : (resolved?.title
+          ?? (latest && !isPlaceholderTitle(latest.title) ? latest.title : latest?.preview)
+          ?? latest?.title
+          ?? '未命名文档')
+    const kind = sess.find((s) => s.kind)?.kind
+    groups.push({ key, label, kind, sessions: sess, updatedAt: latest.updatedAt })
+  }
+  return groups.sort((a, b) => b.updatedAt - a.updatedAt)
 }

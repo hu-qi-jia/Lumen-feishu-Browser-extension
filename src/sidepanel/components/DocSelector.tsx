@@ -50,7 +50,8 @@ const CATEGORY_ORDER: { label: string; kinds: FeishuKind[] }[] = [
 
 // Distinct line icons per Feishu resource type, so sheet / base / doc / slides are scannable
 // at a glance in the dropdown. Wiki wraps another type (usually a doc) → doc icon.
-function KindIcon({ kind }: { kind: FeishuKind }) {
+// Exported — the session history drawer reuses the same icons to group by document.
+export function KindIcon({ kind }: { kind: FeishuKind }) {
   if (kind === 'sheet') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
