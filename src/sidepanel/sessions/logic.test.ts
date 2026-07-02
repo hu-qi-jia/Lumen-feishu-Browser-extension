@@ -58,6 +58,22 @@ describe('ensureSession', () => {
     expect(again.created).toBe(false)
     expect(again.idx).toBe(first.idx) // reused unchanged — kind NOT clobbered
   })
+
+  it('backfills a missing kind on a legacy session when the kind becomes known', () => {
+    // Simulate a session created before `kind` existed (no kind field).
+    const legacy = ensureSession(emptyIndex(), 'appA', ids())
+    expect(legacy.idx.sessions[0].kind).toBeUndefined()
+    const out = ensureSession(legacy.idx, 'appA', ids(), 'base')
+    expect(out.created).toBe(false)
+    expect(out.idx.sessions.find((s) => s.appToken === 'appA')?.kind).toBe('base')
+  })
+
+  it('upgrades an unresolved wiki session to its real kind', () => {
+    const wiki = ensureSession(emptyIndex(), 'wikiA', ids(), 'wiki')
+    expect(wiki.idx.sessions[0].kind).toBe('wiki')
+    const out = ensureSession(wiki.idx, 'wikiA', ids(), 'base')
+    expect(out.idx.sessions.find((s) => s.appToken === 'wikiA')?.kind).toBe('base')
+  })
 })
 
 describe('removeSession', () => {

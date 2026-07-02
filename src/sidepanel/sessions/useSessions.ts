@@ -40,13 +40,18 @@ export interface SessionsApi {
  * Auto-switch is deferred while `streaming` so an in-flight reply finishes in its
  * own session before the view follows browser navigation.
  */
-export function useSessions(activeAppToken: string | null, streaming: boolean): SessionsApi {
+export function useSessions(activeAppToken: string | null, streaming: boolean, activeKind?: SessionKind): SessionsApi {
   const [index, setIndex] = useState<SessionIndex>(emptyIndex())
   const [messages, setMessagesState] = useState<ChatMessage[]>([])
   const [ready, setReady] = useState(false)
 
   const indexRef = useRef(index)
   indexRef.current = index
+  // Latest known doc kind for the active resource — read via ref so `ensureSession` stays a
+  // stable callback (its callers pin deps to [activeAppToken], not this) while still stamping
+  // the current kind onto the active/created session.
+  const activeKindRef = useRef(activeKind)
+  activeKindRef.current = activeKind
   const activeIdRef = useRef<string | null>(null)
   const cache = useRef<Map<string, ChatMessage[]>>(new Map())
   const flushTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -103,7 +108,7 @@ export function useSessions(activeAppToken: string | null, streaming: boolean): 
   }, [])
 
   const ensureSession = useCallback(
-    (idx: SessionIndex, appToken: string | null) => ensureSessionPure(idx, appToken, uid),
+    (idx: SessionIndex, appToken: string | null) => ensureSessionPure(idx, appToken, uid, activeKindRef.current),
     []
   )
 

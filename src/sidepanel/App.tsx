@@ -168,7 +168,18 @@ export default function App() {
   const effectiveResource =
     docMode === 'pin' ? (pinned?.token ?? liveResource) : (heldResource ?? liveResource)
 
-  const sessions = useSessions(effectiveResource, chatStreaming)
+  // A pinned wiki-wrapped doc's real type (base/sheet/doc) isn't readable from its URL
+  // (/wiki/{token}) — resolve it once (reusing the follow-mode wiki cache) so pin mode shows
+  // the right context bar + presets. null while resolving, or when the pin isn't a wiki node.
+  const [pinnedResolved, setPinnedResolved] = useState<NonNullable<PageContext['feishu']> | null>(null)
+  // Best-known doc kind for the ACTIVE resource — stamped onto the active session so the
+  // history drawer shows the right doc-type icon.
+  const resolvedDocKind: SessionKind | undefined =
+    docMode === 'pin'
+      ? (pinnedResolved?.kind ?? (pinned?.kind as SessionKind | undefined))
+      : ctx.feishu?.kind
+
+  const sessions = useSessions(effectiveResource, chatStreaming, resolvedDocKind)
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions
 
   // follow mode: when the active tab drifts to a DIFFERENT doc than the active session is
@@ -215,10 +226,14 @@ export default function App() {
 
   // In pin mode the assistant must operate on the PINNED doc, not the focused tab — synthesize
   // the agent-facing context. Live `ctx` (selected text etc.) isn't available for a doc whose
-  // tab isn't open; the agent still reaches it by token via the API.
+  // tab isn't open; the agent still reaches it by token via the API. A wiki-wrapped pin uses
+  // the resolved resource (so a wiki-Base shows its Base context bar + presets, not an
+  // unresolved wiki); while it's still resolving, fall back to the plain wiki context.
   const chatContext: PageContext =
     docMode === 'pin' && pinned
-      ? { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
+      ? pinned.kind === 'wiki'
+        ? { url: '', title: pinned.title, selectedText: '', feishu: pinnedResolved ?? { isBase: false, kind: 'wiki', wikiToken: pinned.token } }
+        : { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
       : ctx
 
   const handlePickDoc = useCallback((token: string, title: string, kind: string) => {
@@ -330,6 +345,36 @@ export default function App() {
     })()
     return () => { cancelled = true }
   }, [wikiToken, settings])
+
+  // Pin mode: resolve a pinned wiki node to its real resource (base/sheet/doc) — the URL is
+  // only /wiki/{token}, so without this a wiki-wrapped Base reads as an unresolved wiki and
+  // pinnedFeishu hides the Base context bar + base presets. Reuses the follow-mode cache.
+  useEffect(() => {
+    if (docMode !== 'pin' || !pinned || pinned.kind !== 'wiki') { setPinnedResolved(null); return }
+    const wikiToken = pinned.token
+    const cached = wikiCacheRef.current.get(wikiToken)
+    if (cached) { setPinnedResolved(cached); return }
+    let cancelled = false
+    setPinnedResolved(null)
+    void (async () => {
+      try {
+        const res = (await API.getWikiNode(await resolveToken(settings), wikiToken)) as {
+          node?: { obj_type: string; obj_token: string; title?: string }
+        }
+        const n = res.node
+        if (!n || cancelled) return
+        const resolved = wikiToFeishu(n.obj_type, n.obj_token)
+        if (!resolved || cancelled) return
+        const withWiki = { ...resolved, wikiToken }
+        wikiCacheRef.current.set(wikiToken, withWiki)
+        if (!cancelled) setPinnedResolved(withWiki)
+      } catch {
+        /* leave as unresolved wiki — opening the tab (follow mode) will resolve it */
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docMode, pinned?.kind, pinned?.token, settings.feishuAccessToken])
 
   // Direct /docx/ pages (no wiki): fetch the REAL doc title via API and use it as the name —
   // mirrors how Base pages resolve appName. Without this, the doc name falls back to the SPA's

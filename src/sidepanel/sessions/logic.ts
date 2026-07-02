@@ -64,7 +64,22 @@ export function ensureSession(
 ): { idx: SessionIndex; id: string; created: boolean } {
   if (appToken) {
     const existing = idx.byAppToken[appToken]
-    if (existing && idx.sessions.some((s) => s.id === existing)) return { idx, id: existing, created: false }
+    if (existing && idx.sessions.some((s) => s.id === existing)) {
+      // Backfill the doc-type icon on a legacy session (created before `kind` existed) or
+      // upgrade an unresolved 'wiki' session to its real type, now that we know it. Never
+      // clobber a concrete kind with a conflicting one — an existing base/sheet/doc stays.
+      if (kind) {
+        const target = idx.sessions.find((s) => s.id === existing)
+        if (target && (!target.kind || target.kind === 'wiki') && target.kind !== kind) {
+          return {
+            idx: { ...idx, sessions: idx.sessions.map((s) => (s.id === existing ? { ...s, kind } : s)) },
+            id: existing,
+            created: false,
+          }
+        }
+      }
+      return { idx, id: existing, created: false }
+    }
     const m = meta({ id: newId(), title: `会话 ${appToken.slice(0, 8)}…`, appToken, kind })
     return {
       idx: { ...idx, sessions: [m, ...idx.sessions], byAppToken: { ...idx.byAppToken, [appToken]: m.id } },
