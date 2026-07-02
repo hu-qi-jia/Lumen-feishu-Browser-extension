@@ -49,8 +49,11 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 104, heading: 58, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
-    decorations: '.s-head::after{content:"";display:block;width:72px;height:3px;background:var(--accent);margin-top:24px}',
-    promptHint: '商务克制风：结论先行、要点精炼、数据优先（多用 chart 与 stats、cards），配色冷静、避免装饰。',
+    // Clean corporate: short accent rule under each heading + an accent top-border on cards.
+    decorations:
+      '.s-head::after{content:"";display:block;width:72px;height:3px;background:var(--accent);margin-top:24px}' +
+      '.s-card{border-top:3px solid var(--accent)}',
+    promptHint: '商务克制：结论先行、数据优先——多用 chart 与 stats、cards 呈现数字；要点精炼，配色冷静，信息密度高，少装饰。',
   },
   {
     id: 'editorial',
@@ -61,10 +64,13 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     padding: 140,
     fontDisplay: SERIF,
     fontBody: SYS_SANS,
+    // Magazine: serif headings, italic subtitle/eyebrow, wider accent rule, accent top-border cards.
     decorations:
       '.s-head::after{content:"";display:block;width:96px;height:4px;background:var(--accent);margin-top:28px;border-radius:2px}' +
-      '.slide--title .s-sub{font-style:italic}',
-    promptHint: '编辑杂志风：大留白、左对齐叙事、强章节感；少图表，多用 quote 与 section 分隔；标题用衬线。',
+      '.s-card{border-top:4px solid var(--accent);border-radius:2px}' +
+      '.slide--title .s-sub,.slide--section .s-sub{font-style:italic}' +
+      '.s-eyebrow{font-style:italic;letter-spacing:.18em}',
+    promptHint: '编辑杂志风：大留白、左对齐叙事、强章节感；多用 quote、section 分隔与 two-col；**少用 chart，重文字表达**；标题衬线。',
   },
   {
     id: 'night',
@@ -74,9 +80,12 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 112, heading: 60, body: 36, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
+    // Tech dark: radial glow, glowing card panels, accent→transparent heading rule.
     decorations:
-      '.slide{background:radial-gradient(1200px 760px at 82% -12%, rgba(122,162,255,.18), transparent 60%), var(--bg)}',
-    promptHint: '科技暗夜风：深色底、冷色高亮；多用 chart 与 stats 呈现数字；措辞精炼冷峻。',
+      '.slide{background:radial-gradient(1200px 760px at 82% -12%, rgba(122,162,255,.18), transparent 60%), var(--bg)}' +
+      '.s-card{border:1px solid var(--border);box-shadow:0 0 24px rgba(122,162,255,.10),0 8px 32px rgba(0,0,0,.4)}' +
+      '.s-head::after{content:"";display:block;width:72px;height:3px;background:linear-gradient(90deg,var(--accent),transparent);margin-top:24px}',
+    promptHint: '科技暗夜风：深色底、冷色高亮；多用 chart 与 stats 呈现数字；措辞精炼冷峻，每页聚焦一个技术亮点。',
   },
   {
     id: 'minimal',
@@ -86,12 +95,14 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 120, heading: 60, body: 32, caption: 22 },
     padding: 128,
     fontBody: SYS_SANS,
+    // Swiss: hairlines only — no radius, no shadow, square markers, heading underlined by a thin rule.
     decorations:
       '.s-eyebrow{letter-spacing:.4em}' +
       '.s-head{border-bottom:1px solid var(--fg);padding-bottom:20px}' +
       '.s-card,.s-photo,.s-split-img{border-radius:0;box-shadow:none;border:1px solid var(--border)}' +
-      '.s-bullets li::before{border-radius:0;width:10px;height:2px;top:30px}',
-    promptHint: '瑞士极简风：大量留白、细发丝线、无圆角无阴影；多用 bullets/two-col/quote，少卡片，黑白克制。',
+      '.s-bullets li::before{border-radius:0;width:10px;height:2px;top:30px}' +
+      '.s-card{border-top:1px solid var(--fg)}',
+    promptHint: '瑞士极简风：大量留白、发丝线、黑白克制；多用 bullets、two-col、quote，**少用 cards/stats**；每页只讲一件事。',
   },
   {
     id: 'vibrant',
@@ -101,12 +112,13 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 116, heading: 60, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
+    // Brand: gradient headings/numbers, gradient rounded cards, rounded gradient markers.
     decorations:
       '.s-head,.s-title{background:linear-gradient(90deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
-      '.s-card{border:none;background:linear-gradient(135deg,var(--card),#fdf2f8)}' +
+      '.s-card{border:none;background:linear-gradient(135deg,var(--card),#fdf2f8);border-radius:16px}' +
       '.s-stat .s-num,.s-card-num{background:linear-gradient(90deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
-      '.s-bullets li::before{background:linear-gradient(90deg,var(--accent),#ec4899)}',
-    promptHint: '活力品牌风：渐变强调色、圆角卡片、视觉跳跃；多用 cards/stats/image-split，适合产品/品牌发布。',
+      '.s-bullets li::before{background:linear-gradient(90deg,var(--accent),#ec4899);border-radius:4px}',
+    promptHint: '活力品牌风：渐变强调色、圆角卡片、视觉跳跃；多用 cards、image-split、stats，色彩饱满，适合产品/品牌发布。',
   },
   {
     id: 'pitch',
@@ -116,11 +128,13 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 140, heading: 64, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
+    // Roadshow: dark + warm glow, oversized stat numbers, chunky accent rule, accent-spine cards.
     decorations:
       '.slide{background:radial-gradient(1000px 600px at 10% 110%, rgba(251,191,36,.12), transparent 60%), var(--bg)}' +
-      '.s-stat .s-num,.s-card-num{font-size:1.15em}' +
-      '.s-head::after{content:"";display:block;width:120px;height:6px;background:var(--accent);margin-top:24px}',
-    promptHint: '融资路演风：深色底、高对比、巨号数字；多用 stats/cover/cards，一页一个关键数字，适合汇报/路演。',
+      '.s-stat .s-num,.s-card-num{font-size:1.3em}' +
+      '.s-head::after{content:"";display:block;width:120px;height:6px;background:var(--accent);margin-top:24px}' +
+      '.s-card{border:1px solid var(--border);border-left:5px solid var(--accent)}',
+    promptHint: '融资路演风：深色底、高对比、巨号数字；多用 stats、cover、cards，**一页一个关键数字**，少而精，适合汇报/路演。',
   },
 ]
 

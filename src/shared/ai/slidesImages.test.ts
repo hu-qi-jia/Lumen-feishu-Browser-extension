@@ -53,6 +53,24 @@ describe('serializeDocBlocks', () => {
       { token: 'tokB', context: '第三章 产品' },
     ])
   })
+  it('context includes the preceding text line, not just the heading', () => {
+    const items = [
+      { block_type: 4, heading2: { elements: [{ text_run: { content: '架构' } }] } },
+      { block_type: 2, text: { elements: [{ text_run: { content: '系统由三个模块组成' } }] } },
+      { block_type: 27, image: { token: 'tok' } },
+    ]
+    const r = serializeDocBlocks(items)
+    expect(r.images[0].context).toBe('架构｜系统由三个模块组成')
+  })
+  it('a new heading clears the stale preceding text so the image context stays in-section', () => {
+    const items = [
+      { block_type: 2, text: { elements: [{ text_run: { content: '上一节的旧内容' } }] } },
+      { block_type: 4, heading2: { elements: [{ text_run: { content: '新一节' } }] } },
+      { block_type: 27, image: { token: 'tok' } },
+    ]
+    const r = serializeDocBlocks(items)
+    expect(r.images[0].context).toBe('新一节') // not '新一节｜上一节的旧内容'
+  })
   it('ignores non-image blocks with no text content', () => {
     expect(serializeDocBlocks([{ block_type: 99, weird: {} }]).text.trim()).toBe('')
     expect(serializeDocBlocks([{ block_type: 99 }]).images).toEqual([])

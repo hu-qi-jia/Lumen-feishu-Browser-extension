@@ -3,8 +3,14 @@
 .sl-imgchip{position:relative;border:1px solid var(--border,#dee0e3);border-radius:8px;overflow:hidden;background:var(--card,#f5f6f8)}
 .sl-imgchip-thumb{width:100%;height:60px;object-fit:cover;display:block}
 .sl-imgchip-name{width:100%;border:none;border-top:1px solid var(--border,#dee0e3);background:transparent;font-size:11px;padding:4px 22px 4px 6px;outline:none}
-.sl-imgchip-page{position:absolute;top:4px;left:4px;background:var(--accent,#3370ff);color:#fff;font-size:10px;padding:1px 5px;border-radius:4px}
+.sl-imgchip-page{position:absolute;top:5px;left:5px;background:var(--accent,#3370ff);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;line-height:1.4;letter-spacing:.02em;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .sl-imgchip-x{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;background:rgba(255,255,255,.85);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .sl-imgchip-x svg{width:12px;height:12px}
-.sl-imgpicker-add{align-self:flex-start;border:1px dashed var(--border,#dee0e3);background:transparent;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
-.sl-imgpicker-add:hover{border-color:var(--accent,#3370ff);color:var(--accent,#3370ff)}
+/* Upload dropzone — click or drag. Full-width, prominent. */
+.sl-imgpicker-drop{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:14px 10px;border:1.5px dashed var(--border,#c3c6cb);background:var(--card,#f5f6f8);border-radius:10px;cursor:pointer;font-family:inherit;color:var(--color-text-secondary,#646a73);transition:border-color .15s,background .15s,color .15s}
+.sl-imgpicker-drop:hover:not(:disabled){border-color:var(--accent,#3370ff);color:var(--accent,#3370ff);background:color-mix(in srgb,var(--accent,#3370ff) 5%,var(--card,#f5f6f8))}
+.sl-imgpicker-drop.is-drag{border-color:var(--accent,#3370ff);background:color-mix(in srgb,var(--accent,#3370ff) 10%,var(--card,#f5f6f8));color:var(--accent,#3370ff)}
+.sl-imgpicker-drop:disabled{opacity:.55;cursor:not-allowed}
+.sl-imgpicker-drop-ic{width:22px;height:22px;margin-bottom:2px}
+.sl-imgpicker-drop-main{font-size:12.5px;font-weight:600;color:var(--color-text,#1f2329)}
+.sl-imgpicker-drop-hint{font-size:10.5px;color:var(--color-text-secondary,#646a73)}

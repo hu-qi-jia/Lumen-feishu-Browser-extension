@@ -40,6 +40,6 @@ describe('ImagePicker', () => {
     const { container } = render(
       <ImagePicker images={imgs} pageOf={(id) => (id === 'doc-1' ? 3 : undefined)} onChange={() => {}} />,
     )
-    expect(container.querySelector('.sl-imgchip-page')?.textContent).toBe('p3')
+    expect(container.querySelector('.sl-imgchip-page')?.textContent).toBe('P3')
   })
 })

@@ -28,7 +28,9 @@ export function buildSlidesHtml(slides: Slide[], name: string, theme: SlideTheme
   const data = (Array.isArray(slides) ? slides : []).filter(Boolean)
   const total = data.length
   const ctx = (i: number): SlideCtx => ({ deckName: name || '演示文稿', index: i, total, images })
-  const pages = data.map((s, i) => slideHtml(s, ctx(i))).join('')
+  // IMPORTANT: keep this an ARRAY, not a joined string. The embedded JS indexes it per page
+  // (pages[i]); a joined string would make pages[i] return a single character → blank export.
+  const pages = data.map((s, i) => slideHtml(s, ctx(i)))
   const title = (name || '演示文稿').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const hasChart = data.some((s) => s.layout === 'chart')
   return `<!DOCTYPE html>
@@ -119,8 +121,13 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--fon
 .slide{position:relative} /* footer 绝对定位锚点 */
 /* photo frame（圆角+阴影，open-slide 风）*/
 .s-photo,.s-split-img,.s-card-img,.s-cover-bg{border-radius:var(--osd-radius,12px);overflow:hidden}
-.s-photo img,.s-split-img img,.s-card-img img,.s-cover-bg img{width:100%;height:100%;object-fit:cover;display:block}
-.s-photo,.s-split-img,.s-card-img{box-shadow:0 8px 32px rgba(0,0,0,.08)}
+/* Content images (split/card/photo) use 'contain' so the FULL image is always visible —
+   'cover' cropped landscape doc images. The container's --card bg fills the letterbox area so
+   the letterboxing reads as a deliberate matte, not a gap. The cover background stays 'cover'
+   (decorative, with title text overlaid at low opacity). */
+.s-photo img,.s-split-img img,.s-card-img img{width:100%;height:100%;object-fit:contain;display:block}
+.s-cover-bg img{width:100%;height:100%;object-fit:cover;display:block}
+.s-photo,.s-split-img,.s-card-img{box-shadow:0 8px 32px rgba(0,0,0,.08);background:var(--card)}
 /* image-split */
 .s-split{display:flex;gap:64px;align-items:center;flex:1}
 .s-split--left{flex-direction:row-reverse}
@@ -186,7 +193,7 @@ const SLIDES_JS = `
   var dotsEl=document.querySelector('.slides-dots');
   var stage=document.querySelector('.slides-stage');
   var n=window.__COUNT__||0, cur=-1;
-  var pages=window.__SLIDES__||'';
+  var pages=window.__SLIDES__||[];
   var ICON_MAX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
   var ICON_MIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
   // Scale the 1920×1080 design canvas to fit the wrap (keeps aspect ratio, no distortion).

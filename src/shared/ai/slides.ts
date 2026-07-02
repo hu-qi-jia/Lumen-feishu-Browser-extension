@@ -226,7 +226,7 @@ function buildMaterialsPrompt(materials: Material[], request?: string, themeHint
     ? `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart、cards[{title,body,num,image}]、image(图片id)、imageSide(left|right)、imageCaption。`
     : `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart。`
   const imageLine = pool.length
-    ? `\n【可用图片（image 字段填这些 id 之一）】\n${pool.map((im) => `- ${im.id}（${im.source === 'doc' ? '文档图' : '用户上传'}·${im.label}${im.context ? `·${im.context}` : ''}）`).join('\n')}\n适合配图的页用 cover / image-split / cards，把图片 id 填进 image（或卡片 image）；图片说明从上下文推断，不要编造。正文里的【图n】是原文配图位置，按其上下文放到对应页。\n`
+    ? `\n【可用图片（image 字段填这些 id 之一）】\n${pool.map((im) => `- ${im.id}（${im.source === 'doc' ? '文档图' : '用户上传'}·${im.label}${im.context ? `·上下文:${im.context}` : ''}）`).join('\n')}\n**文档图必须按上下文落到对应页**：正文里的【图n】就是该图在原文的位置——讲到那段内容的那一页要用 image-split（image 填该图 id），让图与讲解同页。不要把多张图堆在同一页，**也不要漏掉任何一张文档图（每张文档图至少出现一次）**。上传图只在用户明确要求放到某页时使用。图片说明从其上下文推断，不要编造。\n`
     : ``
   return (
     `你是顶尖的演示设计师 + 数据分析师。下面有 ${materials.length} 份资料（文档 / 表格），请综合它们做成一套【可翻页的幻灯片 PPT】，向他人讲清楚这些资料的整体内容、关键发现与结论。\n` +
@@ -257,6 +257,57 @@ export interface MaterialsSlidesResult {
   images: SlideImage[]
   truncated: boolean
   sources: SourceRef[]
+}
+
+/** Guarantee every doc image appears in the deck. The model is told to place each 【图n】 on its
+ *  context page, but it sometimes skips images. Any doc image still unreferenced after generation
+ *  is injected onto the text slide (bullets/two-col) whose content best matches the image's
+ *  (heading + preceding text) context — converted to image-split so the image renders. Upload
+ *  images are placed only on explicit user instruction, so they're left alone. Pure. */
+export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
+  const docImgs = images.filter((i) => i.source === 'doc')
+  if (!docImgs.length || !slides.length) return slides
+  const referenced = new Set<string>()
+  for (const s of slides) {
+    if (s.image) referenced.add(s.image)
+    s.cards?.forEach((c) => { if (c.image) referenced.add(c.image) })
+  }
+  const orphans = docImgs.filter((i) => !referenced.has(i.id))
+  if (!orphans.length) return slides
+
+  // Only bullets/two-col slides convert to image-split cleanly (their title+bullets map to the
+  // text side). stats/chart/cover would lose content, so they're skipped as placement targets.
+  const PLACEABLE = new Set(['bullets', 'two-col'])
+  const textOf = (s: Slide): string =>
+    [s.title, s.subtitle, s.eyebrow, ...(s.bullets ?? []), ...(s.bullets2 ?? [])].filter(Boolean).join(' ')
+  const toks = (s: string): Set<string> =>
+    new Set(s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 1))
+
+  const rows = slides.map((s) => ({ s, toks: toks(textOf(s)) }))
+  for (const img of orphans) {
+    const imgTok = toks(`${img.context ?? ''} ${img.label}`)
+    let best = -1, bestScore = -1
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].s.image) continue                        // already carries an image
+      if (!PLACEABLE.has(rows[i].s.layout ?? 'bullets')) continue
+      let score = 0
+      for (const t of imgTok) if (rows[i].toks.has(t)) score++
+      if (score > bestScore) { bestScore = score; best = i }
+    }
+    // No textual match → leave the image rather than misplace it on an unrelated page.
+    if (best < 0 || bestScore <= 0) continue
+    const o = rows[best].s
+    const bullets = [...(o.bullets ?? []), ...(o.bullets2 ?? [])]
+    rows[best].s = {
+      layout: 'image-split',
+      title: o.title, eyebrow: o.eyebrow, subtitle: o.subtitle,
+      bullets: bullets.length ? bullets : undefined,
+      image: img.id, imageSide: 'right',
+    }
+    // Refresh so the next orphan sees this slide as image-bearing (one image per page).
+    rows[best].toks = toks(textOf(rows[best].s))
+  }
+  return rows.map((r) => r.s)
 }
 
 /** Generate one deck synthesized from N resolved+materials (docs + tables). No embed slides —
@@ -338,7 +389,7 @@ export async function runMaterialsToSlides(
   if (!out) throw new Error('模型未返回内容。')
   let parsed: { title?: string; slides?: unknown }
   try { parsed = JSON.parse(out) } catch { throw new Error('幻灯片解析失败，请重试或换一个支持 JSON 输出的模型。') }
-  const slides = sanitizeSlides(parsed.slides)
+  const slides = placeDocImages(sanitizeSlides(parsed.slides), pool)
   if (!slides.length) throw new Error('没有生成可用的幻灯片内容。')
   return {
     name: String(parsed.title || '综合演示').slice(0, 40),

@@ -61,6 +61,8 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
   const [imgProg, setImgProg] = useState<{ done: number; total: number } | null>(null)
   const last = useRef<Deck | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const reqRef = useRef<HTMLTextAreaElement>(null)
+  const adjRef = useRef<HTMLTextAreaElement>(null)
   const slideCount = last.current?.slides.length ?? 0
   const deckName = last.current?.name ?? ''
 
@@ -73,6 +75,18 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000)
     return () => clearInterval(id)
   }, [busy])
+
+  // Auto-grow the compose textareas to fit content — no internal scrollbar, height follows text.
+  // Empty input clears the inline height so CSS min-height gives the taller default. Same pattern
+  // as InputBar's resize().
+  function autoSize(el: HTMLTextAreaElement | null, text: string) {
+    if (!el) return
+    if (!text) { el.style.height = ''; return }
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
+  useEffect(() => { autoSize(reqRef.current, request) }, [request])
+  useEffect(() => { autoSize(adjRef.current, adjReq) }, [adjReq])
 
   async function addLink() {
     const url = linkInput.trim()
@@ -282,9 +296,10 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
             <div className="sl-field">
               <label className="sl-label">补充说明 <span className="sl-label-hint">（可选）</span></label>
               <textarea
-                className="sl-req" rows={2} value={request}
+                ref={reqRef}
+                className="sl-req" rows={3} value={request}
                 onChange={(e) => setRequest(e.target.value)}
-                placeholder="如：侧重结论、控制在 10 页内" disabled={busy}
+                placeholder="如：侧重结论、10 页内" disabled={busy}
               />
             </div>
 
@@ -323,31 +338,8 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
           </Button>
         ) : (
           <>
-            {/* Instant re-skin: switching theme only reopens the deck tab with the new themeId and
-                persists it on the saved deck — NO LLM call, no regeneration. */}
-            <div className="sl-field">
-              <label className="sl-label">主题 <span className="sl-label-hint">（换肤即时生效，无需重新生成）</span></label>
-              <div className="sl-themes">
-                {BUILT_IN_THEMES.map((t) => (
-                  <ThemeThumb
-                    key={t.id}
-                    theme={t}
-                    selected={themeId === t.id}
-                    disabled={busy}
-                    onSelect={async () => {
-                      setThemeId(t.id)
-                      const existing = decks.find((d) => d.id === activeDeckId)
-                      if (existing) setDecks(await saveDeck({ ...existing, themeId: t.id }))
-                      if (last.current) {
-                        try { await openDeck(last.current, t.id, false, images) }
-                        catch (e) { setErrMsg(errText(e)) }
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
+            {/* Theme is locked to what was chosen before generation — no post-gen switching
+                (the deck already carries its themeId; to change look, regenerate). */}
             <Button variant="primary" block icon={<IconEye />} onClick={() => last.current && openDeck(last.current, themeId, false, images)}>查看 PPT</Button>
 
             <div className="sl-export-row">
@@ -378,9 +370,10 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
             <div className="sl-field">
               <label className="sl-label">修改</label>
               <textarea
+                ref={adjRef}
                 className="sl-req" rows={3} value={adjReq}
                 onChange={(e) => setAdjReq(e.target.value)}
-                placeholder={"用自然语言描述要改的地方，留空则从资料重新生成\n如：第3页改成饼图；第2页放 产品图、第5页换 团队照"} disabled={busy}
+                placeholder="描述要改的地方（留空则从资料重新生成）" disabled={busy}
               />
             </div>
 

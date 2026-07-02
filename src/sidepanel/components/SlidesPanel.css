@@ -15,8 +15,10 @@
 /* The thumb styling (.sl-theme / .sl-theme--active / .sl-theme:disabled) lives in ThemeThumb.css;
    this panel only owns the grid layout. */
 .sl-themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* Auto-growing textarea: resize:none + overflow:hidden + JS sets height to scrollHeight, so there's
+   never an internal scrollbar — the box grows with its content. min-height gives the taller default. */
 .sl-req {
-  width: 100%; min-height: 56px; resize: vertical; padding: 8px 10px; font-size: 13px; line-height: 1.5;
+  width: 100%; min-height: 80px; resize: none; overflow: hidden; padding: 10px 12px; font-size: 13px; line-height: 1.6;
   border: 1px solid var(--color-border); border-radius: 8px;
   background: var(--color-bg); color: var(--color-text); outline: none;
   transition: border-color .15s, box-shadow .15s; font-family: inherit; box-sizing: border-box;

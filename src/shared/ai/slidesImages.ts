@@ -35,32 +35,42 @@ const textOf = (el: unknown): string => {
 }
 
 /** Walk a docx block list → readable text with 【图n】 markers at image-block positions,
- *  plus per-image {token, context=nearest preceding heading}. Pure. */
+ *  plus per-image {token, context = nearest preceding heading + the text line right before it}.
+ *  The richer context (heading | preceding line) lets both the model and the post-gen placement
+ *  pass match each image to the page that actually discusses it. Pure. */
 export function serializeDocBlocks(items: unknown[]): { text: string; images: Array<{ token: string; context: string }> } {
   const lines: string[] = []
   const images: Array<{ token: string; context: string }> = []
   let lastHeading = ''
+  let lastText = ''
   let imgIdx = 0
   for (const raw of items) {
     const b = raw as { block_type?: number; [k: string]: unknown }
     if (!b || typeof b.block_type !== 'number') continue
     switch (b.block_type) {
       case 2: { // text
-        const t = textOf(b.text); if (t) lines.push(t); break
+        const t = textOf(b.text); if (t) { lastText = t; lines.push(t) } break
       }
       case 3: case 4: case 5: { // heading1-3
         const t = textOf((b as Record<string, unknown>)[`heading${b.block_type - 2}`])
-        if (t) { lastHeading = t; lines.push(`${'#'.repeat(b.block_type - 2)} ${t}`) }
+        // A new heading starts a section — clear lastText so an image right under it doesn't
+        // inherit the preceding section's text as its context.
+        if (t) { lastHeading = t; lastText = ''; lines.push(`${'#'.repeat(b.block_type - 2)} ${t}`) }
         break
       }
       case 12: case 13: { // bullet / ordered
         const t = textOf((b as Record<string, unknown>)[b.block_type === 12 ? 'bullet' : 'ordered'])
-        if (t) lines.push(`- ${t}`); break
+        if (t) { lastText = t; lines.push(`- ${t}`) }; break
       }
       case 27: { // image
         const img = (b as { image?: { token?: string } }).image
         const token = typeof img?.token === 'string' ? img.token : ''
-        if (token) { imgIdx++; lines.push(`【图${imgIdx}】`); images.push({ token, context: lastHeading }) }
+        if (token) {
+          imgIdx++
+          lines.push(`【图${imgIdx}】`)
+          const ctx = [lastHeading, lastText].filter(Boolean).join('｜')
+          images.push({ token, context: ctx })
+        }
         break
       }
       default: break // tables(31)/sheet(30)/etc skipped

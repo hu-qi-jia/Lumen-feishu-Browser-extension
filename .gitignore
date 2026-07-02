@@ -38,3 +38,5 @@ feishu-package.zip
 
 # local Claude Code agent/workflow data
 .claude/
+# superpowers SDD scratch (progress ledger, review-package diffs)
+.superpowers/

@@ -18,5 +18,9 @@ describe('slidesExport', () => {
     expect(html).toContain('data:image/png;base64,AA')
     expect(html).toContain('s-footer')
     expect(html).toMatch(/1 \/ 2/)
+    // Pages must be injected as an ARRAY — a joined string made pages[i] return a single
+    // character and the exported file rendered blank. The literal `[` right after the assignment
+    // is the array opener.
+    expect(html).toMatch(/window\.__SLIDES__\s*=\s*\[/)
   })
 })

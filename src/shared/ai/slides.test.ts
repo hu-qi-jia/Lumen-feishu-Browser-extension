@@ -11,7 +11,7 @@ vi.mock('./llm', () => ({ chatCompleteStream: vi.fn(async (_s: unknown, content:
   if (/可用图片/.test(content)) return JSON.stringify({ title: 'T', slides: [{ layout: 'image-split', title: 'x', image: 'doc-1' }] })
   return JSON.stringify({ title: 'T', slides: [{ layout: 'bullets', title: '无图', bullets: ['a'] }] })
 }) }))
-import { sanitizeSlides, runMaterialsToSlides, adjustDeck } from './slides'
+import { sanitizeSlides, runMaterialsToSlides, adjustDeck, placeDocImages } from './slides'
 
 describe('sanitizeSlides — coerce model output into safe, well-formed slides', () => {
   it('returns [] for non-array input', () => {
@@ -162,5 +162,42 @@ describe('adjustDeck prompt includes pool', () => {
     const content = (chatCompleteStream as unknown as { mock: { calls: string[][] } }).mock.calls.at(-1)?.[1] as string
     expect(content).toContain('可用图片')
     expect(content).toContain('upload-产品图')
+  })
+})
+
+describe('placeDocImages — guarantee every doc image appears', () => {
+  const docImg = (id: string, ctx: string) => ({ id, source: 'doc' as const, label: id, dataUrl: 'data:x', context: ctx })
+
+  it('does nothing when every doc image is already referenced', () => {
+    const slides = [{ layout: 'image-split', title: 'A', image: 'doc-1' }]
+    expect(placeDocImages(slides as never, [docImg('doc-1', 'x')])).toEqual(slides)
+  })
+
+  it('injects an unreferenced doc image onto the best-matching text slide as image-split', () => {
+    const slides = [
+      { layout: 'bullets', title: '产品架构', bullets: ['模块一', '模块二'] },
+      { layout: 'bullets', title: '团队介绍', bullets: ['成员'] },
+    ]
+    // doc-2 was never referenced; its context '架构' overlaps slide 0, not slide 1.
+    const out = placeDocImages(slides as never, [docImg('doc-2', '产品架构｜系统组成')])
+    expect(out[0].layout).toBe('image-split')
+    expect(out[0].image).toBe('doc-2')
+    expect(out[0].bullets).toEqual(['模块一', '模块二']) // original bullets preserved on the text side
+    expect(out[1].layout).toBe('bullets') // untouched
+  })
+
+  it('leaves an orphan in place when no slide text matches (no misplacement)', () => {
+    const slides = [{ layout: 'bullets', title: '团队', bullets: ['成员'] }]
+    const out = placeDocImages(slides as never, [docImg('doc-9', '完全不相关的XYZABC')])
+    expect(out[0].layout).toBe('bullets') // unchanged — no token overlap
+    expect(out[0].image).toBeUndefined()
+  })
+
+  it('skips non-text slides (stats/chart) as placement targets to avoid losing content', () => {
+    const slides = [{ layout: 'stats', title: '数据', stats: [{ num: '99', label: 'x' }] }]
+    const out = placeDocImages(slides as never, [docImg('doc-1', '数据')])
+    // stats is not placeable → image stays unreferenced rather than clobbering the stat slide
+    expect(out[0].layout).toBe('stats')
+    expect(out[0].image).toBeUndefined()
   })
 })
