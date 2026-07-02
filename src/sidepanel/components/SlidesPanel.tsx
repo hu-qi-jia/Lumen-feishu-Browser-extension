@@ -246,15 +246,6 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
             <p className="sl-sub">粘贴飞书文档 / 表格 / 多维表格链接，AI 综合资料生成演示 PPT。</p>
 
             <div className="sl-field">
-              <label className="sl-label">模板风格</label>
-              <div className="sl-themes">
-                {BUILT_IN_THEMES.map((t) => (
-                  <ThemeThumb key={t.id} theme={t} selected={themeId === t.id} disabled={busy} onSelect={() => setThemeId(t.id)} />
-                ))}
-              </div>
-            </div>
-
-            <div className="sl-field">
               <label className="sl-label">参考素材</label>
               <div className="sl-add">
                 <div className="sl-add-input-wrap">
@@ -292,6 +283,15 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
                 ))}
               </div>
             )}
+
+            <div className="sl-field">
+              <label className="sl-label">模板风格</label>
+              <div className="sl-themes">
+                {BUILT_IN_THEMES.map((t) => (
+                  <ThemeThumb key={t.id} theme={t} selected={themeId === t.id} disabled={busy} onSelect={() => setThemeId(t.id)} />
+                ))}
+              </div>
+            </div>
 
             <div className="sl-field">
               <label className="sl-label">补充说明 <span className="sl-label-hint">（可选）</span></label>

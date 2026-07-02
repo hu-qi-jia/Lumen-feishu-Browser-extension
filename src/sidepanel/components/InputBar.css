@@ -7,7 +7,7 @@
 .input-bar-inner {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface);
   padding: 6px 8px;
@@ -50,7 +50,7 @@
   gap: 4px;
   padding: 3px 6px 3px 8px;
   background: var(--color-bg);
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: 8px;
   font-size: 11px;
   color: var(--color-text);
@@ -125,7 +125,7 @@
   gap: 5px;
   padding: 5px 8px;
   background: none;
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   color: var(--color-text-secondary);
@@ -142,7 +142,7 @@
   left: 0;
   min-width: 180px;
   background: var(--color-bg);
-  border: 1px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   border-radius: 10px;
   box-shadow: var(--shadow-md);
   padding: 4px;

@@ -127,7 +127,7 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--fon
    (decorative, with title text overlaid at low opacity). */
 .s-photo img,.s-split-img img,.s-card-img img{width:100%;height:100%;object-fit:contain;display:block}
 .s-cover-bg img{width:100%;height:100%;object-fit:cover;display:block}
-.s-photo,.s-split-img,.s-card-img{box-shadow:0 8px 32px rgba(0,0,0,.08);background:var(--card)}
+.s-photo,.s-split-img,.s-card-img{box-shadow:0 2px 12px rgba(0,0,0,.06)}
 /* image-split */
 .s-split{display:flex;gap:64px;align-items:center;flex:1}
 .s-split--left{flex-direction:row-reverse}

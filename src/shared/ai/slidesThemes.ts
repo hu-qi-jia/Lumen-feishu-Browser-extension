@@ -49,11 +49,15 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 104, heading: 58, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
-    // Clean corporate: short accent rule under each heading + an accent top-border on cards.
     decorations:
-      '.s-head::after{content:"";display:block;width:72px;height:3px;background:var(--accent);margin-top:24px}' +
-      '.s-card{border-top:3px solid var(--accent)}',
-    promptHint: '商务克制：结论先行、数据优先——多用 chart 与 stats、cards 呈现数字；要点精炼，配色冷静，信息密度高，少装饰。',
+      '.s-head::after{content:"";display:block;width:64px;height:3px;background:var(--accent);margin-top:20px}' +
+      '.s-card{border-top:3px solid var(--accent);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.04)}' +
+      '.s-bullets li::before{border-radius:2px}' +
+      '.s-photo,.s-split-img,.s-card-img{border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.06)}',
+    promptHint:
+      '商务风格。版式规则：连续2页不得同一layout，整份≥5种不同版式。' +
+      '数据页优先 chart+stats（约35%），对比用 two-col（约20%），cards 卡片展示维度（约15%），bullets 叙事，quote 收尾。' +
+      '标题≤15字，要点≤5条·≤28字。封面 title+subtitle，最后一页给结论。',
   },
   {
     id: 'editorial',
@@ -64,13 +68,20 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     padding: 140,
     fontDisplay: SERIF,
     fontBody: SYS_SANS,
-    // Magazine: serif headings, italic subtitle/eyebrow, wider accent rule, accent top-border cards.
     decorations:
-      '.s-head::after{content:"";display:block;width:96px;height:4px;background:var(--accent);margin-top:28px;border-radius:2px}' +
-      '.s-card{border-top:4px solid var(--accent);border-radius:2px}' +
+      '.s-head{font-weight:900;line-height:1.15}' +
+      '.s-head::after{content:"";display:block;width:88px;height:4px;background:var(--accent);margin-top:28px;border-radius:2px}' +
+      '.slide--quote .s-quote{font-size:1.1em;line-height:1.45;padding-left:52px;border-left:4px solid var(--accent)}' +
       '.slide--title .s-sub,.slide--section .s-sub{font-style:italic}' +
-      '.s-eyebrow{font-style:italic;letter-spacing:.18em}',
-    promptHint: '编辑杂志风：大留白、左对齐叙事、强章节感；多用 quote、section 分隔与 two-col；**少用 chart，重文字表达**；标题衬线。',
+      '.s-eyebrow{font-style:italic;letter-spacing:.18em;font-family:Georgia,"Source Han Serif SC",serif}' +
+      '.s-card{box-shadow:none;border-radius:2px;border-bottom:2px solid var(--accent);background:transparent}' +
+      '.s-card-title{font-family:Georgia,"Source Han Serif SC",serif}' +
+      '.s-photo,.s-split-img{border-radius:2px;box-shadow:none}' +
+      '.s-card-img{border-radius:2px 2px 0 0;box-shadow:none}',
+    promptHint:
+      '编辑杂志风。版式规则：section 章节分隔≥2页，quote≥2页（引言+收尾），two-col≥1页，bullets 叙事≤3条/页。' +
+      '不用 chart/stats/cards——以文字叙事为主，图片作插图点缀。' +
+      '标题衬线体、正文无衬线，留白充裕。第一段引言，最后收束观点。',
   },
   {
     id: 'night',
@@ -80,12 +91,17 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 112, heading: 60, body: 36, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
-    // Tech dark: radial glow, glowing card panels, accent→transparent heading rule.
     decorations:
-      '.slide{background:radial-gradient(1200px 760px at 82% -12%, rgba(122,162,255,.18), transparent 60%), var(--bg)}' +
-      '.s-card{border:1px solid var(--border);box-shadow:0 0 24px rgba(122,162,255,.10),0 8px 32px rgba(0,0,0,.4)}' +
-      '.s-head::after{content:"";display:block;width:72px;height:3px;background:linear-gradient(90deg,var(--accent),transparent);margin-top:24px}',
-    promptHint: '科技暗夜风：深色底、冷色高亮；多用 chart 与 stats 呈现数字；措辞精炼冷峻，每页聚焦一个技术亮点。',
+      '.slide{background:radial-gradient(1000px 600px at 80% -8%,rgba(122,162,255,.12),transparent 55%),var(--bg)}' +
+      '.s-head::after{content:"";display:block;width:64px;height:2px;background:linear-gradient(90deg,var(--accent),transparent 80%);margin-top:20px}' +
+      '.s-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px}' +
+      '.s-bullets li::before{box-shadow:0 0 12px rgba(122,162,255,.3)}' +
+      '.s-stat .s-num{text-shadow:0 0 40px rgba(122,162,255,.25)}' +
+      '.s-photo,.s-split-img,.s-card-img{border-radius:10px;box-shadow:0 0 24px rgba(122,162,255,.08)}',
+    promptHint:
+      '科技暗夜风。版式规则：chart+stats 占40%——数据可视化为主体，用深色系图表配色。' +
+      'image-split 用于架构图/流程图。bullets≤4条/页只作简注。quote 用于技术洞察收尾。不用 cards。' +
+      '每页聚焦一个技术亮点，措辞精炼冷峻。',
   },
   {
     id: 'minimal',
@@ -95,14 +111,18 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 120, heading: 60, body: 32, caption: 22 },
     padding: 128,
     fontBody: SYS_SANS,
-    // Swiss: hairlines only — no radius, no shadow, square markers, heading underlined by a thin rule.
     decorations:
-      '.s-eyebrow{letter-spacing:.4em}' +
-      '.s-head{border-bottom:1px solid var(--fg);padding-bottom:20px}' +
-      '.s-card,.s-photo,.s-split-img{border-radius:0;box-shadow:none;border:1px solid var(--border)}' +
-      '.s-bullets li::before{border-radius:0;width:10px;height:2px;top:30px}' +
-      '.s-card{border-top:1px solid var(--fg)}',
-    promptHint: '瑞士极简风：大量留白、发丝线、黑白克制；多用 bullets、two-col、quote，**少用 cards/stats**；每页只讲一件事。',
+      '.s-head{font-weight:400;letter-spacing:-.01em;border-bottom:1px solid var(--fg);padding-bottom:18px}' +
+      '.s-head::after{display:none}' +
+      '.s-eyebrow{letter-spacing:.4em;font-weight:400}' +
+      '.s-bullets li::before{border-radius:0;width:6px;height:6px;background:var(--fg);top:26px}' +
+      '.s-card{border-radius:0;box-shadow:none;border:1px solid var(--border);background:transparent}' +
+      '.s-photo,.s-split-img,.s-card-img{border-radius:0;box-shadow:none}' +
+      '.s-stat .s-num{font-weight:300}',
+    promptHint:
+      '瑞士极简风。版式规则：bullets 为主（单列要点≤5条/页），two-col 用于对比（各≤3条），quote 用于点睛。' +
+      '不用 chart/stats/cards/image-split——纯粹文字排版。封面标题≤10字无副标题。' +
+      '每页只承载一个核心观点，让留白说话。',
   },
   {
     id: 'vibrant',
@@ -112,13 +132,15 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 116, heading: 60, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
-    // Brand: gradient headings/numbers, gradient rounded cards, rounded gradient markers.
     decorations:
-      '.s-head,.s-title{background:linear-gradient(90deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
-      '.s-card{border:none;background:linear-gradient(135deg,var(--card),#fdf2f8);border-radius:16px}' +
-      '.s-stat .s-num,.s-card-num{background:linear-gradient(90deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
-      '.s-bullets li::before{background:linear-gradient(90deg,var(--accent),#ec4899);border-radius:4px}',
-    promptHint: '活力品牌风：渐变强调色、圆角卡片、视觉跳跃；多用 cards、image-split、stats，色彩饱满，适合产品/品牌发布。',
+      '.s-head,.s-title{background:linear-gradient(135deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
+      '.s-card{border:none;background:linear-gradient(135deg,var(--card),#fdf2f8);border-radius:16px;box-shadow:0 4px 24px rgba(124,58,237,.08)}' +
+      '.s-stat .s-num,.s-card-num{background:linear-gradient(135deg,var(--accent),#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}' +
+      '.s-bullets li::before{background:var(--accent);border-radius:3px;box-shadow:0 0 6px rgba(124,58,237,.25)}' +
+      '.s-photo,.s-split-img,.s-card-img{border-radius:14px;box-shadow:0 4px 20px rgba(124,58,237,.1)}',
+    promptHint:
+      '活力品牌风。版式规则：cards 占30%（产品/特性卡片尽量带 image），image-split 占20%+，stats 占15%，cover 开场+bullets 叙事。' +
+      '多用 image 字段配图（cards 和 image-split 都填 image）。标题可用惊叹句式有感染力。收尾用 quote 喊口号。',
   },
   {
     id: 'pitch',
@@ -128,13 +150,16 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
     typeScale: { hero: 140, heading: 64, body: 34, caption: 24 },
     padding: 120,
     fontBody: SYS_SANS,
-    // Roadshow: dark + warm glow, oversized stat numbers, chunky accent rule, accent-spine cards.
     decorations:
-      '.slide{background:radial-gradient(1000px 600px at 10% 110%, rgba(251,191,36,.12), transparent 60%), var(--bg)}' +
-      '.s-stat .s-num,.s-card-num{font-size:1.3em}' +
-      '.s-head::after{content:"";display:block;width:120px;height:6px;background:var(--accent);margin-top:24px}' +
-      '.s-card{border:1px solid var(--border);border-left:5px solid var(--accent)}',
-    promptHint: '融资路演风：深色底、高对比、巨号数字；多用 stats、cover、cards，**一页一个关键数字**，少而精，适合汇报/路演。',
+      '.slide{background:radial-gradient(800px 500px at 60% 110%,rgba(251,191,36,.08),transparent 50%),var(--bg)}' +
+      '.s-stat .s-num{font-size:1.35em;font-weight:900;color:var(--accent);text-shadow:0 0 32px rgba(251,191,36,.2)}' +
+      '.s-head::after{content:"";display:block;width:96px;height:5px;background:var(--accent);margin-top:20px}' +
+      '.s-card{border:1px solid var(--border);border-left:4px solid var(--accent);background:rgba(255,255,255,.02);border-radius:2px}' +
+      '.s-card-num{color:var(--accent);font-weight:900}' +
+      '.s-photo,.s-split-img,.s-card-img{border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,.4)}',
+    promptHint:
+      '融资路演风。版式规则：stats 占30%（每页一个巨号数字+一行说明），cover 开场冲击力强，bullets≤3条/页，cards 用于团队/优势。' +
+      '不用 chart——数据用 stats 大数字呈现。标题≤12字极具冲击力。最后 quote 收尾给行动号召。',
   },
 ]
 

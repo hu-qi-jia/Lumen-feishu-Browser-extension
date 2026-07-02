@@ -1,0 +1,48 @@
+/* Standalone upload dropzone — white background, dashed border, minimal. */
+.sl-upload-drop {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 14px 10px;
+  border: 2px dashed var(--color-border, #dee0e3);
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--color-text-secondary, #646a73);
+  transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+}
+.sl-upload-drop:hover:not(:disabled) {
+  border-color: var(--color-primary, #3370ff);
+  color: var(--color-primary, #3370ff);
+  background: #f5f7ff;
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, .08);
+}
+.sl-upload-drop.is-drag {
+  border-color: var(--color-primary, #3370ff);
+  background: #eef2ff;
+  color: var(--color-primary, #3370ff);
+  box-shadow: 0 0 0 4px rgba(51, 112, 255, .12);
+}
+.sl-upload-drop:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.sl-upload-drop-ic {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+.sl-upload-drop-main {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text, #1f2329);
+}
+.sl-upload-drop-hint {
+  font-size: 10.5px;
+  color: var(--color-text-secondary, #646a73);
+}
