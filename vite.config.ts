@@ -77,6 +77,14 @@ export default defineConfig(({ command, mode }) => {
         // generated PPT doesn't depend on staying on a Feishu page). It isn't referenced by any
         // standard manifest "page" field, so declare it here for the plugin to build as HTML input.
         additionalInputs: ['src/viewer/deckViewer.html'],
+        // The plugin validates the generated manifest against a JSON schema it FETCHES from
+        // raw.githubusercontent.com. In networks where that host's TLS is reset mid-handshake
+        // (common in mainland China), the plugin's DNS-only "isOffline?" check passes (DNS
+        // resolves), the schema GET then throws ECONNRESET, and that error aborts the whole
+        // build — even though every module + manifest.json was already written correctly.
+        // The validation is a nice-to-have safety net, not load-bearing, so skip it and keep
+        // builds deterministic offline.
+        skipManifestValidation: true,
         // Template the deployment-specific bits so one codebase serves
         // personal / enterprise-SaaS / private-on-prem from build-time env alone.
         transformManifest(manifest: Record<string, unknown>) {
