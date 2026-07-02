@@ -48,20 +48,22 @@ interface Props {
   /** Working-document binding shown in the topbar dropdown. */
   docMode: 'follow' | 'pin'
   docActiveToken: string | null
-  onPickDoc: (token: string, title: string, kind: string) => void
+  onPickDoc: (token: string, title: string, kind: SessionKind) => void
   onFollowTabs: () => void
   /** Resolve a wiki-wrapped tab to its real kind (doc/base/sheet) so the doc-selector
    *  dropdown can classify it under the right category. Undefined when not resolvable. */
   resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
   /** Persisted recently-opened Feishu resources — the dropdown's "最近打开" list. */
   recentFiles?: RecentFile[]
+  /** Remove a file from the recent list (the × on a row). */
+  onRemoveRecent?: (token: string) => void
 }
 
 export default function ChatPanel({
   settings, context, disabled,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, sessionTitle, onOpenSessions, onNewSession, chatBusy,
-  docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles,
+  docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
   useEffect(() => { onStreamingChange?.(streaming) }, [streaming, onStreamingChange])
@@ -313,6 +315,7 @@ export default function ChatPanel({
           onFollow={onFollowTabs}
           resolveWikiKind={resolveWikiKind}
           recentFiles={recentFiles ?? []}
+          onRemoveRecent={onRemoveRecent}
         />
         <div className="chat-topbar-actions">
           <Tooltip content="新建会话" position="left">

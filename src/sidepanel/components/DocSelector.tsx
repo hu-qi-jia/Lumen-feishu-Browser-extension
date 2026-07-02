@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SessionKind } from '../../shared/types'
 import type { RecentFile } from '../recentFiles'
+import { KindIcon } from './icons'
 import './DocSelector.css'
 
 interface Props {
@@ -10,49 +11,17 @@ interface Props {
   /** Active resource token — marks the selected option in the menu. */
   activeToken: string | null
   /** Pin a specific document as the working doc. */
-  onPickDoc: (token: string, title: string, kind: string) => void
+  onPickDoc: (token: string, title: string, kind: SessionKind) => void
   /** Switch to "follow the active tab" mode. */
   onFollow: () => void
   /** The most recently opened Feishu resources (doc / sheet / base, incl. closed tabs).
    *  Persisted across tab closes — this is what the dropdown lists instead of live tabs. */
   recentFiles: RecentFile[]
+  /** Remove a file from the recent list (the × on a row). Optional — when absent, no × shown. */
+  onRemoveRecent?: (token: string) => void
   /** Resolve a wiki-wrapped resource to its real kind so its icon is right (a wiki-Base
    *  shows the base icon). The pin still uses 'wiki' so pinnedFeishu resolves it on pin. */
   resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
-}
-
-// Distinct line icons per Feishu resource type, so sheet / base / doc are scannable at a
-// glance. Wiki wraps another type (usually a doc) → its real icon is resolved at render
-// for display, but defaults to the doc icon here. Exported — the session history drawer
-// reuses these to group by document.
-export function KindIcon({ kind }: { kind: SessionKind }) {
-  if (kind === 'sheet') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <line x1="3" y1="9" x2="21" y2="9" />
-        <line x1="3" y1="15" x2="21" y2="15" />
-        <line x1="9" y1="3" x2="9" y2="21" />
-        <line x1="15" y1="3" x2="15" y2="21" />
-      </svg>
-    )
-  }
-  if (kind === 'base') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path d="M3 8h18" />
-        <path d="M9 8v13" />
-        <path d="M15 8v13" />
-      </svg>
-    )
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
-    </svg>
-  )
 }
 
 /**
@@ -61,7 +30,7 @@ export function KindIcon({ kind }: { kind: SessionKind }) {
  * or switch to "follow tabs". The recent list persists across tab closes (unlike a live
  * chrome.tabs query), so closed docs stay reachable.
  */
-export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc, onFollow, recentFiles, resolveWikiKind }: Props) {
+export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc, onFollow, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [open, setOpen] = useState(false)
   // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows
   // the base icon). The pin still uses 'wiki' (the stored kind) so it resolves on pin.
@@ -143,25 +112,38 @@ export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc
               {recentFiles.map((d) => {
                 const selected = mode === 'pin' && activeToken === d.token
                 return (
-                  <button
+                  <div
                     key={d.token}
-                    className={`doc-selector-item${selected ? ' doc-selector-item--active' : ''}`}
-                    onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
-                    type="button"
+                    className={`doc-selector-item doc-selector-item--row${selected ? ' doc-selector-item--active' : ''}`}
                     title={d.title}
                   >
-                    <span className="doc-selector-item-icon" aria-hidden="true">
-                      <KindIcon kind={displayKind(d)} />
-                    </span>
-                    <span className="doc-selector-item-text">
-                      <span className="doc-selector-item-title">{d.title}</span>
-                    </span>
-                    {selected && (
-                      <svg className="doc-selector-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
+                    <button
+                      className="doc-selector-item-main"
+                      onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
+                      type="button"
+                    >
+                      <span className="doc-selector-item-icon" aria-hidden="true">
+                        <KindIcon kind={displayKind(d)} />
+                      </span>
+                      <span className="doc-selector-item-text">
+                        <span className="doc-selector-item-title">{d.title}</span>
+                      </span>
+                    </button>
+                    {onRemoveRecent && (
+                      <button
+                        className="doc-selector-item-remove"
+                        onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
+                        type="button"
+                        aria-label={`从最近打开中移除 ${d.title}`}
+                        title="从最近打开中移除"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
                     )}
-                  </button>
+                  </div>
                 )
               })}
             </div>

@@ -2,6 +2,7 @@
 // Sizing comes from the parent's CSS (e.g. `.btn svg { width: 14px }`), so these
 // carry no fixed dimensions. This project never uses emoji in the UI — pick from here.
 import type { SVGProps } from 'react'
+import type { SessionKind } from '../../shared/types'
 
 const common = {
   viewBox: '0 0 24 24',
@@ -73,3 +74,48 @@ export const IconRefresh = (p: P) => (
     <path d="M3 21v-5h5" />
   </svg>
 )
+
+/**
+ * Distinct line icon per Feishu resource kind — sheet / base / doc are scannable at a glance.
+ * Used by the doc-selector dropdown and the session-history drawer (group headers). `wiki`
+ * wraps another type and falls through to the doc icon here; callers resolve its real kind
+ * for display separately.
+ */
+export function KindIcon({ kind }: { kind: SessionKind }) {
+  if (kind === 'sheet') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+        <line x1="3" y1="15" x2="21" y2="15" />
+        <line x1="9" y1="3" x2="9" y2="21" />
+        <line x1="15" y1="3" x2="15" y2="21" />
+      </svg>
+    )
+  }
+  if (kind === 'base') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 8h18" />
+        <path d="M9 8v13" />
+        <path d="M15 8v13" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...common}>
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+    </svg>
+  )
+}
+
+/** Catch-all icon for the "通用会话" group (sessions with no bound document). */
+export function GeneralIcon() {
+  return (
+    <svg {...common}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  )
+}

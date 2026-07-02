@@ -38,6 +38,12 @@ export function upsertRecent(
   return [{ token: entry.token, title: entry.title, kind: entry.kind, seen: now }, ...rest].slice(0, MAX_RECENT)
 }
 
+/** Drop the entry for `token` (the × on a recent row). Returns the same ref if absent. */
+export function removeRecent(files: RecentFile[], token: string): RecentFile[] {
+  if (!files.some((f) => f.token === token)) return files
+  return files.filter((f) => f.token !== token)
+}
+
 export async function loadRecent(): Promise<RecentFile[]> {
   try {
     return (await new Promise<RecentFile[] | undefined>((resolve) =>

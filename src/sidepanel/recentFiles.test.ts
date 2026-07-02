@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { upsertRecent, MAX_RECENT } from './recentFiles'
+import { upsertRecent, removeRecent, MAX_RECENT } from './recentFiles'
 import type { RecentFile } from './recentFiles'
 
 const f = (token: string, title: string, kind: RecentFile['kind'], seen: number): RecentFile =>
@@ -42,5 +42,17 @@ describe('upsertRecent', () => {
     const out = upsertRecent(files, { token: 'b', title: 'B2', kind: 'sheet' }, 3)
     expect(out.filter((x) => x.token === 'b')).toHaveLength(1)
     expect(out[0].token).toBe('b')
+  })
+})
+
+describe('removeRecent', () => {
+  it('drops the matching token and keeps order', () => {
+    const files = [f('a', 'A', 'doc', 3), f('b', 'B', 'sheet', 2), f('c', 'C', 'base', 1)]
+    expect(removeRecent(files, 'b').map((x) => x.token)).toEqual(['a', 'c'])
+  })
+
+  it('is a no-op (same ref) when the token is absent', () => {
+    const files = [f('a', 'A', 'doc', 1)]
+    expect(removeRecent(files, 'zzz')).toBe(files)
   })
 })
