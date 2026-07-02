@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { SessionMeta } from '../../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { SessionKind, SessionMeta } from '../../shared/types'
 import type { SessionsApi } from '../sessions/useSessions'
 import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../sessions/logic'
 import { KindIcon } from './DocSelector'
@@ -12,13 +12,34 @@ interface Props {
   /** Disable switching/new while a reply is streaming (avoids cross-session writes). */
   busy: boolean
   onClose: () => void
+  /** Resolve a wiki-bound session to its real kind so its group header shows the right icon. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** Pick a session — App decides whether to switch directly (same doc) or prompt to switch
+   *  the work doc first (cross-doc). The drawer doesn't switch/close itself anymore. */
+  onPickSession: (session: SessionMeta) => void
 }
 
-export default function SessionDrawer({ sessions, busy, onClose }: Props) {
-  const { index, switchTo, removeSession, renameSession } = sessions
+export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind, onPickSession }: Props) {
+  const { index, removeSession, renameSession, stampKind } = sessions
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+
+  // On open, upgrade unresolved 'wiki' sessions to their real type (base/sheet/doc) so each
+  // group header shows the right doc-type icon. A wiki session's appToken is its wikiToken,
+  // and its kind stays 'wiki' until the focused-tab resolution path touches it — so a wiki-
+  // Base you haven't revisited still reads correctly here. Bounded by the wiki-session count.
+  useEffect(() => {
+    if (!resolveWikiKind) return
+    const wikiSessions = index.sessions.filter((s) => s.kind === 'wiki' && s.appToken)
+    for (const s of wikiSessions) {
+      const tok = s.appToken as string
+      void resolveWikiKind(tok).then((kind) => {
+        if (kind && kind !== 'wiki') stampKind(tok, kind)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // One-shot init: collapse every group EXCEPT the active session's, so opening the
   // drawer lands on the relevant doc and the rest wait behind their headers. The drawer
@@ -71,7 +92,7 @@ export default function SessionDrawer({ sessions, busy, onClose }: Props) {
     })
   }
 
-  const pick = (id: string) => { if (!busy) { switchTo(id); onClose() } }
+  const pick = (session: SessionMeta) => { if (!busy) onPickSession(session) }
 
   return (
     <SideDrawer title="历史会话" onClose={onClose}>
@@ -111,7 +132,7 @@ export default function SessionDrawer({ sessions, busy, onClose }: Props) {
                 busy={busy}
                 editing={editingId === s.id}
                 draft={draft}
-                onPick={() => pick(s.id)}
+                onPick={() => pick(s)}
                 onStartRename={() => { setEditingId(s.id); setDraft(s.title) }}
                 onDraft={setDraft}
                 onCommit={() => commitRename(s.id)}
@@ -161,7 +182,7 @@ function SessionGroupView({
   editingId: string | null
   draft: string
   onToggle: () => void
-  onPick: (id: string) => void
+  onPick: (session: SessionMeta) => void
   onStartRename: (id: string, title: string) => void
   onDraft: (v: string) => void
   onCommit: (id: string) => void
@@ -191,7 +212,7 @@ function SessionGroupView({
               busy={busy}
               editing={editingId === s.id}
               draft={draft}
-              onPick={() => onPick(s.id)}
+              onPick={() => onPick(s)}
               onStartRename={() => onStartRename(s.id, s.title)}
               onDraft={onDraft}
               onCommit={() => onCommit(s.id)}

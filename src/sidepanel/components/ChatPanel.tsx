@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppSettings, Attachment, ChatMessage, PageContext } from '../../shared/types'
+import type { AppSettings, Attachment, ChatMessage, PageContext, SessionKind } from '../../shared/types'
 import type { BaseCtx } from '../../shared/feishu/context'
 import { fetchBaseCtx } from '../../shared/feishu/context'
 import { resolveToken } from '../../shared/feishu/auth'
@@ -18,6 +18,7 @@ import type { InputBarHandle } from './InputBar'
 import BaseContextBadge from './BaseContextBadge'
 import ConfirmDialog from './ConfirmDialog'
 import DocSelector from './DocSelector'
+import type { RecentFile } from '../recentFiles'
 import SkillSuggest from './SkillSuggest'
 import Tooltip from './Tooltip'
 import './ChatPanel.css'
@@ -49,13 +50,18 @@ interface Props {
   docActiveToken: string | null
   onPickDoc: (token: string, title: string, kind: string) => void
   onFollowTabs: () => void
+  /** Resolve a wiki-wrapped tab to its real kind (doc/base/sheet) so the doc-selector
+   *  dropdown can classify it under the right category. Undefined when not resolvable. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** Persisted recently-opened Feishu resources — the dropdown's "最近打开" list. */
+  recentFiles?: RecentFile[]
 }
 
 export default function ChatPanel({
   settings, context, disabled,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, sessionTitle, onOpenSessions, onNewSession, chatBusy,
-  docMode, docActiveToken, onPickDoc, onFollowTabs,
+  docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
   useEffect(() => { onStreamingChange?.(streaming) }, [streaming, onStreamingChange])
@@ -305,6 +311,8 @@ export default function ChatPanel({
           activeToken={docActiveToken}
           onPickDoc={onPickDoc}
           onFollow={onFollowTabs}
+          resolveWikiKind={resolveWikiKind}
+          recentFiles={recentFiles ?? []}
         />
         <div className="chat-topbar-actions">
           <Tooltip content="新建会话" position="left">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppSettings, PageContext, SessionKind } from '../shared/types'
+import type { AppSettings, PageContext, SessionKind, SessionMeta } from '../shared/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
 import { mergeResolvedWiki } from './wikiResolve'
 
@@ -43,8 +43,10 @@ import ScenarioPanel from './components/ScenarioPanel'
 import DemoPanel from './components/DemoPanel'
 import SessionDrawer from './components/SessionDrawer'
 import SwitchDocDialog from './components/SwitchDocDialog'
+import SwitchSessionDialog from './components/SwitchSessionDialog'
 import NavRail from './components/NavRail'
 import { useSessions } from './sessions/useSessions'
+import { upsertRecent, loadRecent, saveRecent, type RecentFile } from './recentFiles'
 import './App.css'
 
 type Tab = 'chat' | 'scenes' | 'clip' | 'settings'
@@ -145,6 +147,15 @@ export default function App() {
   // current resource (don't auto-switch) until they pick new-session vs continue.
   const [heldResource, setHeldResource] = useState<string | null>(null)
   const [pendingSwitch, setPendingSwitch] = useState<{ to: string } | null>(null)
+  // The 10 most recently opened Feishu resources (doc / sheet / base, incl. closed tabs),
+  // shown in the doc-selector dropdown. Recorded whenever a Feishu page is focused or a
+  // doc is pinned, and persisted so closed tabs stay reachable across panel reopens.
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([])
+  const [recentReady, setRecentReady] = useState(false)
+  // A history-drawer pick of a session bound to a DIFFERENT doc than the current work doc.
+  // Confirm → pin the work doc to that session's doc + switch to it (sidesteps the
+  // follow-mode hold/revert that made cross-doc switches not stick).
+  const [pendingSessionSwitch, setPendingSessionSwitch] = useState<SessionMeta | null>(null)
 
   useEffect(() => {
     chrome.storage.local.get('docBinding_v1', (r) => {
@@ -154,6 +165,9 @@ export default function App() {
       if (b?.mode) setDocMode(b.mode)
       if (b?.pinned?.token) setPinned(b.pinned)
     })
+    // Load the persisted recent-files list before enabling recording (recentReady gate
+    // below) so a ctx update that fires first can't clobber the loaded list.
+    void loadRecent().then((files) => { setRecentFiles(files); setRecentReady(true) })
   }, [])
   const applyDocBinding = useCallback(
     (mode: 'follow' | 'pin', pin: { token: string; title: string; kind: string } | null) => {
@@ -182,26 +196,38 @@ export default function App() {
   const sessions = useSessions(effectiveResource, chatStreaming, resolvedDocKind)
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions
 
-  // follow mode: when the active tab drifts to a DIFFERENT doc than the active session is
-  // bound to, HOLD the session and prompt instead of silently jumping. The hold must apply
-  // EVEN while streaming — otherwise the moment streaming ends, useSessions' auto-switch
-  // fires on the new tab before this effect re-runs to hold it (the task-2 jump). The prompt
-  // itself is deferred until the reply finishes. Empty sessions follow silently; switching
-  // back to the session's own doc clears the hold (popup auto-dismiss).
+  // follow mode: when the active session is bound to a DIFFERENT doc than the live tab,
+  // HOLD it there so useSessions' auto-switch can't yank it back. This covers BOTH a tab
+  // change (the original case) AND a manual history-drawer switch to another doc's session —
+  // the latter used to revert on the next ctx refresh because the hold only re-ran on tab
+  // change. The switch-doc PROMPT, though, fires only on a real tab/page change: a manual
+  // drawer pick is deliberate, so we don't badger the user with "switch doc?" for those.
+  // Hold applies EVEN while streaming (else the moment it ends, auto-switch jumps before this
+  // re-runs). Empty sessions follow silently; switching back to the session's own doc clears
+  // the hold (popup auto-dismiss).
+  const prevLiveRef = useRef<string | null>(liveResource)
   useEffect(() => {
-    if (docMode !== 'follow') { setHeldResource(null); setPendingSwitch(null); return }
+    if (docMode !== 'follow') { setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     const sess = sessionsRef.current
     const sessionTok = sess.activeSession?.appToken ?? null
+    const liveChanged = liveResource !== prevLiveRef.current
+    prevLiveRef.current = liveResource
     if (!sessionTok || liveResource === sessionTok) {
       setHeldResource(null); setPendingSwitch(null); return
     }
-    if (sess.messages.length === 0) { setHeldResource(null); setPendingSwitch(null); return }
+    // On a tab/page change, an empty session follows silently (no hold, no prompt). A MANUAL
+    // drawer switch holds regardless — the user picked that session deliberately, and its
+    // messages may still be loading (briefly length 0), so we must not skip the hold on that.
+    if (liveChanged && sess.messages.length === 0) { setHeldResource(null); setPendingSwitch(null); return }
+    // Hold the session on its own doc — this is what makes a manual drawer switch to another
+    // doc's session actually STICK (effectiveResource follows the session, not the live tab).
     setHeldResource(sessionTok)
-    // Off a Feishu page, or mid-reply → hold silently, don't prompt yet.
-    if (!liveResource || chatStreaming) { setPendingSwitch(null); return }
+    // Prompt ONLY on a real tab/page change. A manual session switch (liveChanged false) is
+    // deliberate → no dialog. Off a Feishu page, or mid-reply → hold silently, don't prompt yet.
+    if (!liveChanged || !liveResource || chatStreaming) { setPendingSwitch(null); return }
     setPendingSwitch({ to: liveResource })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveResource, docMode, chatStreaming])
+  }, [liveResource, docMode, chatStreaming, sessions.activeSession?.appToken])
   const [network, setNetwork] = useState<NetworkState>(HAS_NETWORK_RESTRICTION ? 'checking' : 'allowed')
   const [blockedIPs, setBlockedIPs] = useState<string[]>([])
 
@@ -236,9 +262,17 @@ export default function App() {
         : { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
       : ctx
 
-  const handlePickDoc = useCallback((token: string, title: string, kind: string) => {
+  // Pin a doc as the work doc + bump it to the top of the recent list. Shared by the
+  // doc-selector dropdown (onPickDoc) and the cross-doc session-switch confirm.
+  const setWorkDoc = useCallback((token: string, title: string, kind: string) => {
     applyDocBinding('pin', { token, title, kind })
     setHeldResource(null); setPendingSwitch(null)
+    setRecentFiles((prev) => {
+      const next = upsertRecent(prev, { token, title, kind: kind as SessionKind })
+      if (next === prev) return prev
+      void saveRecent(next)
+      return next
+    })
   }, [applyDocBinding])
   const handleFollowTabs = useCallback(() => {
     applyDocBinding('follow', null)
@@ -376,17 +410,73 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docMode, pinned?.kind, pinned?.token, settings.feishuAccessToken])
 
-  // Direct /docx/ pages (no wiki): fetch the REAL doc title via API and use it as the name —
-  // mirrors how Base pages resolve appName. Without this, the doc name falls back to the SPA's
-  // document.title, which on some private/on-prem deploys is the raw URL (the "name = full URL"
-  // bug). Wiki-resolved docs already get their title from getWikiNode, so skip those.
-  const docId = ctx.feishu?.kind === 'doc' && !ctx.feishu.wikiToken ? ctx.feishu.documentId : undefined
+  // Resolve a wiki node to its real resource KIND (doc/sheet/base) — shared by the doc-
+  // selector dropdown (to classify open wiki-wrapped tabs) and the history drawer (to show
+  // the right doc-type icon on wiki-bound sessions). Reuses the follow-mode wiki cache, so
+  // the focused tab's kind is already known. Returns undefined when it isn't doc/sheet/base
+  // (ppt / mindnote / …) or the lookup fails — callers keep such wikis under 文档 as a fallback.
+  const resolveWikiKind = useCallback(async (wikiToken: string): Promise<SessionKind | undefined> => {
+    const cached = wikiCacheRef.current.get(wikiToken)
+    if (cached?.kind && cached.kind !== 'wiki') return cached.kind
+    try {
+      const res = (await API.getWikiNode(await resolveToken(settings), wikiToken)) as {
+        node?: { obj_type: string; obj_token: string }
+      }
+      const n = res.node
+      if (!n) return undefined
+      const f = wikiToFeishu(n.obj_type, n.obj_token)
+      if (!f) return undefined
+      wikiCacheRef.current.set(wikiToken, { ...f, wikiToken })
+      return f.kind
+    } catch {
+      return undefined
+    }
+  }, [settings])
+
+  // ── History-drawer session pick ──────────────────────────────────────────────
+  // A session bound to the SAME doc as the current work doc switches straight in. A
+  // cross-doc pick prompts first: the work doc must switch to that session's doc or the
+  // chat can't follow it (in follow mode the view reverts to the live tab; in pin mode
+  // the agent would operate on the wrong doc). Confirm → pin the session's doc + switch.
+  const switchSession = sessions.switchTo
+  const handlePickSession = useCallback((session: SessionMeta) => {
+    const workToken = docMode === 'pin' ? (pinned?.token ?? null) : liveResource
+    if (!session.appToken || session.appToken === workToken) {
+      switchSession(session.id)
+      setDrawerOpen(false)
+      return
+    }
+    setPendingSessionSwitch(session)
+  }, [docMode, pinned?.token, liveResource, switchSession])
+
+  const confirmSessionSwitch = useCallback(() => {
+    const s = pendingSessionSwitch
+    setPendingSessionSwitch(null)
+    if (!s?.appToken) return
+    // The session's appToken is a wikiToken iff the follow-mode wiki cache holds it — a
+    // wiki session's `kind` may already be upgraded to its real type by stampKind, but it
+    // must still PIN as 'wiki' so pinnedFeishu resolves it (else wikiToken is misread as a
+    // documentId/appToken and the agent hits the wrong resource).
+    const cached = wikiCacheRef.current.get(s.appToken)
+    const pinKind: SessionKind = cached ? 'wiki' : (s.kind ?? 'doc')
+    switchSession(s.id)
+    setWorkDoc(s.appToken, s.title, pinKind)
+    setDrawerOpen(false)
+  }, [pendingSessionSwitch, switchSession, setWorkDoc])
+
+  // /docx/ pages: fetch the REAL doc title via API and use it as the name — mirrors how Base
+  // pages resolve appName. Without this, the doc name falls back to the SPA's document.title,
+  // which on some private/on-prem deploys is the raw URL (the "name = full URL" bug). This
+  // covers BOTH direct /docx/ docs AND wiki-wrapped docs (once resolved, they have a real
+  // documentId) — re-fetching on every visit so a rename in Feishu syncs into the history.
+  // The cache only gives an instant apply while the fresh fetch resolves.
+  const docId = ctx.feishu?.kind === 'doc' ? ctx.feishu.documentId : undefined
   useEffect(() => {
     if (!docId) return
-    const cached = docTitleCacheRef.current.get(docId)
     const applyTitle = (t: string) => setCtx((c) =>
       c.feishu?.kind === 'doc' && c.feishu.documentId === docId ? { ...c, title: t } : c)
-    if (cached) { applyTitle(cached); return }
+    const cached = docTitleCacheRef.current.get(docId)
+    if (cached) applyTitle(cached) // instant — the fresh fetch below corrects it if the doc was renamed
     let cancelled = false
     void (async () => {
       try {
@@ -399,15 +489,16 @@ export default function App() {
   }, [docId, settings])
 
   // Spreadsheet pages: fetch the real title via API too (same reason as docx — the SPA
-  // document.title is unreliable on private/on-prem deploys). Cached under a 'sheet:' key.
+  // document.title is unreliable on private/on-prem deploys). Re-fetched on every visit so a
+  // rename syncs into the history; cached under a 'sheet:' key for an instant apply.
   const sheetToken = ctx.feishu?.kind === 'sheet' ? ctx.feishu.spreadsheetToken : undefined
   useEffect(() => {
     if (!sheetToken) return
     const cacheKey = 'sheet:' + sheetToken
-    const cached = docTitleCacheRef.current.get(cacheKey)
     const applyTitle = (t: string) => setCtx((c) =>
       c.feishu?.kind === 'sheet' && c.feishu.spreadsheetToken === sheetToken ? { ...c, title: t } : c)
-    if (cached) { applyTitle(cached); return }
+    const cached = docTitleCacheRef.current.get(cacheKey)
+    if (cached) applyTitle(cached)
     let cancelled = false
     void (async () => {
       try {
@@ -462,6 +553,41 @@ export default function App() {
     const name = cleanDocTitle(ctx.title)
     if (name) resolveTitle(token, name, fz?.kind)
   }, [ctx.feishu, ctx.title, sessionsReady, activeSessionId, resolveTitle])
+
+  // Record the focused Feishu resource into the recent-files list (doc / sheet / base;
+  // an unresolved wiki is skipped so its transient "知识库" title isn't recorded — wait
+  // for resolution). A wiki-wrapped resource records kind 'wiki' (token = wikiToken) so a
+  // later pin resolves it correctly. Gated on recentReady to not clobber the loaded list.
+  useEffect(() => {
+    if (!recentReady) return
+    const f = ctx.feishu
+    if (!f?.kind || f.kind === 'ppt' || f.kind === 'wiki') return
+    const token = f.wikiToken ?? f.appToken ?? f.spreadsheetToken ?? f.documentId
+    if (!token) return
+    const pinKind: SessionKind = f.wikiToken ? 'wiki' : f.kind
+    const title = cleanDocTitle(ctx.title)
+      || (pinKind === 'sheet' ? '未命名表格' : pinKind === 'base' ? '未命名多维表格' : '未命名文档')
+    setRecentFiles((prev) => {
+      const next = upsertRecent(prev, { token, title, kind: pinKind })
+      if (next === prev) return prev
+      void saveRecent(next)
+      return next
+    })
+  }, [ctx.feishu, ctx.title, recentReady])
+
+  // Ensure the pinned work doc is always in the recent list — a pin restored from storage
+  // on mount (not via setWorkDoc) wouldn't be recorded otherwise, so it'd be missing from
+  // the dropdown even though it's the active work doc. Cheap upsert; no-op when already top.
+  useEffect(() => {
+    if (!recentReady || !pinned?.token) return
+    const p = pinned
+    setRecentFiles((prev) => {
+      const next = upsertRecent(prev, { token: p.token, title: p.title, kind: p.kind as SessionKind })
+      if (next === prev) return prev
+      void saveRecent(next)
+      return next
+    })
+  }, [recentReady, pinned?.token, pinned?.title, pinned?.kind])
 
   useEffect(() => {
     // ── Network check ────────────────────────────────────────────────────────
@@ -794,15 +920,17 @@ export default function App() {
               setMessagesFor={sessions.setMessagesFor}
               activeSessionId={sessions.activeSession?.id}
               onStreamingChange={setChatStreaming}
-              onBaseName={(appToken, name) => sessions.resolveTitle(appToken, name, 'base')}
+              onBaseName={(appToken, name) => sessions.resolveTitle(ctx.feishu?.wikiToken ?? appToken, name, 'base')}
               sessionTitle={docMode === 'pin' && pinned ? pinned.title : sessions.activeSession?.title}
               onOpenSessions={() => setDrawerOpen(true)}
               onNewSession={handleNewSession}
               chatBusy={chatStreaming}
               docMode={docMode}
               docActiveToken={docMode === 'pin' ? pinned?.token ?? null : sessions.activeSession?.appToken ?? null}
-              onPickDoc={handlePickDoc}
+              onPickDoc={setWorkDoc}
               onFollowTabs={handleFollowTabs}
+              resolveWikiKind={resolveWikiKind}
+              recentFiles={recentFiles}
             />
           ) : (
             <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} />
@@ -814,7 +942,13 @@ export default function App() {
       </div>
 
       {drawerOpen && (
-        <SessionDrawer sessions={sessions} busy={chatStreaming} onClose={() => setDrawerOpen(false)} />
+        <SessionDrawer
+          sessions={sessions}
+          busy={chatStreaming}
+          onClose={() => setDrawerOpen(false)}
+          resolveWikiKind={resolveWikiKind}
+          onPickSession={handlePickSession}
+        />
       )}
 
       {pendingSwitch && !chatStreaming && (
@@ -823,6 +957,14 @@ export default function App() {
           onNew={handleSwitchNew}
           onStay={handleSwitchStay}
           onCancel={handleSwitchStay}
+        />
+      )}
+
+      {pendingSessionSwitch && (
+        <SwitchSessionDialog
+          docTitle={pendingSessionSwitch.title}
+          onConfirm={confirmSessionSwitch}
+          onCancel={() => setPendingSessionSwitch(null)}
         />
       )}
     </div>

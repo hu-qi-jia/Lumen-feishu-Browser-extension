@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
 import {
   emptyIndex, ensureSession, removeSession, capSessions, MAX_SESSIONS,
-  previewFromMessages, groupSessions, GENERAL_GROUP_KEY,
+  previewFromMessages, groupSessions, stampKind, resolveSessionTitle, GENERAL_GROUP_KEY,
 } from './logic'
 
 // Deterministic id generator for assertions.
@@ -144,6 +144,76 @@ describe('capSessions — bound the number of conversation WINDOWS (not messages
   it('defaults to MAX_SESSIONS (20)', () => {
     expect(MAX_SESSIONS).toBe(20)
     expect(capSessions(mk(Array.from({ length: 25 }, (_, i) => sess(`s${i}`, i)))).idx.sessions).toHaveLength(20)
+  })
+})
+
+describe('stampKind', () => {
+  it('upgrades an unresolved wiki session to its real kind', () => {
+    const wiki = ensureSession(emptyIndex(), 'wikiA', ids(), 'wiki').idx
+    const out = stampKind(wiki, 'wikiA', 'base')
+    expect(out.sessions.find((s) => s.appToken === 'wikiA')?.kind).toBe('base')
+  })
+
+  it('is a no-op when the session already has that kind', () => {
+    const base = ensureSession(emptyIndex(), 'appA', ids(), 'base').idx
+    expect(stampKind(base, 'appA', 'base')).toBe(base) // returned unchanged
+  })
+
+  it('is a no-op for an unknown appToken', () => {
+    const base = ensureSession(emptyIndex(), 'appA', ids(), 'base').idx
+    expect(stampKind(base, 'unknown', 'sheet')).toBe(base)
+  })
+
+  it('overwrites a concrete kind with a new one (re-classification)', () => {
+    const sheet = ensureSession(emptyIndex(), 'appA', ids(), 'sheet').idx
+    const out = stampKind(sheet, 'appA', 'base')
+    expect(out.sessions.find((s) => s.appToken === 'appA')?.kind).toBe('base')
+  })
+})
+
+describe('resolveSessionTitle', () => {
+  it('backfills a placeholder title with the real name', () => {
+    const idx = ensureSession(emptyIndex(), 'appA', ids()).idx // placeholder title, unresolved
+    const out = resolveSessionTitle(idx, 'appA', 'Q3 季度报告')
+    expect(out.sessions.find((s) => s.appToken === 'appA')?.title).toBe('Q3 季度报告')
+    expect(out.sessions.find((s) => s.appToken === 'appA')?.titleResolved).toBe(true)
+  })
+
+  it('refreshes an already-resolved title when the doc was renamed', () => {
+    // The history-sync case: title was resolved once, then the doc got renamed in Feishu.
+    let idx = ensureSession(emptyIndex(), 'appA', ids()).idx
+    idx = resolveSessionTitle(idx, 'appA', '旧名称')
+    expect(idx.sessions[0].title).toBe('旧名称')
+    const out = resolveSessionTitle(idx, 'appA', '新名称')
+    expect(out.sessions[0].title).toBe('新名称')
+  })
+
+  it('does NOT overwrite a manually renamed session (titleCustom)', () => {
+    let idx = ensureSession(emptyIndex(), 'appA', ids()).idx
+    // Simulate a hand rename: title + titleCustom flag set by renameSession.
+    idx = {
+      ...idx,
+      sessions: idx.sessions.map((s) => ({ ...s, title: '我的笔记', titleResolved: true, titleCustom: true })),
+    }
+    const out = resolveSessionTitle(idx, 'appA', 'API 返回的名称')
+    expect(out).toBe(idx) // unchanged — the user's custom name is preserved
+    expect(out.sessions[0].title).toBe('我的笔记')
+  })
+
+  it('stamps the kind alongside the title', () => {
+    const idx = ensureSession(emptyIndex(), 'appA', ids()).idx
+    const out = resolveSessionTitle(idx, 'appA', '名称', 'sheet')
+    expect(out.sessions[0].kind).toBe('sheet')
+  })
+
+  it('is a no-op when the title is unchanged and no kind is given', () => {
+    const idx = resolveSessionTitle(ensureSession(emptyIndex(), 'appA', ids()).idx, 'appA', '名称')
+    expect(resolveSessionTitle(idx, 'appA', '名称')).toBe(idx)
+  })
+
+  it('is a no-op for an unknown appToken', () => {
+    const idx = ensureSession(emptyIndex(), 'appA', ids()).idx
+    expect(resolveSessionTitle(idx, 'unknown', '名称')).toBe(idx)
   })
 })
 

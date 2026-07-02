@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
 import * as store from './store'
-import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, capSessions, previewFromMessages } from './logic'
+import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, capSessions, previewFromMessages, stampKind as stampKindPure, resolveSessionTitle as resolveSessionTitlePure } from './logic'
 
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
@@ -31,6 +31,10 @@ export interface SessionsApi {
   /** Backfill a document session's placeholder title with the real Base name, and/or stamp
    *  its Feishu resource kind (for the doc icon in the history list). */
   resolveTitle: (appToken: string, title: string, kind?: SessionKind) => void
+  /** Stamp a Feishu resource kind onto the session bound to `appToken` (no title change).
+   *  Upgrades an unresolved 'wiki' session to its real type (base/sheet/doc) once resolved,
+   *  so the history drawer can show the right doc-type icon without a visit. */
+  stampKind: (appToken: string, kind: SessionKind) => void
 }
 
 /**
@@ -188,16 +192,13 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
     if (id) setMessagesFor(id, u)
   }, [setMessagesFor])
 
+  // Switch the active session to `id` and load its messages. A manual switch (history
+  // drawer) must land and STICK — App's hold effect engages `heldResource` so follow-mode's
+  // auto-switch can't yank the view back to the live tab's session on the next ctx refresh.
   const switchTo = useCallback((id: string) => {
     const idx = indexRef.current
-    if (!idx.sessions.some((s) => s.id === id) || idx.activeId === id) {
-      if (idx.activeId !== id && idx.sessions.some((s) => s.id === id)) {
-        persistIndex({ ...idx, activeId: id })
-      }
-      void loadInto(id)
-      return
-    }
-    persistIndex({ ...idx, activeId: id })
+    if (!idx.sessions.some((s) => s.id === id)) return // unknown id — no-op
+    if (idx.activeId !== id) persistIndex({ ...idx, activeId: id })
     void loadInto(id)
   }, [persistIndex, loadInto])
 
@@ -239,7 +240,8 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
     const idx = indexRef.current
     persistIndex({
       ...idx,
-      sessions: idx.sessions.map((s) => (s.id === id ? { ...s, title: t, titleResolved: true } : s)),
+      // titleCustom marks a hand-set name — later auto-sync (a doc rename) must not overwrite it.
+      sessions: idx.sessions.map((s) => (s.id === id ? { ...s, title: t, titleResolved: true, titleCustom: true } : s)),
     })
   }, [persistIndex])
 
@@ -259,30 +261,17 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
   }, [persistIndex])
 
   const resolveTitle = useCallback((appToken: string, title: string, kind?: SessionKind) => {
-    const idx = indexRef.current
-    const id = idx.byAppToken[appToken]
-    if (!id) return
-    const target = idx.sessions.find((s) => s.id === id)
-    if (!target) return
-    const titleNeeds = !target.titleResolved && target.title !== title
-    const kindNeeds = !!kind && target.kind !== kind
-    if (!titleNeeds && !kindNeeds) return
-    persistIndex({
-      ...idx,
-      sessions: idx.sessions.map((s) => {
-        if (s.id !== id) return s
-        const next = { ...s }
-        if (titleNeeds) { next.title = title; next.titleResolved = true }
-        if (kindNeeds && kind) next.kind = kind
-        return next
-      }),
-    })
+    persistIndex(resolveSessionTitlePure(indexRef.current, appToken, title, kind))
+  }, [persistIndex])
+
+  const stampKind = useCallback((appToken: string, kind: SessionKind) => {
+    persistIndex(stampKindPure(indexRef.current, appToken, kind))
   }, [persistIndex])
 
   const activeSession = index.sessions.find((s) => s.id === index.activeId) ?? null
 
   return {
     ready, index, activeSession, messages,
-    setMessages, setMessagesFor, switchTo, createSession, removeSession, renameSession, rebindSession, resolveTitle,
+    setMessages, setMessagesFor, switchTo, createSession, removeSession, renameSession, rebindSession, resolveTitle, stampKind,
   }
 }

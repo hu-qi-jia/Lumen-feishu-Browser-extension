@@ -126,6 +126,50 @@ export function removeSession(
   return { idx: { ...next, activeId }, activeId }
 }
 
+/**
+ * Stamp a Feishu resource kind onto the session bound to `appToken` (no-op if the session
+ * is missing or already has that kind). Pure → unit-testable like the other reducers.
+ * Used by the history drawer to upgrade an unresolved 'wiki' session to its real type.
+ */
+export function stampKind(idx: SessionIndex, appToken: string, kind: SessionKind): SessionIndex {
+  const id = idx.byAppToken[appToken]
+  if (!id) return idx
+  const target = idx.sessions.find((s) => s.id === id)
+  if (!target || target.kind === kind) return idx
+  return { ...idx, sessions: idx.sessions.map((s) => (s.id === id ? { ...s, kind } : s)) }
+}
+
+/**
+ * Backfill or REFRESH the title of the session bound to `appToken`, and optionally stamp its
+ * kind. Unlike a one-shot backfill, the title updates whenever it differs — so a doc/sheet
+ * renamed in Feishu syncs into the history on the next visit. A manually renamed session
+ * (`titleCustom`) is left alone: the user chose that name by hand. Pure → unit-testable.
+ */
+export function resolveSessionTitle(
+  idx: SessionIndex,
+  appToken: string,
+  title: string,
+  kind?: SessionKind,
+): SessionIndex {
+  const id = idx.byAppToken[appToken]
+  if (!id) return idx
+  const target = idx.sessions.find((s) => s.id === id)
+  if (!target) return idx
+  const titleNeeds = !target.titleCustom && target.title !== title
+  const kindNeeds = !!kind && target.kind !== kind
+  if (!titleNeeds && !kindNeeds) return idx
+  return {
+    ...idx,
+    sessions: idx.sessions.map((s) => {
+      if (s.id !== id) return s
+      const next = { ...s }
+      if (titleNeeds) { next.title = title; next.titleResolved = true }
+      if (kindNeeds && kind) next.kind = kind
+      return next
+    }),
+  }
+}
+
 // ── History drawer support ────────────────────────────────────────────────────
 
 /** Truncate the first user message into a one-line preview (powers the row subtitle

@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { parseFeishuContext, cleanDocTitle } from '../../shared/feishu/pageUrl'
+import type { SessionKind } from '../../shared/types'
+import type { RecentFile } from '../recentFiles'
 import './DocSelector.css'
-
-type FeishuKind = 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt'
-
-interface DocOption {
-  token: string
-  title: string
-  kind: FeishuKind
-}
 
 interface Props {
   mode: 'follow' | 'pin'
@@ -16,42 +9,23 @@ interface Props {
   currentTitle: string
   /** Active resource token — marks the selected option in the menu. */
   activeToken: string | null
-  /** Pin a specific open document as the working doc. */
+  /** Pin a specific document as the working doc. */
   onPickDoc: (token: string, title: string, kind: string) => void
   /** Switch to "follow the active tab" mode. */
   onFollow: () => void
+  /** The most recently opened Feishu resources (doc / sheet / base, incl. closed tabs).
+   *  Persisted across tab closes — this is what the dropdown lists instead of live tabs. */
+  recentFiles: RecentFile[]
+  /** Resolve a wiki-wrapped resource to its real kind so its icon is right (a wiki-Base
+   *  shows the base icon). The pin still uses 'wiki' so pinnedFeishu resolves it on pin. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
 }
 
-// Map a Feishu resource to a single stable token (matches the session-binding key in App:
-// wikiToken ?? appToken ?? spreadsheetToken ?? documentId ?? slideToken).
-function resourceToken(f: ReturnType<typeof parseFeishuContext>): string | null {
-  if (!f) return null
-  return f.wikiToken ?? f.appToken ?? f.spreadsheetToken ?? f.documentId ?? f.slideToken ?? null
-}
-
-// Default label when a tab's title can't be cleaned (URL / placeholder) — kind-specific
-// reads better than a generic "未命名文档" for every type.
-function kindLabel(kind: FeishuKind): string {
-  if (kind === 'sheet') return '未命名表格'
-  if (kind === 'base') return '未命名多维表格'
-  if (kind === 'ppt') return '未命名演示文稿'
-  return '未命名文档'
-}
-
-// Category metadata: each FeishuKind maps to a labeled group so the dropdown reads as
-// typed sections (文档 / 多维表格 / 表格 / 演示文稿) instead of a flat mixed list. Wiki
-// wraps another type (usually a doc) → grouped under 文档.
-const CATEGORY_ORDER: { label: string; kinds: FeishuKind[] }[] = [
-  { label: '文档', kinds: ['doc', 'wiki'] },
-  { label: '多维表格', kinds: ['base'] },
-  { label: '表格', kinds: ['sheet'] },
-  { label: '演示文稿', kinds: ['ppt'] },
-]
-
-// Distinct line icons per Feishu resource type, so sheet / base / doc / slides are scannable
-// at a glance in the dropdown. Wiki wraps another type (usually a doc) → doc icon.
-// Exported — the session history drawer reuses the same icons to group by document.
-export function KindIcon({ kind }: { kind: FeishuKind }) {
+// Distinct line icons per Feishu resource type, so sheet / base / doc are scannable at a
+// glance. Wiki wraps another type (usually a doc) → its real icon is resolved at render
+// for display, but defaults to the doc icon here. Exported — the session history drawer
+// reuses these to group by document.
+export function KindIcon({ kind }: { kind: SessionKind }) {
   if (kind === 'sheet') {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -73,16 +47,6 @@ export function KindIcon({ kind }: { kind: FeishuKind }) {
       </svg>
     )
   }
-  if (kind === 'ppt') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="12" rx="2" />
-        <path d="M12 16v4" />
-        <path d="M8 20h8" />
-        <path d="M8 10l3 2 5-4" />
-      </svg>
-    )
-  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 3v4a1 1 0 0 0 1 1h4" />
@@ -92,36 +56,36 @@ export function KindIcon({ kind }: { kind: FeishuKind }) {
 }
 
 /**
- * Working-document selector for the chat topbar. Shows the current working doc + binding mode,
- * and drops down to: pin any open Feishu tab as the working doc, or switch to "follow tabs".
- * Open tabs are enumerated live via chrome.tabs.query when the menu opens.
+ * Working-document selector for the chat topbar. Shows the current working doc + binding
+ * mode, and drops down to: pin any recently-opened Feishu resource as the working doc,
+ * or switch to "follow tabs". The recent list persists across tab closes (unlike a live
+ * chrome.tabs query), so closed docs stay reachable.
  */
-export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc, onFollow }: Props) {
+export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc, onFollow, recentFiles, resolveWikiKind }: Props) {
   const [open, setOpen] = useState(false)
-  const [docs, setDocs] = useState<DocOption[]>([])
+  // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows
+  // the base icon). The pin still uses 'wiki' (the stored kind) so it resolves on pin.
+  const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // Enumerate open Feishu tabs (current window) when the menu opens.
+  // Resolve wiki display kinds when the menu opens. Bounded by the wiki-typed recent
+  // count (usually 0–2); resolveWikiKind serves from the follow-mode cache when possible.
   useEffect(() => {
     if (!open) return
-    if (!chrome.tabs?.query) return // dev/test runtime without the tabs API
+    const wikiTokens = recentFiles.filter((d) => d.kind === 'wiki').map((d) => d.token)
+    if (!wikiTokens.length || !resolveWikiKind) return
     let cancelled = false
-    void chrome.tabs.query({ currentWindow: true }).then((tabs) => {
+    void Promise.all(wikiTokens.map(async (tok) => {
+      const real = await resolveWikiKind(tok)
+      return real && real !== 'wiki' ? ([tok, real] as const) : null
+    })).then((entries) => {
       if (cancelled) return
-      const seen = new Set<string>()
-      const list: DocOption[] = []
-      for (const t of tabs) {
-        const f = parseFeishuContext(t.url ?? '')
-        const token = resourceToken(f)
-        if (!token || seen.has(token)) continue
-        seen.add(token)
-        const title = cleanDocTitle(t.title ?? '') || kindLabel(f?.kind ?? 'doc')
-        list.push({ token, title, kind: (f?.kind ?? 'doc') as FeishuKind })
-      }
-      setDocs(list)
-    }).catch(() => { /* no tabs access — show empty state */ })
+      const m: Record<string, SessionKind> = {}
+      for (const e of entries) if (e) m[e[0]] = e[1]
+      setWikiKinds(m)
+    }).catch(() => { /* leave wiki icons as the doc fallback */ })
     return () => { cancelled = true }
-  }, [open])
+  }, [open, recentFiles, resolveWikiKind])
 
   // Close on outside click.
   useEffect(() => {
@@ -132,6 +96,9 @@ export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
+
+  const displayKind = (d: RecentFile): SessionKind =>
+    d.kind === 'wiki' ? (wikiKinds[d.token] ?? 'doc') : d.kind
 
   return (
     <div className="doc-selector" ref={wrapRef}>
@@ -169,43 +136,39 @@ export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc
             </span>
           </button>
 
-          {docs.length > 0 && <div className="doc-selector-sep" />}
-          {CATEGORY_ORDER.map((cat) => {
-            const items = docs.filter((d) => cat.kinds.includes(d.kind))
-            if (items.length === 0) return null
-            return (
-              <div className="doc-selector-group" key={cat.label}>
-                <div className="doc-selector-group-label">{cat.label}</div>
-                {items.map((d) => {
-                  const selected = mode === 'pin' && activeToken === d.token
-                  return (
-                    <button
-                      key={d.token}
-                      className={`doc-selector-item${selected ? ' doc-selector-item--active' : ''}`}
-                      onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
-                      type="button"
-                      title={d.title}
-                    >
-                      <span className="doc-selector-item-icon" aria-hidden="true">
-                        <KindIcon kind={d.kind} />
-                      </span>
-                      <span className="doc-selector-item-text">
-                        <span className="doc-selector-item-title">{d.title}</span>
-                      </span>
-                      {selected && (
-                        <svg className="doc-selector-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })}
+          {recentFiles.length > 0 && <div className="doc-selector-sep" />}
+          {recentFiles.length > 0 && (
+            <div className="doc-selector-group">
+              <div className="doc-selector-group-label">最近打开</div>
+              {recentFiles.map((d) => {
+                const selected = mode === 'pin' && activeToken === d.token
+                return (
+                  <button
+                    key={d.token}
+                    className={`doc-selector-item${selected ? ' doc-selector-item--active' : ''}`}
+                    onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
+                    type="button"
+                    title={d.title}
+                  >
+                    <span className="doc-selector-item-icon" aria-hidden="true">
+                      <KindIcon kind={displayKind(d)} />
+                    </span>
+                    <span className="doc-selector-item-text">
+                      <span className="doc-selector-item-title">{d.title}</span>
+                    </span>
+                    {selected && (
+                      <svg className="doc-selector-item-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
-          {docs.length === 0 && (
-            <div className="doc-selector-empty">没有打开的飞书文档</div>
+          {recentFiles.length === 0 && (
+            <div className="doc-selector-empty">打开飞书文档后会显示在这里</div>
           )}
         </div>
       )}

@@ -1,0 +1,46 @@
+import { describe, it, expect } from 'vitest'
+import { upsertRecent, MAX_RECENT } from './recentFiles'
+import type { RecentFile } from './recentFiles'
+
+const f = (token: string, title: string, kind: RecentFile['kind'], seen: number): RecentFile =>
+  ({ token, title, kind, seen })
+
+describe('upsertRecent', () => {
+  it('prepends a new file', () => {
+    expect(upsertRecent([], { token: 'a', title: 'A', kind: 'doc' }, 100)).toEqual([
+      f('a', 'A', 'doc', 100),
+    ])
+  })
+
+  it('moves an existing file to the front and refreshes its title + seen', () => {
+    const files = [f('a', 'A', 'doc', 1), f('b', 'B', 'sheet', 2)]
+    const out = upsertRecent(files, { token: 'a', title: 'A2', kind: 'doc' }, 99)
+    expect(out).toEqual([f('a', 'A2', 'doc', 99), f('b', 'B', 'sheet', 2)])
+  })
+
+  it('is a no-op (same ref) when the entry is already top with the same title', () => {
+    const files = [f('a', 'A', 'doc', 1)]
+    expect(upsertRecent(files, { token: 'a', title: 'A', kind: 'doc' }, 99)).toBe(files)
+  })
+
+  it('caps at MAX_RECENT, dropping the oldest (tail)', () => {
+    const files = Array.from({ length: MAX_RECENT }, (_, i) => f(`t${i}`, `T${i}`, 'doc', i))
+    const out = upsertRecent(files, { token: 'new', title: 'N', kind: 'sheet' }, 999)
+    expect(out).toHaveLength(MAX_RECENT)
+    expect(out[0].token).toBe('new')
+    expect(out.find((x) => x.token === `t${MAX_RECENT - 1}`)).toBeUndefined()
+  })
+
+  it('keeps each entry kind independent (wiki stays wiki for pin correctness)', () => {
+    const out = upsertRecent([f('a', 'A', 'doc', 1)], { token: 'w', title: 'W', kind: 'wiki' }, 2)
+    expect(out[0].kind).toBe('wiki')
+    expect(out[1].kind).toBe('doc')
+  })
+
+  it('dedupes by token even across different kinds', () => {
+    const files = [f('a', 'A', 'doc', 1), f('b', 'B', 'sheet', 2)]
+    const out = upsertRecent(files, { token: 'b', title: 'B2', kind: 'sheet' }, 3)
+    expect(out.filter((x) => x.token === 'b')).toHaveLength(1)
+    expect(out[0].token).toBe('b')
+  })
+})

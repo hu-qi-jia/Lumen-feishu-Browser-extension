@@ -104,6 +104,9 @@ export interface SessionMeta {
   messageCount: number
   /** Whether `title` has been filled from the real Base appName (vs a placeholder). */
   titleResolved: boolean
+  /** True when the user manually renamed the session — auto-sync (a doc rename) must not
+   *  overwrite a name the user chose by hand. */
+  titleCustom?: boolean
   /** Feishu resource kind — drives the doc icon when grouping the history by document.
    *  Undefined on legacy sessions created before this field existed. */
   kind?: SessionKind
