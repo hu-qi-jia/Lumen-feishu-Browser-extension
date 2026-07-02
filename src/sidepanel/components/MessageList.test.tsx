@@ -155,7 +155,7 @@ describe('MessageList — resource-aware welcome capabilities', () => {
     render(<MessageList messages={[]} kind="sheet" />)
     // Unified welcome: no per-type title, just resource-specific example chips.
     expect(screen.queryByText('电子表格助手')).toBeNull()
-    expect(screen.getByText(/工作表/)).toBeTruthy()
+    expect(screen.getByText(/写表头/)).toBeTruthy()
   })
 
   it('shows Doc examples (no title/sub) when on a doc', () => {
@@ -166,9 +166,15 @@ describe('MessageList — resource-aware welcome capabilities', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
-  it('offers 10 quick actions per resource type', () => {
+  it('offers 3 quick actions per resource type', () => {
     render(<MessageList messages={[]} kind="sheet" onExample={() => {}} />)
-    expect(screen.getAllByRole('button')).toHaveLength(10)
+    expect(screen.getAllByRole('button')).toHaveLength(3)
+  })
+
+  it('shows ppt examples when on a slides page', () => {
+    render(<MessageList messages={[]} kind="ppt" />)
+    expect(screen.getByText(/演示文稿/)).toBeTruthy()
+    expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
   it('shows base examples when on a base (no title)', () => {

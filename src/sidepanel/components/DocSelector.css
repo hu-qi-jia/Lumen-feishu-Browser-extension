@@ -146,6 +146,24 @@
   background: var(--color-border);
 }
 
+/* ── Category groups (文档 / 多维表格 / 表格 / 演示文稿) ── */
+.doc-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.doc-selector-group + .doc-selector-group {
+  margin-top: 4px;
+}
+.doc-selector-group-label {
+  padding: 5px 8px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
 .doc-selector-empty {
   padding: 10px 8px;
   font-size: 11.5px;

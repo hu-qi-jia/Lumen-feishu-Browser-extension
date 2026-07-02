@@ -3,7 +3,7 @@ import type { ChatMessage } from '../../shared/types'
 import { openUrlInNewTab } from '../../shared/url'
 import './MessageList.css'
 
-type ResourceKind = 'base' | 'sheet' | 'doc'
+type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
 
 interface Props {
   messages: ChatMessage[]
@@ -21,32 +21,25 @@ const GUIDE: Record<ResourceKind | 'none', { examples: string[] }> = {
     examples: [
       '创建一个项目管理表格，含名称、状态、优先级、负责人、截止日期字段，并加 5 条示例数据',
       '在当前表格新增"进度"单选字段：未开始 / 进行中 / 已完成',
-      '给当前表加"数量""单价"字段，再加"小计 = 数量*单价"公式字段',
       '按"状态"分组统计每组的记录数和金额总和',
-      '为当前表创建一个按状态分列的看板视图',
-      '把"状态=待处理"的记录批量改成"进行中"',
-      '找出"邮箱"重复的记录并去重（先预览要删几条）',
-      '用 A 表的"工号"去 B 表匹配，把"部门"回填到 A 表',
-      '把当前数据表导出成一个新的电子表格',
-      '体检这张表：空必填 / 重复值 / 数值异常，生成报告',
     ],
   },
   sheet: {
     examples: [
       '在 A1:C1 写表头"姓名 / 部门 / 工资"，再追加 3 行示例数据',
       '把 C 列 C2:C10 填上 =A{row}*B{row} 公式',
-      '把 D 列设成人民币格式 ¥#,##0.00',
       '读取 A1:D20 的内容给我看',
-      '在 F 列用 =SUM(B{row}:E{row}) 求每行合计',
-      '把 E 列设成百分比格式 0.0%',
-      '在第 1 行上方插入 2 个空行',
-      '新建一个"汇总"工作表',
-      '把选区里的"未完成"全部替换成"进行中"',
-      '删除第 5 到第 8 行',
     ],
   },
   doc: {
     examples: ['总结要点', '加一个代码块示例', '在文末加引用说明'],
+  },
+  ppt: {
+    examples: [
+      '总结这份演示文稿的要点',
+      '为每页幻灯片生成演讲备注',
+      '基于当前内容生成一份配套讲义文档',
+    ],
   },
   none: {
     examples: [
@@ -186,7 +179,7 @@ export default function MessageList({ messages, onExample, kind }: Props) {
 }
 
 function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?: (text: string) => void }) {
-  const g = GUIDE[kind === 'base' || kind === 'sheet' || kind === 'doc' ? kind : 'none']
+  const g = GUIDE[kind === 'base' || kind === 'sheet' || kind === 'doc' || kind === 'ppt' ? kind : 'none']
   return (
     <div className="welcome">
       <div className="welcome-head">

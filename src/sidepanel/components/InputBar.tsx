@@ -13,6 +13,8 @@ interface Props {
   disabled: boolean
   /** True while the AI is generating a reply — shows "生成中……" placeholder + blocks input. */
   busy?: boolean
+  /** Abort the in-flight generation. Send button flips to a stop icon while busy. */
+  onStop?: () => void
   /** Show the voice-input button (Web Speech API). Off for locked/private builds. */
   voiceEnabled?: boolean
   /** The user's current page selection — auto-filled into the box so they can describe an
@@ -40,7 +42,7 @@ const SpeechRecognitionCtor: (new () => SpeechRec) | undefined =
       (window as unknown as { SpeechRecognition?: new () => SpeechRec }).SpeechRecognition)) || undefined
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, voiceEnabled, selection, resourceKind },
+  { onSend, disabled, busy, onStop, voiceEnabled, selection, resourceKind },
   ref,
 ) {
   const [text, setText] = useState('')
@@ -330,23 +332,39 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                 </button>
               </Tooltip>
             )}
-            <Tooltip content="发送 (Enter)">
-              <button
-                className="btn-send-circle"
-                onClick={submit}
-                disabled={blocked || (!text.trim() && attachments.length === 0)}
-                type="button"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
-            </Tooltip>
+            {busy ? (
+              <Tooltip content="停止生成">
+                <button
+                  className="btn-send-circle btn-send-circle--stop"
+                  onClick={() => onStop?.()}
+                  disabled={!onStop}
+                  type="button"
+                  aria-label="停止生成"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              </Tooltip>
+            ) : (
+              <Tooltip content="发送 (Enter)">
+                <button
+                  className="btn-send-circle"
+                  onClick={submit}
+                  disabled={blocked || (!text.trim() && attachments.length === 0)}
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </button>
+              </Tooltip>
+            )}
           </div>
         </div>
       </div>
-      <p className="input-hint">{micError || (listening ? '正在聆听…' : 'Shift+Enter 换行 · Enter 发送')}</p>
+      <p className="input-hint">{micError || (listening ? '正在聆听…' : busy ? '生成中…点击右侧停止' : 'Shift+Enter 换行 · Enter 发送')}</p>
     </div>
   )
 })

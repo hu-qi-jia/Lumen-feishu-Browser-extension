@@ -49,6 +49,12 @@ describe('parseFeishuContext', () => {
     })
   })
 
+  it('detects a Slides (PPT) URL', () => {
+    expect(parseFeishuContext('https://x.feishu.cn/slides/Sld123abc')).toEqual({
+      isBase: false, kind: 'ppt', slideToken: 'Sld123abc',
+    })
+  })
+
   it('returns undefined for non-resource URLs', () => {
     expect(parseFeishuContext('https://feishu.cn/drive/folder/xxx')).toBeUndefined()
     expect(parseFeishuContext('https://example.com')).toBeUndefined()

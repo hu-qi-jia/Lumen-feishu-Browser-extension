@@ -195,6 +195,21 @@
 .btn-send-circle:hover:not(:disabled) { filter: brightness(1.08); transform: scale(1.04); }
 .btn-send-circle:disabled { opacity: .35; cursor: not-allowed; }
 
+/* Stop button — shown while generating. Inverts to a neutral surface so it reads as
+   "interruptible" rather than another action, with a soft pulse to signal it's live. */
+.btn-send-circle--stop {
+  background: var(--color-text);
+  animation: btnStopPulse 1.6s ease-in-out infinite;
+}
+.btn-send-circle--stop:hover:not(:disabled) { filter: brightness(1.15); }
+@keyframes btnStopPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-text) 30%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-text) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-send-circle--stop { animation: none; }
+}
+
 /* Hint line */
 .input-hint {
   font-size: 10.5px;

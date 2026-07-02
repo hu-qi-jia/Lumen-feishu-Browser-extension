@@ -1317,7 +1317,9 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
         ? `\n## 当前页面\n飞书**电子表格**页面，spreadsheet_token=\`${fz.spreadsheetToken}\`。用户说"当前表格/这个表"时即指它——直接用电子表格工具（list_sheets / read_range / write_range / append_rows 等）操作，无需用户再提供 token。`
         : fz?.kind === 'doc'
           ? `\n## 当前页面\n飞书**文档**页面，document_id=\`${fz.documentId}\`。用户说"当前文档/这篇文档"时即指它——直接用文档工具（get_document_content / list_blocks / add_document_content 等）操作，无需用户再提供 id。`
-          : `\n## 当前页面\n非飞书表格/文档页面（${ctx.url}）。若要操作，请先在浏览器中打开对应的多维表格 / 电子表格 / 文档页面。`
+          : fz?.kind === 'ppt'
+            ? `\n## 当前页面\n飞书**演示文稿**页面，slide_token=\`${fz.slideToken}\`。当前没有直接读写幻灯片的工具，但可以帮用户梳理大纲、撰写演讲备注、生成配套讲义文档等。若需要基于该演示文稿的内容操作，请让用户把要点或文本贴出来。`
+            : `\n## 当前页面\n非飞书表格/文档页面（${ctx.url}）。若要操作，请先在浏览器中打开对应的多维表格 / 电子表格 / 文档页面。`
 
   // selectedText is user-controlled content — must be clearly fenced to prevent prompt injection
   const selectedBlock = ctx.selectedText

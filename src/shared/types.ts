@@ -41,13 +41,15 @@ export interface PageContext {
     viewId?: string
     /** Detected Feishu resource kind. 'wiki' is unresolved until the wiki node is
      *  looked up (it wraps a doc / sheet / base). */
-    kind?: 'base' | 'sheet' | 'doc' | 'wiki'
+    kind?: 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt'
     /** Spreadsheet token when kind === 'sheet'. */
     spreadsheetToken?: string
     /** Document id when kind === 'doc'. */
     documentId?: string
     /** Wiki node token when kind === 'wiki' (resolve to the real obj via API). */
     wikiToken?: string
+    /** Slide token when kind === 'ppt' (Feishu 演示文稿). */
+    slideToken?: string
   }
 }
 

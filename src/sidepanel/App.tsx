@@ -17,6 +17,7 @@ function pinnedFeishu(p: { token: string; kind: string }): NonNullable<PageConte
   if (p.kind === 'base') return { isBase: true, kind: 'base', appToken: p.token }
   if (p.kind === 'sheet') return { isBase: false, kind: 'sheet', spreadsheetToken: p.token }
   if (p.kind === 'wiki') return { isBase: false, kind: 'wiki', wikiToken: p.token }
+  if (p.kind === 'ppt') return { isBase: false, kind: 'ppt', slideToken: p.token }
   return { isBase: false, kind: 'doc', documentId: p.token }
 }
 import { isFeishuConfigured, resolveToken, isTokenExpiredError, forceRefreshUserToken } from '../shared/feishu/auth'
@@ -123,7 +124,7 @@ export default function App() {
   // across resolution — wiki→doc/base no longer flips the key and abandons the conversation
   // in a new empty session (the "会话没有了" after switching back).
   const rawResource =
-    ctx.feishu?.wikiToken ?? ctx.feishu?.appToken ?? ctx.feishu?.spreadsheetToken ?? ctx.feishu?.documentId ?? null
+    ctx.feishu?.wikiToken ?? ctx.feishu?.appToken ?? ctx.feishu?.spreadsheetToken ?? ctx.feishu?.documentId ?? ctx.feishu?.slideToken ?? null
   // Debounce it: a tab switch / wiki resolution / panel remount briefly churns the context
   // (often through a transient null), which otherwise flips the conversation to the general
   // session and back — looking "scrambled". Settle first, then switch sessions once.

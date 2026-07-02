@@ -288,6 +288,13 @@ export default function ChatPanel({
     }, 1500)
   }
 
+  // Abort the in-flight turn — called by the send button's stop state. The agent loop's
+  // catch block treats AbortError as a clean cancel (no error bubble), and the finally
+  // block clears `streaming` + finalizes the streamed bubble.
+  function handleStop() {
+    abortRef.current?.abort()
+  }
+
   return (
     <div className="chat-panel">
       {/* Top action row — working-doc dropdown (left) + new/history buttons (top-right) */}
@@ -380,6 +387,7 @@ export default function ChatPanel({
         onSend={handleSend}
         disabled={disabled}
         busy={streaming}
+        onStop={handleStop}
         voiceEnabled={WEB_SPEECH_ALLOWED && settings.voiceInput !== false}
         selection={context.selectedText}
         resourceKind={context.feishu?.kind ?? 'general'}
