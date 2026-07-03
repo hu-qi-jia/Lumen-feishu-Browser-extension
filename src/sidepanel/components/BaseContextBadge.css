@@ -1,27 +1,23 @@
+/* Base (多维表格) context — its OWN row directly under the chat topbar (only on a Base
+   page). The topbar row above is untouched; this sits flush beneath it as a quiet info
+   strip. The summary on the left is the field-detail trigger (click → full-width popover);
+   the icon actions on the right reuse `.chat-topbar-btn` and sit in a `.bcb-actions` group
+   whose 2px gap matches `.chat-topbar-actions`, so the buttons are identical to the topbar's
+   new/history buttons in size, icon ratio, and spacing. */
 .bcb {
-  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
 }
 
-/* ── Single-line status bar ── */
 .bcb-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  min-height: 28px;
+  padding: 4px 10px;
+  min-height: 30px;
   font-size: 11.5px;
-}
-
-.bcb-spinner {
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid var(--color-border);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  flex-shrink: 0;
 }
 
 .bcb-dot {
@@ -31,127 +27,135 @@
   flex-shrink: 0;
 }
 .bcb-dot--ok { background: var(--color-success); }
-.bcb-dot--err { background: var(--color-error); }
 
-.bcb-app-name {
-  font-weight: 600;
-  color: var(--color-text);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.bcb-err-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-error);
+  flex-shrink: 0;
 }
-.bcb-summary { color: var(--color-text-secondary); }
-.bcb-spacer { flex: 1; }
+.bcb-err-icon svg { width: 14px; height: 14px; display: block; }
+
+.bcb-spinner {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+/* Spinner sized to sit inside a chat-topbar-btn (matches the 16px icons). */
+.bcb-spinner--btn { width: 16px; height: 16px; }
 
 .bcb-text { color: var(--color-text-secondary); }
-.bcb-text--muted { font-style: italic; }
-.bcb-text--err { color: #b45309; }
+.bcb-text--err { color: var(--color-error); }
 
-.bcb-action {
+.bcb-spacer { flex: 1; }
+
+/* The summary doubles as the field-detail trigger — looks like quiet metadata, with a
+   hover wash + rotating chevron to signal it opens a popover. */
+.bcb-summary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 6px;
+  margin: 0 -6px; /* keeps the dot aligned with the bar's left padding */
   background: none;
   border: none;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: 6px;
   color: var(--color-text-secondary);
-  cursor: pointer;
   font-family: inherit;
-  transition: color 0.12s, background 0.12s;
-  white-space: nowrap;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
 }
-.bcb-action:hover { color: var(--color-primary); background: #eef2ff; }
-.bcb-action--icon { padding: 1px 4px; font-size: 13px; }
+.bcb-summary-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
+.bcb-summary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.bcb-chev {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform .15s ease;
+}
+.bcb-chev--open { transform: rotate(180deg); }
 
-/* ── Export button ── */
-.bcb-export-btn {
+/* Action buttons — same 2px gap as `.chat-topbar-actions`, so spacing matches the topbar. */
+.bcb-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+/* Icon buttons never shrink/distort. */
+.bcb .chat-topbar-btn { flex-shrink: 0; }
+/* State tints for the reused topbar icon buttons (scoped to the base bar). */
+.bcb .bcb-btn--success { color: var(--color-success); }
+
+/* ── Field popover — full width of the info bar ───────────────────────────── */
+.bcb-detail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 25;
+  /* No max-height / no overflow: show every field (chips wrap, so no horizontal scroll
+     either). overflow must stay visible so chip tooltips aren't clipped by this box. */
+  padding: 8px 10px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  box-shadow: var(--shadow-md);
+  animation: bcbPopoverIn .14s ease;
+}
+@keyframes bcbPopoverIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bcb-detail { animation: none; }
+}
+
+.bcb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bcb-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 2px 7px;
+  background: var(--color-surface-2);
   border: 1px solid var(--color-border);
-  border-radius: 5px;
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
+  border-radius: 6px;
   font-size: 11px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color 0.12s, color 0.12s, background 0.12s;
-  white-space: nowrap;
+  color: var(--color-text-secondary);
+  cursor: default;
+  transition: border-color .12s ease, color .12s ease;
 }
-.bcb-export-btn:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: #eef2ff;
-}
-.bcb-export-btn:disabled { opacity: 0.6; cursor: default; }
-.bcb-export-btn--done {
-  border-color: var(--color-success);
-  color: var(--color-success);
-  background: #f0fff4;
-}
-.bcb-export-btn--err {
-  border-color: var(--color-error);
-  color: var(--color-error);
-  background: #fff2f1;
+.bcb-chip:hover { border-color: var(--color-primary-border); color: var(--color-text); }
+/* Select / MultiSelect marker — a CSS dot (no glyph), keeps the line-icon discipline. */
+.bcb-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.bcb-spinner--sm {
-  width: 9px;
-  height: 9px;
-  border-width: 1.5px;
-}
-
+/* Export-error note — a thin strip under the bar. */
 .bcb-export-err {
-  padding: 3px 12px 5px;
+  padding: 3px 10px 5px;
   font-size: 10.5px;
   color: var(--color-error);
   background: #fff2f1;
   border-top: 1px dashed #ffcdd2;
 }
-
-/* ── Expanded detail panel ── */
-.bcb-detail {
-  padding: 6px 12px 8px;
-  border-top: 1px dashed var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.bcb-tbl { display: flex; flex-direction: column; gap: 4px; }
-.bcb-tbl--current .bcb-tbl-name { color: var(--color-primary); font-weight: 600; }
-
-.bcb-tbl-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-}
-.bcb-tbl-mark { color: var(--color-primary); font-size: 9px; }
-.bcb-tbl-name { font-weight: 500; color: var(--color-text); }
-.bcb-tbl-meta { color: var(--color-text-secondary); margin-left: auto; font-size: 10.5px; }
-
-.bcb-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding-left: 12px;
-}
-.bcb-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 1px 6px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  font-size: 10.5px;
-  color: var(--color-text-secondary);
-  cursor: default;
-  transition: border-color 0.12s;
-}
-.bcb-chip:hover { border-color: var(--color-primary); color: var(--color-text); }
-.bcb-chip-dot { color: var(--color-primary); font-size: 7px; }

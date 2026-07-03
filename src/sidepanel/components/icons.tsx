@@ -75,6 +75,39 @@ export const IconRefresh = (p: P) => (
   </svg>
 )
 
+export const IconDownload = (p: P) => (
+  <svg {...common} {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+)
+
+export const IconCheck = (p: P) => (
+  <svg {...common} {...p}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+)
+
+export const IconAlert = (p: P) => (
+  <svg {...common} {...p}>
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+)
+
+export const IconList = (p: P) => (
+  <svg {...common} {...p}>
+    <line x1="8" y1="6" x2="21" y2="6" />
+    <line x1="8" y1="12" x2="21" y2="12" />
+    <line x1="8" y1="18" x2="21" y2="18" />
+    <line x1="3" y1="6" x2="3.01" y2="6" />
+    <line x1="3" y1="12" x2="3.01" y2="12" />
+    <line x1="3" y1="18" x2="3.01" y2="18" />
+  </svg>
+)
+
 /**
  * Distinct line icon per Feishu resource kind — sheet / base / doc are scannable at a glance.
  * Used by the doc-selector dropdown and the session-history drawer (group headers). `wiki`

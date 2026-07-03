@@ -339,7 +339,8 @@ export default function ChatPanel({
         </div>
       </div>
 
-      {/* Base context bar — only shown when on a Base page */}
+      {/* Base (多维表格) context bar — its own row directly under the topbar (the topbar
+          row itself is left untouched). Sheet/doc pages render nothing here. */}
       {context.feishu?.isBase && (
         <BaseContextBadge
           ctx={baseCtx}

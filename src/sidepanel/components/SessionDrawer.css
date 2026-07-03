@@ -31,13 +31,13 @@
   align-items: center;
   gap: 8px;
   padding: 8px 8px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
 }
 .drawer-row:hover { background: var(--color-surface); }
+/* Selected = fill only, no outline — matches the doc-selector item style globally. */
 .drawer-row--active {
   background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
 }
 .drawer-row-main {
   flex: 1;
@@ -140,11 +140,11 @@
 .drawer-group + .drawer-group { margin-top: 2px; }
 .drawer-group-head {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 11px 8px;
+  width: 100%; padding: 10px 8px;
   background: none; border: none; cursor: pointer;
   font-family: inherit; text-align: left;
   color: var(--color-text-secondary);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   transition: background .15s ease, color .15s ease;
 }
 .drawer-group-head:hover { background: var(--color-surface); color: var(--color-text); }
@@ -162,7 +162,17 @@
 }
 .drawer-group-chev { width: 14px; height: 14px; flex-shrink: 0; color: var(--color-text-secondary); transition: transform .15s ease; transform: rotate(-90deg); }
 .drawer-group-chev--open { transform: rotate(0deg); }
-.drawer-group-body { display: flex; flex-direction: column; gap: 1px; }
+/* Sessions nest under their doc group: indented with a vertical guide line so the
+   first-level (doc) → second-level (session) belonging reads at a glance. */
+.drawer-group-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px 16px;
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border);
+}
 
 /* ── Empty states ─────────────────────────────────────────────────────────── */
 .drawer-empty { padding: 28px 12px; text-align: center; font-size: 12px; color: var(--color-text-secondary); }
