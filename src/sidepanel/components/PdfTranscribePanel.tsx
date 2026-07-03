@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { AppSettings, PageContext } from '../../shared/types'
 import { resolveToken } from '../../shared/feishu/auth'
-import { extractMarkdown, detectScan } from '../../shared/pdfExtract'
 import { polishMarkdown } from '../../shared/ai/mdPolish'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '../../shared/feishu/docx'
 import { parseDocTokenFromUrl } from '../../shared/feishu/parseDocRef'
@@ -25,6 +24,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [rawMd, setRawMd] = useState('')
   const [polishedMd, setPolishedMd] = useState('')
   const [editMd, setEditMd] = useState('')
+  const [dirty, setDirty] = useState(false)
   const [polishEnabled, setPolishEnabled] = useState(!disabled)
   const [polishFailed, setPolishFailed] = useState(false)
   const [error, setError] = useState('')
@@ -43,8 +43,9 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) { setError('请上传 PDF 文件。'); setPhase('error'); return }
     setFileName(file.name.replace(/\.pdf$/i, ''))
-    setPhase('extracting'); setError(''); setInfo('')
+    setPhase('extracting'); setError(''); setInfo(''); setDirty(false)
     try {
+      const { extractMarkdown, detectScan } = await import('../../shared/pdfExtract')
       const buf = await file.arrayBuffer()
       const md = await extractMarkdown(buf)
       setRawMd(md)
@@ -88,7 +89,10 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       const view = await listBlocks(token, doc)
       const root = (view.items as Array<{ block_id?: string; children?: string[] }>)
         .find(b => b.block_id === doc)
-      const index = root?.children?.length ?? 0
+      if (!root?.children) {
+        throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
+      }
+      const index = root.children.length
       await insertContentBlocks(token, doc, markdownToBlocks(editMd), index)
       setInfo(`已写入「${target.title}」末尾。`)
     } catch (e) {
@@ -137,7 +141,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
                 type="checkbox" checked={polishEnabled} disabled={disabled}
                 onChange={e => {
                   setPolishEnabled(e.target.checked)
-                  setEditMd(e.target.checked ? polishedMd : rawMd)
+                  if (!dirty) setEditMd(e.target.checked ? polishedMd : rawMd)
                 }}
               />
               <span className="sc-input-label">启用 AI 润色</span>
@@ -145,7 +149,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
             {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
             <textarea
               className="field-input sc-pdf-editor" data-testid="pdf-editor"
-              value={editMd} onChange={e => setEditMd(e.target.value)} rows={16}
+              value={editMd} onChange={e => { setEditMd(e.target.value); setDirty(true) }} rows={16}
             />
             <div className="sc-pdf-target-row">
               <span className="sc-inputs-label">目标：{target ? target.title : '未选择'}</span>

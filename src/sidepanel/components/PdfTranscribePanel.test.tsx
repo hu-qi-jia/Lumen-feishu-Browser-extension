@@ -83,6 +83,33 @@ describe('PdfTranscribePanel', () => {
     expect(mockInsertContent).toHaveBeenCalledWith('USER_TOKEN', 'CURDOC', expect.any(Array), 2)
   })
 
+  it('does not write and surfaces an error when the doc root block is missing', async () => {
+    mockExtract.mockResolvedValue('# T\nbody')
+    mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    mockPolish.mockResolvedValue('# T\nbody')
+    mockResolveToken.mockResolvedValue('USER_TOKEN')
+    mockListBlocks.mockResolvedValue({ items: [{ block_id: 'OTHER', children: ['b1'] }] })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} onBack={() => {}} />)
+    pickFile()
+    await waitFor(() => expect(screen.getByTestId('pdf-editor')).toBeTruthy())
+    fireEvent.click(screen.getByText('添加到文档'))
+    await waitFor(() => expect(screen.getByText(/无法确定文档末尾位置/)).toBeTruthy())
+    expect(mockInsertContent).not.toHaveBeenCalled()
+  })
+
+  it('preserves manual textarea edits when toggling the polish checkbox', async () => {
+    mockExtract.mockResolvedValue('# Title\nbody')
+    mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    mockPolish.mockResolvedValue('# Title\nbody (polished)')
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} onBack={() => {}} />)
+    pickFile()
+    await waitFor(() => expect(screen.getByTestId('pdf-editor')).toBeTruthy())
+    fireEvent.change(screen.getByTestId('pdf-editor'), { target: { value: '我的手动修改' } })
+    expect((screen.getByTestId('pdf-editor') as HTMLTextAreaElement).value).toBe('我的手动修改')
+    fireEvent.click(screen.getByRole('checkbox') as HTMLInputElement)
+    expect((screen.getByTestId('pdf-editor') as HTMLTextAreaElement).value).toBe('我的手动修改')
+  })
+
   it('defaults polish off and skips the LLM call when disabled (no API key)', async () => {
     mockExtract.mockResolvedValue('# T\nbody')
     mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
