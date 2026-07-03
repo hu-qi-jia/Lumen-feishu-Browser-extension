@@ -13,44 +13,28 @@
 .sc-history-btn svg { display: block; width: 18px; height: 18px; }
 .sc-history-btn:hover { background: var(--color-surface-2, #f2f2f2); color: var(--color-text, #222); }
 
-/* ── v2 selected-file card ─────────────────────────────────────────────── */
-.pdf-file-card {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; margin: 12px 0;
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #e3e3e3);
-  border-radius: 10px;
-}
-.pdf-file-ic { display: inline-flex; color: var(--color-primary, #3370ff); }
-.pdf-file-ic svg { width: 20px; height: 20px; display: block; }
-.pdf-file-name {
-  flex: 1; min-width: 0;
-  font-size: 13.5px; font-weight: 500; color: var(--color-text, #222);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* ── action row (转换 / 选择文件) ──────────────────────────────────────── */
-.pdf-action-row { margin: 8px 0 12px; }
+/* ── action row spacing ──────────────────────────────────────────────── */
+.pdf-action-row { margin: 10px 0 12px; }
 
 /* ── result region ────────────────────────────────────────────────────── */
 .pdf-result { margin-top: 8px; }
 .pdf-result-box {
-  position: relative;
-  max-height: 40vh; overflow: auto;
-  padding: 12px 14px;
+  max-height: 40vh;
+  overflow-y: auto; overflow-x: hidden;  /* no horizontal scrollbar; tables/code scroll internally */
+  padding: 8px 14px 12px;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e3e3e3);
   border-radius: 8px;
   font-size: 13.5px; line-height: 1.6; color: var(--color-text, #222);
 }
-.pdf-result-content { padding-top: 2px; }
-/* Floating preview/markdown toggle — small, top-right inside the box */
-.pdf-view-toggle { position: absolute; top: 6px; right: 8px; z-index: 1; min-width: auto; padding: 2px; }
+/* Toggle sits as a right-aligned row at the top of the box (reserves its own height,
+   so it never overlaps the text below). */
+.pdf-result-toggle { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.pdf-view-toggle { min-width: auto; padding: 2px; }
 .pdf-view-toggle .sc-target-opt { padding: 3px 10px; font-size: 11.5px; }
 /* Equal-width action buttons — group spans the result width (aligns with the box above) */
 .pdf-actions { display: flex; gap: 8px; margin-top: 10px; }
 .pdf-action-btn { flex: 1 1 0; min-width: 0; }
-.pdf-action-stack { display: flex; flex-direction: column; gap: 8px; }
 
 /* ── history drawer (rows rendered by the shared HistoryRow component) ── */
 .pdf-history-list { display: flex; flex-direction: column; gap: 2px; }

@@ -151,7 +151,7 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
         { icon: 'grid', title: '场景模版', desc: '一键搭建 CRM、电商、项目管理系统', go: () => setView({ mode: 'gallery' }) },
       ] },
       { key: 'pdf', label: '内容转写', requires: 'any', feats: [
-        { icon: 'file', title: 'PDF 转写', desc: '把 PDF 抽成 Markdown，AI 润色后写入文档', go: () => setView({ mode: 'pdfTranscribe' }) },
+        { icon: 'file', title: 'PDF 转 Markdown', desc: 'PDF 转换为 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
       ] },
     ]
     // 'content' (PPT) works on a doc OR a table, so it's active whenever the page is either (and on

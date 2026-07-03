@@ -118,31 +118,27 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   }
   async function removeHistory(id: string) { setPdfs(await deletePdf(id)) }
 
+  const hasFile = phase === 'selected' || phase === 'converting' || phase === 'done'
+
   return (
     <div className="scenario-panel view-enter" key="pdf">
-      <TopBar title="PDF 转写" onBack={onBack} rightAction={
+      <TopBar title="PDF 转 Markdown" onBack={onBack} rightAction={
         <button className="sc-history-btn" onClick={() => setHistoryOpen(true)} aria-label="历史记录" title="历史记录">
           <IconHistory />
         </button>
       } />
       <div className="sc-detail-body">
-        {phase === 'idle' && (
-          <>
-            <input type="file" accept=".pdf,application/pdf" hidden ref={fileInputRef} data-testid="pdf-input"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-            <UploadDrop busy={false} max={1} count={0}
-              mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
-              onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
-              onTrigger={() => fileInputRef.current?.click()} />
-          </>
-        )}
+        <p className="sl-sub">上传 PDF 文件，本地解析为 Markdown，可复制、下载、AI 润色或写入飞书文档。</p>
 
-        {phase !== 'idle' && (
-          <div className="pdf-file-card">
-            <span className="pdf-file-ic"><IconFileText /></span>
-            <span className="pdf-file-name">{fileName}.pdf</span>
-          </div>
-        )}
+        <input type="file" accept=".pdf,application/pdf" hidden ref={fileInputRef} data-testid="pdf-input"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+        <UploadDrop
+          busy={phase === 'converting'} max={1} count={0}
+          selectedName={hasFile ? `${fileName}.pdf` : undefined}
+          selectedIcon={<IconFileText />}
+          mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
+          onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
+          onTrigger={() => fileInputRef.current?.click()} />
 
         {phase === 'converting' && <div className="sc-pdf-progress">正在解析 PDF…</div>}
 
@@ -155,24 +151,26 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         )}
 
         {(phase === 'selected' || phase === 'converting') && (
-          <div className="pdf-action-row pdf-action-stack">
-            <Button variant="primary" block onClick={handleConvert} disabled={phase === 'converting'} loading={phase === 'converting'}>
+          <div className="pdf-actions">
+            <Button variant="primary" className="pdf-action-btn" onClick={handleConvert} disabled={phase === 'converting'} loading={phase === 'converting'}>
               {phase === 'converting' ? '转换中…' : '转换'}
             </Button>
-            <Button variant="ghost" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
+            <Button variant="secondary" className="pdf-action-btn" onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
           </div>
         )}
 
         {phase === 'done' && (
           <>
             <div className="pdf-action-row">
-              <Button variant="ghost" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>换一个文件</Button>
+              <Button variant="secondary" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>重新上传</Button>
             </div>
             <div className="pdf-result">
               <div className="pdf-result-box" data-testid="pdf-result-box">
-                <div className="sc-target-opts pdf-view-toggle">
-                  <button className={`sc-target-opt${view === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('preview')}>预览</button>
-                  <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
+                <div className="pdf-result-toggle">
+                  <div className="sc-target-opts pdf-view-toggle">
+                    <button className={`sc-target-opt${view === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('preview')}>预览</button>
+                    <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
+                  </div>
                 </div>
                 <div className="pdf-result-content">
                   {view === 'preview'
