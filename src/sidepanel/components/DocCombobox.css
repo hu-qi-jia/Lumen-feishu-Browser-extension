@@ -1,0 +1,16 @@
+.dc-combobox { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
+.dc-input-wrap { position: relative; flex: 1; }
+.dc-input { width: 100%; }
+.dc-chevron { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--muted, #888); cursor: pointer; padding: 2px 4px; }
+.dc-dropdown { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20;
+  background: var(--surface, #fff); border: 1px solid var(--border, #e3e3e3); border-radius: 8px;
+  max-height: 220px; overflow-y: auto; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.dc-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
+.dc-row:hover { background: var(--hover, #f5f5f5); }
+.dc-row-icon { display: inline-flex; color: var(--muted, #888); }
+.dc-row-icon svg { width: 16px; height: 16px; }
+.dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-row-x { background: none; border: none; color: var(--muted, #999); cursor: pointer; display: inline-flex; padding: 2px; border-radius: 4px; }
+.dc-row-x svg { width: 14px; height: 14px; }
+.dc-row-x:hover { color: var(--danger, #d33); }
