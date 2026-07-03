@@ -1,0 +1,11 @@
+.sc-pdf-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 40px 16px; margin: 16px 0;
+  border: 1.5px dashed var(--muted-border, #d0d0d0); border-radius: 12px;
+  cursor: pointer; color: var(--muted-fg, #888); text-align: center;
+}
+.sc-pdf-drop:hover { border-color: var(--accent, #3370ff); color: var(--accent, #3370ff); }
+.sc-pdf-hint { font-size: 12px; opacity: .8; }
+.sc-pdf-progress { padding: 24px 0; text-align: center; color: var(--muted-fg, #888); }
+.sc-pdf-editor { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; resize: vertical; box-sizing: border-box; }
+.sc-pdf-target-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
