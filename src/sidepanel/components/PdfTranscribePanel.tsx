@@ -11,7 +11,8 @@ import SideDrawer from './SideDrawer'
 import Markdown from './Markdown'
 import DocCombobox, { type DocTarget } from './DocCombobox'
 import UploadDrop from './UploadDrop'
-import { IconFileText, IconHistory, IconX, IconCopy, IconDownload, IconSparkles } from './icons'
+import HistoryRow from './HistoryRow'
+import { IconFileText, IconHistory, IconCopy, IconDownload, IconSparkles } from './icons'
 import './PdfTranscribePanel.css'
 
 interface Props {
@@ -197,17 +198,15 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
 
       {historyOpen && (
         <SideDrawer title="历史记录" onClose={() => setHistoryOpen(false)}>
-          <div className="pdf-history">
+          <div className="pdf-history-list">
             {pdfs.length === 0 && <p className="pdf-history-empty">还没有转换过的文件</p>}
             {[...pdfs].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
-              <div className="pdf-history-row" key={p.id}>
-                <button className="pdf-history-main" onClick={() => openHistory(p)}>
-                  <span className="pdf-history-name">{p.fileName}.pdf</span>
-                  <span className="pdf-history-time">{timeAgo(p.createdAt)}</span>
-                </button>
-                {/* reuses .drawer-row-btn from SessionDrawer.css (bundled globally), mirroring SlidesPanel */}
-                <button className="drawer-row-btn" onClick={() => removeHistory(p.id)} aria-label="删除"><IconX /></button>
-              </div>
+              <HistoryRow key={p.id}
+                name={`${p.fileName}.pdf`}
+                meta={timeAgo(p.createdAt)}
+                onOpen={() => openHistory(p)}
+                onDelete={() => removeHistory(p.id)}
+              />
             ))}
           </div>
         </SideDrawer>

@@ -15,6 +15,7 @@ import { downloadSlidesHtml } from '../../shared/ai/slidesExport'
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getTheme } from '../../shared/ai/slidesThemes'
 import { ThemeThumb } from './ThemeThumb'
 import { ImagePicker } from './ImagePicker'
+import HistoryRow from './HistoryRow'
 import './SlidesPanel.css'
 
 interface Props {
@@ -398,20 +399,16 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
           <div className="sl-decks">
             {decks.length === 0 && <p className="sl-decks-empty">还没有生成过的演示</p>}
             {[...decks].sort((a, b) => b.createdAt - a.createdAt).map((d) => (
-              <div className={`sl-deck ${activeDeckId === d.id ? 'sl-deck--active' : ''}`} key={d.id}>
-                <button className="sl-deck-main" onClick={() => openSaved(d)} disabled={busy} title="在新标签页展示这套幻灯片">
-                  <span className="sl-deck-name">{d.name}</span>
-                  <span className="sl-deck-meta">{sourceLabel(d)} · {timeAgo(d.createdAt)}</span>
-                </button>
-                <span className="sl-deck-actions">
-                  <button className="drawer-row-btn" onClick={() => remove(d)} type="button" aria-label="删除" disabled={busy}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </span>
-              </div>
+              <HistoryRow key={d.id}
+                name={d.name}
+                meta={`${sourceLabel(d)} · ${timeAgo(d.createdAt)}`}
+                active={activeDeckId === d.id}
+                onOpen={() => openSaved(d)}
+                onDelete={() => remove(d)}
+                deleteDisabled={busy}
+                openDisabled={busy}
+                openTitle="在新标签页展示这套幻灯片"
+              />
             ))}
           </div>
         </SideDrawer>

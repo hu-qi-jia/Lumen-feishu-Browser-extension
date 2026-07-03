@@ -52,24 +52,6 @@
 .pdf-action-btn { flex: 1 1 0; min-width: 0; }
 .pdf-action-stack { display: flex; flex-direction: column; gap: 8px; }
 
-/* ── history drawer rows ──────────────────────────────────────────────── */
-.pdf-history { display: flex; flex-direction: column; gap: 2px; }
-.pdf-history-row {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 4px;
-  border-bottom: 1px solid var(--color-border, #efefef);
-}
-.pdf-history-row:last-child { border-bottom: none; }
-.pdf-history-main {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  background: none; border: none; cursor: pointer; text-align: left;
-  padding: 4px 6px; border-radius: 6px;
-}
-.pdf-history-main:hover { background: var(--color-surface-2, #f5f5f5); }
-.pdf-history-name {
-  font-size: 13px; font-weight: 500; color: var(--color-text, #222);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
-}
-.pdf-history-time { font-size: 11px; color: var(--color-text-secondary, #999); }
+/* ── history drawer (rows rendered by the shared HistoryRow component) ── */
+.pdf-history-list { display: flex; flex-direction: column; gap: 2px; }
 .pdf-history-empty { padding: 24px 8px; text-align: center; color: var(--color-text-secondary, #999); font-size: 13px; }
