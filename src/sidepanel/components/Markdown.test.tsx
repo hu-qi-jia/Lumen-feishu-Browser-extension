@@ -12,6 +12,14 @@ describe('Markdown', () => {
     expect(screen.getByText('正文').tagName).toBe('P')
     expect(screen.getByText('项 A').tagName).toBe('LI')
   })
+  it('renders h4–h6 as h3 (no literal # leaks)', () => {
+    const { container } = render(<Markdown>{'#### 深\n##### 更深\n###### 最深'}</Markdown>)
+    const h3s = container.querySelectorAll('h3.md-h3')
+    expect(h3s).toHaveLength(3)
+    expect(container.textContent).not.toContain('#')
+    expect(container.textContent).toContain('深')
+    expect(container.textContent).toContain('最深')
+  })
   it('renders a fenced code block', () => {
     const { container } = render(<Markdown>{'```js\nconsole.log(1)\n```'}</Markdown>)
     expect(container.querySelector('.md-code-block')).toBeTruthy()

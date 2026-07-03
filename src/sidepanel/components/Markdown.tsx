@@ -39,12 +39,15 @@ export default function Markdown({ children }: { children: string }) {
         </table>,
       )
       i = j - 1
-    } else if (line.startsWith('### ')) {
-      elements.push(<h3 key={i} className="md-h3">{inlineFormat(line.slice(4))}</h3>)
-    } else if (line.startsWith('## ')) {
-      elements.push(<h2 key={i} className="md-h2">{inlineFormat(line.slice(3))}</h2>)
-    } else if (line.startsWith('# ')) {
-      elements.push(<h2 key={i} className="md-h2">{inlineFormat(line.slice(2))}</h2>)
+    } else if (/^#{1,6}\s+.+/.test(line)) {
+      const m = line.match(/^(#{1,6})\s+(.*)$/)!
+      const level = m[1].length
+      const txt = m[2]
+      if (level <= 2) {
+        elements.push(<h2 key={i} className="md-h2">{inlineFormat(txt)}</h2>)
+      } else {
+        elements.push(<h3 key={i} className="md-h3">{inlineFormat(txt)}</h3>)
+      }
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(<li key={i} className="md-li">{inlineFormat(line.slice(2))}</li>)
     } else if (line.trim() === '') {
