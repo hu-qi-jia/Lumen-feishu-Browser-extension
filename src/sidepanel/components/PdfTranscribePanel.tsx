@@ -10,7 +10,8 @@ import Button from './Button'
 import SideDrawer from './SideDrawer'
 import Markdown from './Markdown'
 import DocCombobox, { type DocTarget } from './DocCombobox'
-import { IconUpload, IconFileText, IconHistory, IconX } from './icons'
+import UploadDrop from './UploadDrop'
+import { IconFileText, IconHistory, IconX, IconCopy, IconDownload, IconSparkles } from './icons'
 import './PdfTranscribePanel.css'
 
 interface Props {
@@ -42,6 +43,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [historyOpen, setHistoryOpen] = useState(false)
   const [pdfs, setPdfs] = useState<SavedPdf[]>([])
   const pickedFile = useRef<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => { loadPdfs().then(setPdfs) }, [])
 
@@ -115,14 +117,6 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   }
   async function removeHistory(id: string) { setPdfs(await deletePdf(id)) }
 
-  // drag handlers (stopPropagation so Feishu's page-level clip handler doesn't hijack)
-  const stop = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation() }
-  function onDrop(e: React.DragEvent) {
-    stop(e)
-    const f = e.dataTransfer.files?.[0]
-    if (f) handleFile(f)
-  }
-
   return (
     <div className="scenario-panel view-enter" key="pdf">
       <TopBar title="PDF 转写" onBack={onBack} rightAction={
@@ -132,14 +126,14 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       } />
       <div className="sc-detail-body">
         {phase === 'idle' && (
-          <label className="sc-pdf-drop" data-testid="pdf-drop"
-            onDragEnter={stop} onDragOver={stop} onDragLeave={stop} onDrop={onDrop}>
-            <input type="file" accept=".pdf,application/pdf" hidden data-testid="pdf-input"
+          <>
+            <input type="file" accept=".pdf,application/pdf" hidden ref={fileInputRef} data-testid="pdf-input"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-            <span className="sc-pdf-drop-ic"><IconUpload /></span>
-            <p>点击或拖入 PDF 文件</p>
-            <p className="sc-pdf-hint">本地解析，不上传服务器</p>
-          </label>
+            <UploadDrop busy={false} max={1} count={0}
+              mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
+              onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
+              onTrigger={() => fileInputRef.current?.click()} />
+          </>
         )}
 
         {phase !== 'idle' && (
@@ -159,37 +153,42 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
           </div>
         )}
 
-        {(phase === 'selected' || phase === 'converting' || phase === 'done') && (
-          <div className="sc-done-actions pdf-action-row">
-            {phase !== 'done' && (
-              <Button variant="primary" onClick={handleConvert} disabled={phase === 'converting'} loading={phase === 'converting'}>
-                {phase === 'converting' ? '转换中…' : '转换'}
-              </Button>
-            )}
-            <Button onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
+        {(phase === 'selected' || phase === 'converting') && (
+          <div className="pdf-action-row pdf-action-stack">
+            <Button variant="primary" block onClick={handleConvert} disabled={phase === 'converting'} loading={phase === 'converting'}>
+              {phase === 'converting' ? '转换中…' : '转换'}
+            </Button>
+            <Button variant="ghost" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
           </div>
         )}
 
         {phase === 'done' && (
-          <div className="pdf-result">
-            <div className="pdf-result-head">
-              <div className="sc-target-opts pdf-view-toggle">
-                <button className={`sc-target-opt${view === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('preview')}>预览</button>
-                <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
+          <>
+            <div className="pdf-action-row">
+              <Button variant="ghost" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>换一个文件</Button>
+            </div>
+            <div className="pdf-result">
+              <div className="pdf-result-box" data-testid="pdf-result-box">
+                <div className="sc-target-opts pdf-view-toggle">
+                  <button className={`sc-target-opt${view === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('preview')}>预览</button>
+                  <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
+                </div>
+                <div className="pdf-result-content">
+                  {view === 'preview'
+                    ? <div data-testid="pdf-preview"><Markdown>{editMd}</Markdown></div>
+                    : <textarea className="field-input sc-pdf-editor" data-testid="pdf-editor" value={editMd} onChange={(e) => setEditMd(e.target.value)} />}
+                </div>
               </div>
+              <div className="pdf-actions">
+                <Button className="pdf-action-btn" icon={<IconCopy />} onClick={handleCopy}>复制</Button>
+                <Button className="pdf-action-btn" icon={<IconDownload />} onClick={handleExport}>下载</Button>
+                <Button className="pdf-action-btn" icon={<IconSparkles />} onClick={handlePolish} disabled={disabled} loading={polishing}>AI 润色</Button>
+              </div>
+              {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
+              <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
+                target={target} onTargetChange={setTarget} onConfirm={handleAddToDoc} writing={writing} />
             </div>
-            {view === 'preview'
-              ? <div className="pdf-preview" data-testid="pdf-preview"><Markdown>{editMd}</Markdown></div>
-              : <textarea className="field-input sc-pdf-editor" data-testid="pdf-editor" value={editMd} onChange={(e) => setEditMd(e.target.value)} rows={16} />}
-            <div className="sc-done-actions pdf-actions">
-              <Button onClick={handleCopy}>复制</Button>
-              <Button onClick={handleExport}>下载</Button>
-              <Button onClick={handlePolish} disabled={disabled} loading={polishing}>AI 润色</Button>
-            </div>
-            {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
-            <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
-              target={target} onTargetChange={setTarget} onConfirm={handleAddToDoc} writing={writing} />
-          </div>
+          </>
         )}
 
         {error && phase !== 'error' && <div className="sc-refresh-err">{error}</div>}
