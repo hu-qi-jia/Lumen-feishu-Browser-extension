@@ -19,7 +19,7 @@ const AUTHORIZE = FEISHU_AUTHORIZE_URL
 const TOKEN = `${FEISHU_API_BASE}/authen/v2/oauth/token`
 const USER_INFO = `${FEISHU_API_BASE}/authen/v1/user_info`
 
-interface TokenResp { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string }
+interface TokenResp { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string; scope?: string }
 
 /**
  * Request a token from Feishu (or the OAuth proxy). In proxy mode the client_secret is
@@ -193,7 +193,6 @@ export async function authorizeFeishuUser(): Promise<OAuthResult> {
   if (!tj.access_token) {
     throw new Error('换取 token 失败：' + (tj.error_description ?? tj.error ?? JSON.stringify(tj)))
   }
-
   const ui = (await (await fetch(USER_INFO, {
     headers: { Authorization: `Bearer ${tj.access_token}` },
   })).json()) as { code: number; msg: string; data?: { open_id: string; name: string } }

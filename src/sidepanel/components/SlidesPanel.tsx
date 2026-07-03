@@ -216,6 +216,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
 
   async function remove(d: SavedDeck) { setDecks(await deleteDeck(d.id)) }
 
+
   return (
     <div className="scenario-panel view-enter" key="slides">
       <TopBar
