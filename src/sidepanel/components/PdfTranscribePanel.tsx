@@ -13,7 +13,7 @@ import DocCombobox, { type DocTarget } from './DocCombobox'
 import UploadDrop from './UploadDrop'
 import HistoryRow from './HistoryRow'
 import Tooltip from './Tooltip'
-import { KindIcon, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle } from './icons'
+import { KindIcon, IconPlus, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle } from './icons'
 import './PdfTranscribePanel.css'
 
 interface Props {
@@ -31,7 +31,7 @@ type View = 'preview' | 'markdown'
 export default function PdfTranscribePanel({ settings, context, disabled, onBack, recentFiles, onRemoveRecent }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [fileName, setFileName] = useState('document')
-  const [fileSize, setFileSize] = useState(0)
+  const [activePdfId, setActivePdfId] = useState<string | null>(null)
   const [rawMd, setRawMd] = useState('')
   const [editMd, setEditMd] = useState('')
   const [view, setView] = useState<View>('preview')
@@ -69,7 +69,6 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) { setError('请上传 PDF 文件。'); setPhase('error'); return }
     setFileName(file.name.replace(/\.pdf$/i, ''))
-    setFileSize(file.size)
     setRawMd(''); setEditMd(''); setError(''); setInfo('')
     setPhase('selected')
     pickedFile.current = file
@@ -86,7 +85,9 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       const scan = detectScan(md)
       if (scan.likelyScan) { setError(scan.reason); setPhase('error'); return }
       setRawMd(md); setEditMd(md); setView('preview'); setPhase('done')
-      setPdfs(await savePdf({ id: crypto.randomUUID(), fileName, markdown: md, createdAt: Date.now() }))
+      const id = crypto.randomUUID()
+      setActivePdfId(id)
+      setPdfs(await savePdf({ id, fileName, markdown: md, createdAt: Date.now() }))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e)); setPhase('error')
     }
@@ -141,37 +142,70 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     // scrub them so neither the editor nor the preview shows literal <!-- PAGE_BREAK -->.
     const md = p.markdown.replace(/<!--[\s\S]*?-->/g, '')
     setFileName(p.fileName); setRawMd(md); setEditMd(md)
+    setActivePdfId(p.id)
     pickedFile.current = null; setError(''); setInfo('已载入历史记录。')
     setPhase('done'); setHistoryOpen(false)
   }
   async function removeHistory(id: string) { setPdfs(await deletePdf(id)) }
+
+  // Start a fresh task session — clear the picked file and parsed result so the upload module
+  // reappears. Mirrors SlidesPanel.newDraft. `target` is intentionally kept: the write
+  // destination is independent of which PDF is loaded.
+  function newTask() {
+    pickedFile.current = null
+    setPhase('idle')
+    setFileName('document')
+    setActivePdfId(null)
+    setRawMd(''); setEditMd('')
+    setView('preview')
+    setError(''); setInfo('')
+    setCopied(false)
+  }
 
   const hasFile = phase === 'selected' || phase === 'converting' || phase === 'done'
 
   return (
     <div className="scenario-panel view-enter" key="pdf">
       <TopBar title="PDF 转 Markdown" onBack={onBack} rightAction={
-        <button className="sc-history-btn" onClick={() => setHistoryOpen(true)} aria-label="历史记录" title="历史记录">
-          <IconHistory />
-        </button>
+        <>
+          {phase === 'done' && (
+            <Tooltip content="新建任务" position="bottom">
+              <button className="sc-history-btn" onClick={newTask} type="button" aria-label="新建任务">
+                <IconPlus />
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip content="历史记录" position="bottom">
+            <button className="sc-history-btn" onClick={() => setHistoryOpen(true)} type="button" aria-label="历史记录">
+              <IconHistory />
+            </button>
+          </Tooltip>
+        </>
       } />
       <div className="sc-detail-body">
-        <p className="sl-sub">上传 PDF 文件，本地解析为 Markdown，可复制、下载、AI 润色或写入飞书文档。</p>
+        {phase !== 'done' && (
+          <p className="sl-sub">上传 PDF 文件，本地解析为 Markdown，可复制、下载、AI 润色或写入飞书文档。</p>
+        )}
 
         <input type="file" accept=".pdf,application/pdf" hidden ref={fileInputRef} data-testid="pdf-input"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-        <UploadDrop
-          busy={phase === 'converting'} max={1} count={0}
-          mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
-          onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
-          onTrigger={() => fileInputRef.current?.click()} />
-        {hasFile && (
-          <div className="pdf-picked-file" data-testid="pdf-picked-file">
-            <span className="pdf-picked-file-ic"><KindIcon kind="doc" /></span>
-            <span className="pdf-picked-file-name">{fileName}.pdf</span>
-            <span className="pdf-picked-file-meta">{formatBytes(fileSize)}</span>
-          </div>
-        )}
+        {/* 上传文件 */}
+        <div className="sc-field">
+          <label className="sc-field-label">上传文件</label>
+          {phase !== 'done' && (
+            <UploadDrop
+              busy={phase === 'converting'} max={1} count={0}
+              mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
+              onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
+              onTrigger={() => fileInputRef.current?.click()} />
+          )}
+          {hasFile && (
+            <div className="pdf-picked-file" data-testid="pdf-picked-file">
+              <span className="pdf-picked-file-ic"><KindIcon kind="doc" /></span>
+              <span className="pdf-picked-file-name">{fileName}.pdf</span>
+            </div>
+          )}
+        </div>
 
         {phase === 'converting' && <div className="sc-pdf-progress">正在解析 PDF…</div>}
 
@@ -193,7 +227,10 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         )}
 
         {phase === 'done' && (
-          <div className="pdf-result">
+          <>
+            {/* 转换结果 */}
+            <div className="sc-field">
+              <label className="sc-field-label">转换结果</label>
               <div className="pdf-result-box" data-testid="pdf-result-box">
                 <div className="pdf-result-bar">
                   <div className="sc-target-opts pdf-view-toggle">
@@ -219,9 +256,15 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
                 </div>
               </div>
               {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
+            </div>
+
+            {/* 目标文档 */}
+            <div className="sc-field">
+              <label className="sc-field-label">目标文档</label>
               <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
                 target={target} onTargetChange={setTarget} onConfirm={handleAddToDoc} writing={writing} />
             </div>
+          </>
         )}
 
         {error && phase !== 'error' && <div className="sc-refresh-err">{error}</div>}
@@ -236,6 +279,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
               <HistoryRow key={p.id}
                 name={`${p.fileName}.pdf`}
                 meta={timeAgo(p.createdAt)}
+                active={p.id === activePdfId}
                 onOpen={() => openHistory(p)}
                 onDelete={() => removeHistory(p.id)}
               />
@@ -253,12 +297,4 @@ function timeAgo(ts: number): string {
   if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
   if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
   return `${Math.floor(s / 86400)} 天前`
-}
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return '0 B'
-  const k = 1024
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(k)))
-  return `${(bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }

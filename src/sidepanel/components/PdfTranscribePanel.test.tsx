@@ -58,6 +58,19 @@ describe('PdfTranscribePanel', () => {
     const row = screen.getByTestId('pdf-picked-file')
     expect(row.textContent).toContain('report.pdf')
   })
+  it('done screen hides the upload module and 新建任务 resets to a fresh upload', async () => {
+    mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    // On the done screen the upload module + description are gone…
+    expect(screen.queryByText('点击或拖入 PDF 文件')).toBeNull()
+    // …and a 新建任务 button appears in the top bar.
+    fireEvent.click(screen.getByLabelText('新建任务'))
+    // Reset → upload module reappears, result is cleared.
+    await waitFor(() => expect(screen.getByText('点击或拖入 PDF 文件')).toBeTruthy())
+    expect(screen.queryByTestId('pdf-preview')).toBeNull()
+  })
   it('AI 润色 on demand updates content', async () => {
     mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
     mockPolish.mockResolvedValue('# T\nbody (润色)')
@@ -96,6 +109,16 @@ describe('PdfTranscribePanel', () => {
     await waitFor(() => expect(screen.getByText('旧文件.pdf')).toBeTruthy())
     fireEvent.click(screen.getByText('旧文件.pdf'))
     await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+  })
+  it('marks the currently-loaded file as selected in the history drawer', async () => {
+    mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('历史记录'))
+    const active = document.querySelector('.hr-row--active')
+    expect(active).toBeTruthy()
+    expect(active?.textContent).toContain('demo.pdf')
   })
 
   it('preview/markdown toggle switches the result body', async () => {

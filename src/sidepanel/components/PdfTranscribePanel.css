@@ -1,5 +1,7 @@
 /* ── progress / editor (retained) ─────────────────────────────────────── */
-.sc-pdf-hint { font-size: 12px; opacity: .8; }
+/* Bottom hint (e.g. the "需要 API Key" note). Wraps at any width — long tokens / em-dashes
+   never force the field wider than its container, so it stays adaptive in a narrow sidepanel. */
+.sc-pdf-hint { font-size: 12px; opacity: .8; margin: 0; line-height: 1.5; word-break: break-word; overflow-wrap: anywhere; }
 .sc-pdf-progress { padding: 24px 0; text-align: center; color: var(--muted-fg, #888); }
 .sc-pdf-editor { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; resize: vertical; box-sizing: border-box; }
 
@@ -13,14 +15,18 @@
 .sc-history-btn svg { display: block; width: 18px; height: 18px; }
 .sc-history-btn:hover { background: var(--color-surface-2, #f2f2f2); color: var(--color-text, #222); }
 
-/* ── result region ────────────────────────────────────────────────────── */
-.pdf-result { margin-top: 10px; }
+/* ── labeled sections & picked file ───────────────────────────────────── */
+/* Each module is wrapped in a .sc-field (label + content). The .sc-detail-body container already
+   spaces its direct children with a 14px gap, so modules must NOT set their own margin-top —
+   adding one double-spaces them (the prior 8px margins stacked on the 14px gap → 22px gaps).
+   Mirrors SlidesPanel's .sl-field / .sl-label. */
+.sc-field { display: flex; flex-direction: column; gap: 6px; }
+.sc-field-label { font-size: 12px; font-weight: 600; color: var(--color-text); }
 
-/* The picked file shows as a compact row BELOW the (always-empty) upload dropzone —
-   small doc glyph + name + size. The dropzone above remains the click/drag-to-replace entry. */
+/* The picked file shows as a compact row (small doc glyph + name). No file size — kept lean. */
 .pdf-picked-file {
   display: flex; align-items: center; gap: 7px;
-  margin-top: 6px; padding: 6px 10px;
+  padding: 6px 10px;
   background: var(--color-bg-subtle, #fafafa);
   border: 1px solid var(--color-border, #ececec);
   border-radius: 7px;
@@ -33,7 +39,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 500; color: var(--color-text, #1f2329);
 }
-.pdf-picked-file-meta { color: var(--color-text-secondary, #9aa0a6); flex-shrink: 0; }
 .pdf-result-box {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e3e3e3);
@@ -62,7 +67,7 @@
    toggle). Only this region scrolls; the bar above is fixed. overflow-x hidden = no horizontal
    scrollbar on the box (tables/code blocks still scroll internally via .md-table/.md-code-block). */
 .pdf-result-scroll {
-  height: 40vh;
+  height: calc(40vh + 20px);
   overflow-y: auto; overflow-x: hidden;
   box-sizing: border-box;
   padding: 10px 14px;
@@ -78,8 +83,9 @@
   overflow: hidden;  /* no internal scrollbar — JS sizes height to content, outer region scrolls */
 }
 .pdf-result-scroll .sc-pdf-editor:focus { border: none; box-shadow: none; outline: none; }
-/* Equal-width action buttons (used by the selected-phase 转换 + 选择文件 row) */
-.pdf-actions { display: flex; gap: 8px; margin-top: 10px; }
+/* Equal-width action buttons (used by the selected-phase 转换 + 选择文件 row).
+   No margin-top — .sc-detail-body's 14px gap handles spacing from the module above. */
+.pdf-actions { display: flex; gap: 8px; }
 .pdf-action-btn { flex: 1 1 0; min-width: 0; }
 
 /* ── history drawer (rows rendered by the shared HistoryRow component) ── */

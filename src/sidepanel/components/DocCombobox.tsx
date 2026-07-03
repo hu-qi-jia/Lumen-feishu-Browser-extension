@@ -37,6 +37,12 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
     const parsed = parseDocTokenFromUrl(v)
     onTargetChange(parsed ? { token: parsed.token, title: v } : null)
   }
+  // Clear the field and drop the resolved target. Only shown while there's text, so a stray
+  // paste or wrong pick can be wiped in one click without selecting-all + delete.
+  function clearInput() {
+    setText('')
+    onTargetChange(null)
+  }
   function pick(f: RecentFile) {
     onTargetChange({ token: f.token, title: f.title })
     setText(f.title)
@@ -54,6 +60,9 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
           onFocus={() => setOpen(true)} onChange={(e) => onText(e.target.value)}
         />
         <button type="button" className="dc-chevron" onClick={() => setOpen((o) => !o)} aria-label="展开最近文档" aria-expanded={open}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>
+        {text && (
+          <button type="button" className="dc-clear" data-testid="dc-clear" aria-label="清除" onClick={clearInput}><IconX /></button>
+        )}
         {open && filtered.length > 0 && (
           <div className="dc-dropdown" data-testid="dc-dropdown">
             {filtered.map((f) => (
@@ -71,7 +80,7 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
           </div>
         )}
       </div>
-      <Button variant="primary" onClick={onConfirm} disabled={writing} loading={writing}>添加到文档</Button>
+      <Button variant="primary" block onClick={onConfirm} disabled={writing} loading={writing}>添加到文档</Button>
     </div>
   )
 }

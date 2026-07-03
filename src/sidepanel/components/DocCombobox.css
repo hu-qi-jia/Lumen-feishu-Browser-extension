@@ -1,8 +1,10 @@
-/* Dropdown-input: a field-input you can paste a link into, with a chevron that drops down the
-   recent-docs list. Input + 添加到文档 button sit in a row (consistent with the app's input style). */
-.dc-combobox { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
-.dc-input-wrap { position: relative; flex: 1; }
-.dc-input { width: 100%; padding-right: 28px; }
+/* Dropdown-input stacked: the paste field on top (full width, matches the result box), the
+   添加到文档 button on its own line below. No margin-top — lives inside a .sc-field. */
+.dc-combobox { display: flex; flex-direction: column; gap: 8px; }
+.dc-input-wrap { position: relative; }
+/* Reserve room for BOTH the chevron (right:6px) and the clear button (right:32px). A constant
+   padding-right keeps the caret position stable whether or not the clear button is visible. */
+.dc-input { width: 100%; padding-right: 56px; }
 .dc-chevron {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
   background: none; border: none; color: var(--color-text-secondary, #8a8f99);
@@ -11,6 +13,16 @@
 }
 .dc-chevron:hover { color: var(--color-primary, #3370ff); }
 .dc-chevron svg { width: 16px; height: 16px; }
+/* Clear (×) — sits clearly LEFT of the chevron (2px gap, no overlap), only while the field
+   has content. Hidden when empty so an idle field isn't cluttered with a disabled-looking ×. */
+.dc-clear {
+  position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--color-text-secondary, #8a8f99);
+  cursor: pointer; padding: 2px 4px; display: inline-flex;
+  transition: color .15s;
+}
+.dc-clear:hover { color: var(--color-danger, #d33); }
+.dc-clear svg { width: 14px; height: 14px; }
 .dc-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20;
   background: var(--color-surface, #fff);

@@ -42,6 +42,16 @@ describe('DocCombobox', () => {
     fireEvent.click(screen.getByText('添加到文档'))
     expect(onConfirm).toHaveBeenCalled()
   })
+  it('clears the field and target via the × button', () => {
+    const onTargetChange = vi.fn()
+    render(<DocCombobox recentFiles={[]} target={{ token: 't', title: '当前文档' }} onTargetChange={onTargetChange} onConfirm={() => {}} />)
+    const input = screen.getByTestId('dc-input') as HTMLInputElement
+    expect(input.value).toBe('当前文档')
+    // × only renders while there's text — clicking it wipes the field and resolves target → null.
+    fireEvent.click(screen.getByLabelText('清除'))
+    expect(input.value).toBe('')
+    expect(onTargetChange).toHaveBeenCalledWith(null)
+  })
   it('keeps the typed text even when it does not parse (target was non-null)', () => {
     render(<Harness initial={{ token: 'CURDOC', title: '当前文档' }} />)
     const input = screen.getByTestId('dc-input') as HTMLInputElement
