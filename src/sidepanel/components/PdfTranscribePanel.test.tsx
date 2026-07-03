@@ -53,7 +53,7 @@ describe('PdfTranscribePanel', () => {
     render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
     pickFile(); fireEvent.click(screen.getByText('转换'))
     await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
-    fireEvent.click(screen.getByText('AI 润色'))
+    fireEvent.click(screen.getByLabelText('AI 润色'))
     await waitFor(() => expect(mockPolish).toHaveBeenCalled())
   })
   it('disables AI 润色 when disabled (no key)', async () => {
@@ -63,7 +63,7 @@ describe('PdfTranscribePanel', () => {
     await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
     // Button wraps its label in a <span class="btn-label">, so getByText returns the span —
     // climb to the actual <button> to read its `disabled` property.
-    expect((screen.getByText('AI 润色').closest('button') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('AI 润色').closest('button') as HTMLButtonElement).disabled).toBe(true)
   })
   it('adds to the selected recent doc at end index', async () => {
     mockExtract.mockResolvedValue('# T'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
@@ -126,7 +126,7 @@ describe('PdfTranscribePanel', () => {
     render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
     pickFile(); fireEvent.click(screen.getByText('转换'))
     await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
-    fireEvent.click(screen.getByText('AI 润色'))
+    fireEvent.click(screen.getByLabelText('AI 润色'))
     await waitFor(() => expect(mockPolish).toHaveBeenCalled())
     // switch to Markdown view to read the editor content
     fireEvent.click(screen.getByText('Markdown'))

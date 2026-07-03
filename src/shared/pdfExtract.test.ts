@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockPdf2md = vi.fn()
 vi.mock('@opendocsg/pdf2md', () => ({ default: mockPdf2md }))
 
-const { extractMarkdown, detectScan, classifyPdfError } = await import('./pdfExtract')
+const { extractMarkdown, detectScan, classifyPdfError, stripHtmlComments } = await import('./pdfExtract')
 
 beforeEach(() => mockPdf2md.mockReset())
 
@@ -53,5 +53,25 @@ describe('extractMarkdown', () => {
   it('returns empty string when pdf2md yields non-string', async () => {
     mockPdf2md.mockResolvedValue(null)
     expect(await extractMarkdown(new ArrayBuffer(8))).toBe('')
+  })
+  it('strips HTML comments such as pdf2md PAGE_BREAK markers', async () => {
+    mockPdf2md.mockResolvedValue('intro\n<!-- PAGE_BREAK -->\nmore')
+    const out = await extractMarkdown(new ArrayBuffer(8))
+    expect(out).not.toContain('<!--')
+    expect(out).not.toContain('PAGE_BREAK')
+    expect(out).toContain('intro')
+    expect(out).toContain('more')
+  })
+})
+
+describe('stripHtmlComments', () => {
+  it('removes a single-line comment', () => {
+    expect(stripHtmlComments('a<!-- PAGE_BREAK -->b')).toBe('ab')
+  })
+  it('removes multi-line comments non-greedily', () => {
+    expect(stripHtmlComments('x<!-- multi\nline\ncomment -->y')).toBe('xy')
+  })
+  it('leaves surrounding text intact', () => {
+    expect(stripHtmlComments('# H\nbody\n<!-- x -->\ntail')).toBe('# H\nbody\n\ntail')
   })
 })

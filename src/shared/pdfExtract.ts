@@ -31,11 +31,17 @@ export function classifyPdfError(e: unknown): Error {
   return new Error(`PDF 解析失败：${msg}`)
 }
 
+/** Strip HTML comments (e.g. pdf2md's `<!-- PAGE_BREAK -->` markers) so they don't leak into the
+ *  preview or the editable markdown source. Non-greedy, spans newlines. Exported for unit testing. */
+export function stripHtmlComments(md: string): string {
+  return md.replace(/<!--[\s\S]*?-->/g, '')
+}
+
 /** 从 PDF 字节抽取 markdown。加密/损坏 → 抛友好错误（由上层捕获展示）。 */
 export async function extractMarkdown(buffer: ArrayBuffer): Promise<string> {
   try {
     const text = await pdf2md(new Uint8Array(buffer))
-    return typeof text === 'string' ? text : ''
+    return typeof text === 'string' ? stripHtmlComments(text) : ''
   } catch (e) {
     throw classifyPdfError(e)
   }

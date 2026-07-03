@@ -18,11 +18,13 @@ interface Props {
   selectedName?: string
   /** Icon node shown in filled mode (defaults to nothing — caller passes e.g. <IconFileText/>). */
   selectedIcon?: ReactNode
+  /** Secondary line under the file name in filled mode (e.g. "2.4 MB · 点击替换"). Falls back to hintText. */
+  selectedMeta?: string
 }
 
 /** A standalone file-upload dropzone (click or drag). White background, stopPropagation
  *  on drag events to prevent Feishu's page-level "剪藏到飞书" handler from intercepting. */
-export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger, mainText, hintText, selectedName, selectedIcon }: Props) {
+export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger, mainText, hintText, selectedName, selectedIcon, selectedMeta }: Props) {
   const [dragging, setDragging] = useState(false)
   const dragCounter = useRef(0)
 
@@ -78,7 +80,7 @@ export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger, mai
           <span className="sl-upload-drop-ic">{selectedIcon}</span>
           <span className="sl-upload-drop-text">
             <span className="sl-upload-drop-main">{selectedName}</span>
-            <span className="sl-upload-drop-hint">{hintText ?? '点击或拖入新文件替换'}</span>
+            <span className="sl-upload-drop-hint">{selectedMeta ?? hintText ?? '点击或拖入新文件替换'}</span>
           </span>
         </>
       ) : (

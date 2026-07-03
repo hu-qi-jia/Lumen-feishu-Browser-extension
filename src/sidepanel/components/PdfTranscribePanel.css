@@ -19,20 +19,34 @@
 /* ── result region ────────────────────────────────────────────────────── */
 .pdf-result { margin-top: 8px; }
 .pdf-result-box {
-  max-height: 40vh;
-  overflow-y: auto; overflow-x: hidden;  /* no horizontal scrollbar; tables/code scroll internally */
-  padding: 8px 14px 12px;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e3e3e3);
   border-radius: 8px;
-  font-size: 13.5px; line-height: 1.6; color: var(--color-text, #222);
+  overflow: hidden;  /* clip the scroll region to the rounded corners */
 }
-/* Toggle sits as a right-aligned row at the top of the box (reserves its own height,
-   so it never overlaps the text below). */
-.pdf-result-toggle { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+/* Fixed toolbar atop the box: preview/markdown toggle (left) + icon actions (right).
+   It stays put — only the .pdf-result-scroll region below actually scrolls. */
+.pdf-result-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border, #ececec);
+  background: var(--color-bg-subtle, #fafafa);
+}
+.pdf-result-icons { display: flex; gap: 2px; }
 .pdf-view-toggle { min-width: auto; padding: 2px; }
 .pdf-view-toggle .sc-target-opt { padding: 3px 10px; font-size: 11.5px; }
-/* Equal-width action buttons — group spans the result width (aligns with the box above) */
+/* Fixed-height scroll region → preview & markdown occupy the same space (no height jump on
+   toggle). Only this region scrolls; the bar above is fixed. overflow-x hidden = no horizontal
+   scrollbar on the box (tables/code blocks still scroll internally via .md-table/.md-code-block). */
+.pdf-result-scroll {
+  height: 40vh;
+  overflow-y: auto; overflow-x: hidden;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  font-size: 13.5px; line-height: 1.6; color: var(--color-text, #222);
+}
+.pdf-result-scroll .sc-pdf-editor { width: 100%; height: 100%; min-height: 0; resize: none; box-sizing: border-box; }
+/* Equal-width action buttons (used by the selected-phase 转换 + 选择文件 row) */
 .pdf-actions { display: flex; gap: 8px; margin-top: 10px; }
 .pdf-action-btn { flex: 1 1 0; min-width: 0; }
 

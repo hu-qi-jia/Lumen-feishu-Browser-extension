@@ -30,6 +30,7 @@ type View = 'preview' | 'markdown'
 export default function PdfTranscribePanel({ settings, context, disabled, onBack, recentFiles, onRemoveRecent }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [fileName, setFileName] = useState('document')
+  const [fileSize, setFileSize] = useState(0)
   const [rawMd, setRawMd] = useState('')
   const [editMd, setEditMd] = useState('')
   const [view, setView] = useState<View>('preview')
@@ -52,6 +53,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) { setError('请上传 PDF 文件。'); setPhase('error'); return }
     setFileName(file.name.replace(/\.pdf$/i, ''))
+    setFileSize(file.size)
     setRawMd(''); setEditMd(''); setError(''); setInfo('')
     setPhase('selected')
     pickedFile.current = file
@@ -136,6 +138,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
           busy={phase === 'converting'} max={1} count={0}
           selectedName={hasFile ? `${fileName}.pdf` : undefined}
           selectedIcon={<IconFileText />}
+          selectedMeta={hasFile ? `${formatBytes(fileSize)} · 点击或拖入替换` : undefined}
           mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
           onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
           onTrigger={() => fileInputRef.current?.click()} />
@@ -166,22 +169,22 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
             </div>
             <div className="pdf-result">
               <div className="pdf-result-box" data-testid="pdf-result-box">
-                <div className="pdf-result-toggle">
+                <div className="pdf-result-bar">
                   <div className="sc-target-opts pdf-view-toggle">
                     <button className={`sc-target-opt${view === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('preview')}>预览</button>
                     <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
                   </div>
+                  <div className="pdf-result-icons">
+                    <Button size="sm" variant="ghost" icon={<IconCopy />} onClick={handleCopy} aria-label="复制" title="复制" />
+                    <Button size="sm" variant="ghost" icon={<IconDownload />} onClick={handleExport} aria-label="下载" title="下载" />
+                    <Button size="sm" variant="ghost" icon={<IconSparkles />} onClick={handlePolish} disabled={disabled} loading={polishing} aria-label="AI 润色" title="AI 润色" />
+                  </div>
                 </div>
-                <div className="pdf-result-content">
+                <div className="pdf-result-scroll">
                   {view === 'preview'
                     ? <div data-testid="pdf-preview"><Markdown>{editMd}</Markdown></div>
                     : <textarea className="field-input sc-pdf-editor" data-testid="pdf-editor" value={editMd} onChange={(e) => setEditMd(e.target.value)} />}
                 </div>
-              </div>
-              <div className="pdf-actions">
-                <Button className="pdf-action-btn" icon={<IconCopy />} onClick={handleCopy}>复制</Button>
-                <Button className="pdf-action-btn" icon={<IconDownload />} onClick={handleExport}>下载</Button>
-                <Button className="pdf-action-btn" icon={<IconSparkles />} onClick={handlePolish} disabled={disabled} loading={polishing}>AI 润色</Button>
               </div>
               {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
               <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
@@ -219,4 +222,12 @@ function timeAgo(ts: number): string {
   if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
   if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
   return `${Math.floor(s / 86400)} 天前`
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(k)))
+  return `${(bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
