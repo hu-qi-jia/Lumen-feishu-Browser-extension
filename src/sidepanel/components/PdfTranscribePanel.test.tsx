@@ -15,6 +15,8 @@ const mockResolveToken = vi.fn()
 vi.mock('../../shared/feishu/auth', () => ({ resolveToken: mockResolveToken }))
 const mockSavePdf = vi.fn(); const mockLoadPdfs = vi.fn(); const mockDeletePdf = vi.fn()
 vi.mock('../pdfHistory', () => ({ loadPdfs: mockLoadPdfs, savePdf: mockSavePdf, deletePdf: mockDeletePdf }))
+const mockWriteText = vi.fn()
+Object.defineProperty(navigator, 'clipboard', { value: { writeText: mockWriteText }, configurable: true })
 
 const PdfTranscribePanel = (await import('./PdfTranscribePanel')).default
 const { DEFAULT_SETTINGS } = await import('../../shared/types')
@@ -33,6 +35,8 @@ beforeEach(() => {
   mockSavePdf.mockReset(); mockLoadPdfs.mockReset(); mockDeletePdf.mockReset()
   mockLoadPdfs.mockResolvedValue([])
   mockSavePdf.mockImplementation(async (p: any) => [p])
+  mockWriteText.mockReset()
+  mockWriteText.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
 
@@ -46,6 +50,13 @@ describe('PdfTranscribePanel', () => {
     await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
     expect(mockPolish).not.toHaveBeenCalled()
     expect(mockSavePdf).toHaveBeenCalled()
+  })
+  it('shows the picked file as a row below the always-empty upload dropzone', () => {
+    mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile('report.pdf')
+    const row = screen.getByTestId('pdf-picked-file')
+    expect(row.textContent).toContain('report.pdf')
   })
   it('AI 润色 on demand updates content', async () => {
     mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
@@ -98,6 +109,28 @@ describe('PdfTranscribePanel', () => {
     fireEvent.click(screen.getByText('预览'))
     expect(screen.getByTestId('pdf-preview')).toBeTruthy()
     expect(screen.queryByTestId('pdf-editor')).toBeNull()
+  })
+
+  it('renders tooltips for the toolbar icon buttons', async () => {
+    mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    // Tooltip wraps each icon button — its text lives in the DOM (CSS only hides it visually)
+    expect(screen.getByText('复制')).toBeTruthy()
+    expect(screen.getByText('下载')).toBeTruthy()
+    expect(screen.getByText('AI 润色')).toBeTruthy()
+  })
+
+  it('flips the copy button to a "copied" state on success', async () => {
+    mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('复制'))
+    await waitFor(() => expect(mockWriteText).toHaveBeenCalledWith('# T\nbody'))
+    // Tooltip + aria-label switch to "已复制" while the success state is active.
+    await waitFor(() => expect(screen.getByText('已复制')).toBeTruthy())
   })
 
   it('aborts with a message on scan detection (no result)', async () => {

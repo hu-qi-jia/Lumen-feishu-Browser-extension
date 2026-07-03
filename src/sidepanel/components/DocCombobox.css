@@ -1,16 +1,29 @@
+/* Dropdown-input: a field-input you can paste a link into, with a chevron that drops down the
+   recent-docs list. Input + 添加到文档 button sit in a row (consistent with the app's input style). */
 .dc-combobox { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
 .dc-input-wrap { position: relative; flex: 1; }
-.dc-input { width: 100%; }
-.dc-chevron { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--muted, #888); cursor: pointer; padding: 2px 4px; }
-.dc-dropdown { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20;
-  background: var(--surface, #fff); border: 1px solid var(--border, #e3e3e3); border-radius: 8px;
-  max-height: 220px; overflow-y: auto; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.dc-input { width: 100%; padding-right: 28px; }
+.dc-chevron {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--color-text-secondary, #8a8f99);
+  cursor: pointer; padding: 2px 4px; display: inline-flex;
+  transition: color .15s;
+}
+.dc-chevron:hover { color: var(--color-primary, #3370ff); }
+.dc-chevron svg { width: 16px; height: 16px; }
+.dc-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e3e3);
+  border-radius: 8px;
+  max-height: 220px; overflow-y: auto;
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
 .dc-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
-.dc-row:hover { background: var(--hover, #f5f5f5); }
-.dc-row-icon { display: inline-flex; color: var(--muted, #888); }
+.dc-row:hover { background: var(--color-bg-subtle, #f5f5f5); }
+.dc-row-icon { display: inline-flex; color: var(--color-text-secondary, #8a8f99); }
 .dc-row-icon svg { width: 16px; height: 16px; }
-.dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dc-row-x { background: none; border: none; color: var(--muted, #999); cursor: pointer; display: inline-flex; padding: 2px; border-radius: 4px; }
+.dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.dc-row-x { background: none; border: none; color: var(--color-text-secondary, #bbb); cursor: pointer; display: inline-flex; padding: 2px; border-radius: 4px; }
 .dc-row-x svg { width: 14px; height: 14px; }
-.dc-row-x:hover { color: var(--danger, #d33); }
+.dc-row-x:hover { color: var(--color-danger, #d33); }

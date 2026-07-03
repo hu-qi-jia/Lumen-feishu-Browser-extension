@@ -13,16 +13,34 @@
 .sc-history-btn svg { display: block; width: 18px; height: 18px; }
 .sc-history-btn:hover { background: var(--color-surface-2, #f2f2f2); color: var(--color-text, #222); }
 
-/* ── action row spacing ──────────────────────────────────────────────── */
-.pdf-action-row { margin: 10px 0 12px; }
-
 /* ── result region ────────────────────────────────────────────────────── */
-.pdf-result { margin-top: 8px; }
+.pdf-result { margin-top: 10px; }
+
+/* The picked file shows as a compact row BELOW the (always-empty) upload dropzone —
+   small doc glyph + name + size. The dropzone above remains the click/drag-to-replace entry. */
+.pdf-picked-file {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 6px; padding: 6px 10px;
+  background: var(--color-bg-subtle, #fafafa);
+  border: 1px solid var(--color-border, #ececec);
+  border-radius: 7px;
+  font-size: 12px;
+}
+.pdf-picked-file-ic { display: inline-flex; color: var(--color-text-secondary, #8a8f99); flex-shrink: 0; }
+.pdf-picked-file-ic svg { width: 15px; height: 15px; }
+.pdf-picked-file-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500; color: var(--color-text, #1f2329);
+}
+.pdf-picked-file-meta { color: var(--color-text-secondary, #9aa0a6); flex-shrink: 0; }
 .pdf-result-box {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e3e3e3);
   border-radius: 8px;
-  overflow: hidden;  /* clip the scroll region to the rounded corners */
+  /* No overflow:hidden — the .pdf-result-scroll region self-clips, and we need the toolbar
+     Tooltips to be able to escape above the box. The box's own background is still rounded
+     by border-radius regardless of overflow. */
 }
 /* Fixed toolbar atop the box: preview/markdown toggle (left) + icon actions (right).
    It stays put — only the .pdf-result-scroll region below actually scrolls. */
@@ -31,8 +49,13 @@
   gap: 8px; padding: 6px 8px;
   border-bottom: 1px solid var(--color-border, #ececec);
   background: var(--color-bg-subtle, #fafafa);
+  border-radius: 7px 7px 0 0;  /* match the box's inner top corners (8px radius − 1px border) */
 }
-.pdf-result-icons { display: flex; gap: 2px; }
+.pdf-result-icons { display: flex; gap: 1px; }
+/* Tighten the ghost icon-only buttons so the cluster reads as one compact toolbar. */
+.pdf-result-icons .btn { padding: 0 5px; }
+/* "Copied" success state on the copy button — check glyph turns green for ~2s. */
+.pdf-result-icons .btn.is-copied { color: var(--color-success, #00b42a); }
 .pdf-view-toggle { min-width: auto; padding: 2px; }
 .pdf-view-toggle .sc-target-opt { padding: 3px 10px; font-size: 11.5px; }
 /* Fixed-height scroll region → preview & markdown occupy the same space (no height jump on
@@ -45,7 +68,16 @@
   padding: 10px 14px;
   font-size: 13.5px; line-height: 1.6; color: var(--color-text, #222);
 }
-.pdf-result-scroll .sc-pdf-editor { width: 100%; height: 100%; min-height: 0; resize: none; box-sizing: border-box; }
+/* The markdown editor is seamless inside the scroll region — same surface as preview.
+   Strips .field-input's border/background/padding so there's no nested box, and inherits the
+   region's font-size/line-height so both views match. Monospace family is kept for editing. */
+.pdf-result-scroll .sc-pdf-editor {
+  width: 100%; min-height: 100%; resize: none; box-sizing: border-box;
+  border: none; background: transparent; padding: 0; border-radius: 0; box-shadow: none;
+  font-size: inherit; line-height: inherit;
+  overflow: hidden;  /* no internal scrollbar — JS sizes height to content, outer region scrolls */
+}
+.pdf-result-scroll .sc-pdf-editor:focus { border: none; box-shadow: none; outline: none; }
 /* Equal-width action buttons (used by the selected-phase 转换 + 选择文件 row) */
 .pdf-actions { display: flex; gap: 8px; margin-top: 10px; }
 .pdf-action-btn { flex: 1 1 0; min-width: 0; }

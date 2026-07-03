@@ -48,38 +48,3 @@
 }
 .sl-upload-drop-ic svg { width: 100%; height: 100%; display: block; }
 
-/* Filled state — the dropzone becomes a file card: tinted icon square + bold name + meta line.
-   Follows the common upload "file list item" pattern (Ant Design Upload, react-dropzone previews,
-   Eleken's file-upload UX guide): icon in a colored rounded square, prominent truncated name,
-   secondary meta (size · action), whole card clickable to replace. */
-.sl-upload-drop.is-filled {
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 10px 14px;
-  border-style: solid;
-  border-color: var(--color-border, #dee0e3);
-  background: var(--color-surface, #fff);
-  text-align: left;
-}
-.sl-upload-drop.is-filled:hover:not(:disabled) {
-  border-color: var(--color-primary, #3370ff);
-  background: #f5f7ff;
-}
-.sl-upload-drop.is-filled .sl-upload-drop-ic {
-  width: 40px; height: 40px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--color-primary-soft, rgba(51, 112, 255, .1));
-  border-radius: 8px;
-  color: var(--color-primary, #3370ff);
-  margin-bottom: 0;
-  flex-shrink: 0;
-}
-.sl-upload-drop.is-filled .sl-upload-drop-ic svg { width: 22px; height: 22px; }
-.sl-upload-drop-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.sl-upload-drop.is-filled .sl-upload-drop-main {
-  font-size: 13.5px; font-weight: 600; color: var(--color-text, #1f2329);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.sl-upload-drop.is-filled .sl-upload-drop-hint { font-size: 11.5px; }

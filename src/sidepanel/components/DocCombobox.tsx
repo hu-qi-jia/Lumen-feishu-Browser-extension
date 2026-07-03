@@ -16,6 +16,8 @@ interface Props {
   writing?: boolean
 }
 
+/** A dropdown-style input: type/paste a doc link directly into the field, or click the chevron
+ *  to drop down the recent-docs list. Picking a recent fills the field with its title. */
 export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTargetChange, onConfirm, writing }: Props) {
   const [text, setText] = useState(target?.title ?? '')
   const [open, setOpen] = useState(false)
@@ -51,7 +53,7 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
           value={text} placeholder="粘贴文档链接或选择最近文档"
           onFocus={() => setOpen(true)} onChange={(e) => onText(e.target.value)}
         />
-        <button type="button" className="dc-chevron" onClick={() => setOpen((o) => !o)} aria-label="展开最近文档"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>
+        <button type="button" className="dc-chevron" onClick={() => setOpen((o) => !o)} aria-label="展开最近文档" aria-expanded={open}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>
         {open && filtered.length > 0 && (
           <div className="dc-dropdown" data-testid="dc-dropdown">
             {filtered.map((f) => (

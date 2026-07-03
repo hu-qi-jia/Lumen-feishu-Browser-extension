@@ -37,4 +37,11 @@ describe('Markdown', () => {
     expect(a).toBeTruthy()
     expect(a?.href).toBe('https://example.com/')
   })
+  it('strips HTML comments (pdf2md <!-- PAGE_BREAK -->) so they never render as text', () => {
+    const { container } = render(<Markdown>{'intro\n<!-- PAGE_BREAK -->\nmore'}</Markdown>)
+    expect(container.textContent).not.toContain('PAGE_BREAK')
+    expect(container.textContent).not.toContain('<!--')
+    expect(container.textContent).toContain('intro')
+    expect(container.textContent).toContain('more')
+  })
 })

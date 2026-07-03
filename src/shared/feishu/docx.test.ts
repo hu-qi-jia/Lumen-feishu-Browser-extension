@@ -40,6 +40,12 @@ describe('markdownToBlocks', () => {
     expect(types('plain text')).toEqual(['text'])
   })
 
+  it('clamps H4–H6 to h3 (Feishu docx has only 3 heading levels; pdf2md emits deeper ones)', () => {
+    expect(types('#### H4')).toEqual(['h3'])
+    expect(types('##### H5')).toEqual(['h3'])
+    expect(types('###### H6')).toEqual(['h3'])
+  })
+
   it('keeps a fenced code block as one code block (not per-line)', () => {
     const blocks = markdownToBlocks('```js\nconst a = 1\nconst b = 2\n```')
     const code = blocks.filter((b) => b.style === 'code')

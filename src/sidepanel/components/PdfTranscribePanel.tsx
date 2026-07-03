@@ -12,7 +12,8 @@ import Markdown from './Markdown'
 import DocCombobox, { type DocTarget } from './DocCombobox'
 import UploadDrop from './UploadDrop'
 import HistoryRow from './HistoryRow'
-import { IconFileText, IconHistory, IconCopy, IconDownload, IconSparkles } from './icons'
+import Tooltip from './Tooltip'
+import { KindIcon, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle } from './icons'
 import './PdfTranscribePanel.css'
 
 interface Props {
@@ -38,6 +39,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [writing, setWriting] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
+  const [copied, setCopied] = useState(false)
   const [target, setTarget] = useState<DocTarget | null>(
     context.feishu?.kind === 'doc' && context.feishu?.appToken
       ? { token: context.feishu.appToken, title: '当前文档' } : null,
@@ -46,8 +48,22 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [pdfs, setPdfs] = useState<SavedPdf[]>([])
   const pickedFile = useRef<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { loadPdfs().then(setPdfs) }, [])
+
+  // Clear any pending "copied" reset on unmount so it can't setState after teardown.
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }, [])
+
+  // Auto-size the markdown editor to fit its content so it never shows its own scrollbar —
+  // the outer .pdf-result-scroll region scrolls instead, matching the preview view exactly.
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [editMd, view])
 
   function handleFile(file: File) {
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -87,8 +103,15 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   }
 
   async function handleCopy() {
-    try { await navigator.clipboard.writeText(editMd); setInfo('已复制到剪贴板。') }
-    catch { setError('复制失败，请手动选择复制。') }
+    try {
+      await navigator.clipboard.writeText(editMd)
+      setInfo('已复制到剪贴板。')
+      setCopied(true)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError('复制失败，请手动选择复制。')
+    }
   }
   function handleExport() {
     const blob = new Blob([editMd], { type: 'text/markdown' })
@@ -114,7 +137,10 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   }
 
   function openHistory(p: SavedPdf) {
-    setFileName(p.fileName); setRawMd(p.markdown); setEditMd(p.markdown)
+    // History items saved before the PAGE_BREAK strip could still carry HTML comments —
+    // scrub them so neither the editor nor the preview shows literal <!-- PAGE_BREAK -->.
+    const md = p.markdown.replace(/<!--[\s\S]*?-->/g, '')
+    setFileName(p.fileName); setRawMd(md); setEditMd(md)
     pickedFile.current = null; setError(''); setInfo('已载入历史记录。')
     setPhase('done'); setHistoryOpen(false)
   }
@@ -136,12 +162,16 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
         <UploadDrop
           busy={phase === 'converting'} max={1} count={0}
-          selectedName={hasFile ? `${fileName}.pdf` : undefined}
-          selectedIcon={<IconFileText />}
-          selectedMeta={hasFile ? `${formatBytes(fileSize)} · 点击或拖入替换` : undefined}
           mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
           onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
           onTrigger={() => fileInputRef.current?.click()} />
+        {hasFile && (
+          <div className="pdf-picked-file" data-testid="pdf-picked-file">
+            <span className="pdf-picked-file-ic"><KindIcon kind="doc" /></span>
+            <span className="pdf-picked-file-name">{fileName}.pdf</span>
+            <span className="pdf-picked-file-meta">{formatBytes(fileSize)}</span>
+          </div>
+        )}
 
         {phase === 'converting' && <div className="sc-pdf-progress">正在解析 PDF…</div>}
 
@@ -163,11 +193,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         )}
 
         {phase === 'done' && (
-          <>
-            <div className="pdf-action-row">
-              <Button variant="secondary" block onClick={() => { pickedFile.current = null; setPhase('idle') }}>重新上传</Button>
-            </div>
-            <div className="pdf-result">
+          <div className="pdf-result">
               <div className="pdf-result-box" data-testid="pdf-result-box">
                 <div className="pdf-result-bar">
                   <div className="sc-target-opts pdf-view-toggle">
@@ -175,22 +201,27 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
                     <button className={`sc-target-opt${view === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setView('markdown')}>Markdown</button>
                   </div>
                   <div className="pdf-result-icons">
-                    <Button size="sm" variant="ghost" icon={<IconCopy />} onClick={handleCopy} aria-label="复制" title="复制" />
-                    <Button size="sm" variant="ghost" icon={<IconDownload />} onClick={handleExport} aria-label="下载" title="下载" />
-                    <Button size="sm" variant="ghost" icon={<IconSparkles />} onClick={handlePolish} disabled={disabled} loading={polishing} aria-label="AI 润色" title="AI 润色" />
+                    <Tooltip content={copied ? '已复制' : '复制'}>
+                      <Button size="sm" variant="ghost" icon={copied ? <IconCheck /> : <IconCopy />} onClick={handleCopy} aria-label={copied ? '已复制' : '复制'} className={copied ? 'is-copied' : undefined} />
+                    </Tooltip>
+                    <Tooltip content="下载">
+                      <Button size="sm" variant="ghost" icon={<IconDownload />} onClick={handleExport} aria-label="下载" />
+                    </Tooltip>
+                    <Tooltip content="AI 润色">
+                      <Button size="sm" variant="ghost" icon={<IconSparkle />} onClick={handlePolish} disabled={disabled} loading={polishing} aria-label="AI 润色" />
+                    </Tooltip>
                   </div>
                 </div>
                 <div className="pdf-result-scroll">
                   {view === 'preview'
                     ? <div data-testid="pdf-preview"><Markdown>{editMd}</Markdown></div>
-                    : <textarea className="field-input sc-pdf-editor" data-testid="pdf-editor" value={editMd} onChange={(e) => setEditMd(e.target.value)} />}
+                    : <textarea ref={editorRef} className="field-input sc-pdf-editor" data-testid="pdf-editor" value={editMd} onChange={(e) => setEditMd(e.target.value)} />}
                 </div>
               </div>
               {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
               <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
                 target={target} onTargetChange={setTarget} onConfirm={handleAddToDoc} writing={writing} />
             </div>
-          </>
         )}
 
         {error && phase !== 'error' && <div className="sc-refresh-err">{error}</div>}

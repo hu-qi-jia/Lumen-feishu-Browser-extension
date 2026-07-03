@@ -5,7 +5,11 @@ import './Markdown.css'
 /** Hand-rolled minimal markdown → React (headings, lists, tables, code, links).
  *  Extracted from MessageList so chat + PDF preview share one renderer. */
 export default function Markdown({ children }: { children: string }) {
-  const lines = children.split('\n')
+  // HTML comments aren't visible content (pdf2md emits <!-- PAGE_BREAK --> between pages).
+  // Strip them at the render layer so a stray marker can never show up as literal text,
+  // even if it survived into the source (e.g. a history item saved before the extract-time strip).
+  const src = children.replace(/<!--[\s\S]*?-->/g, '')
+  const lines = src.split('\n')
   const elements: ReactNode[] = []
   let i = 0
   while (i < lines.length) {

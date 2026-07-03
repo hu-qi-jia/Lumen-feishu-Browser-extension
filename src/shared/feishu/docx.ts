@@ -74,8 +74,12 @@ export function markdownToBlocks(md: string): BlockSpec[] {
     if (!tr) continue
     if (/^(---|\*\*\*|___)$/.test(tr)) { blocks.push({ text: '', style: 'divider' }); continue }
     let mm: RegExpMatchArray | null
-    if ((mm = tr.match(/^(#{1,3})\s+(.*)$/))) {
-      blocks.push({ text: mm[2], style: (['h1', 'h2', 'h3'] as const)[mm[1].length - 1] })
+    if ((mm = tr.match(/^(#{1,6})\s+(.*)$/))) {
+      // Feishu docx only has heading1–3 (block_type 3/4/5). pdf2md emits H4–H6 for deeper sections
+      // (its DetectHeaders starts at level 2), so clamp 4–6 down to h3 — otherwise they'd fall
+      // through to plain text and land as literal "#### …" in the document.
+      const level = Math.min(mm[1].length, 3)
+      blocks.push({ text: mm[2], style: (['h1', 'h2', 'h3'] as const)[level - 1] })
     } else if ((mm = tr.match(/^[-*]\s+\[([ xX])\]\s+(.*)$/))) {
       blocks.push({ text: mm[2], style: 'todo' })
     } else if ((mm = tr.match(/^[-*+]\s+(.*)$/))) {
