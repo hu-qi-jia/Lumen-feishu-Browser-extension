@@ -13,6 +13,7 @@ import DataVizPanel from './DataVizPanel'
 import AISitePanel from './AISitePanel'
 import SmartFillPanel from './SmartFillPanel'
 import SlidesPanel from './SlidesPanel'
+import PdfTranscribePanel from './PdfTranscribePanel'
 import TopBar from './TopBar'
 import Button from './Button'
 import './ScenarioPanel.css'
@@ -36,6 +37,7 @@ type View =
   | { mode: 'aisite' }
   | { mode: 'smartfill' }
   | { mode: 'slides' }
+  | { mode: 'pdfTranscribe' }
   | { mode: 'gallery' }
   | { mode: 'detail'; template: ScenarioTemplate }
   | { mode: 'progress'; template: ScenarioTemplate; steps: ProgressStep[]; error?: string; inputs?: Record<string, string> }
@@ -144,6 +146,9 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
       { key: 'build', label: '模板建库', requires: 'any', feats: [
         { icon: 'grid', title: '场景模版', desc: '一键搭建 CRM、电商、项目管理系统', go: () => setView({ mode: 'gallery' }) },
       ] },
+      { key: 'pdf', label: '内容转写', requires: 'any', feats: [
+        { icon: 'file', title: 'PDF 转写', desc: '把 PDF 抽成 Markdown，AI 润色后写入文档', go: () => setView({ mode: 'pdfTranscribe' }) },
+      ] },
     ]
     // 'content' (PPT) works on a doc OR a table, so it's active whenever the page is either (and on
     // an unresolved/unknown page we show it too — the panel itself gates).
@@ -212,6 +217,10 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
 
   if (view.mode === 'slides') {
     return <SlidesPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
+  }
+
+  if (view.mode === 'pdfTranscribe') {
+    return <PdfTranscribePanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
   }
 
   if (view.mode === 'gallery') {
