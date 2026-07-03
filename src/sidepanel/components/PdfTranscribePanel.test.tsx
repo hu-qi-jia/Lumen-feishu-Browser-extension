@@ -82,4 +82,15 @@ describe('PdfTranscribePanel', () => {
     // appended at the END: index = root children length = 2
     expect(mockInsertContent).toHaveBeenCalledWith('USER_TOKEN', 'CURDOC', expect.any(Array), 2)
   })
+
+  it('defaults polish off and skips the LLM call when disabled (no API key)', async () => {
+    mockExtract.mockResolvedValue('# T\nbody')
+    mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={true} onBack={() => {}} />)
+    pickFile()
+    await waitFor(() => expect(screen.getByTestId('pdf-editor')).toBeTruthy())
+    expect(mockPolish).not.toHaveBeenCalled()
+    expect((screen.getByTestId('pdf-editor') as HTMLTextAreaElement).value).toContain('body')
+    expect(screen.getByText(/AI 润色需要 API Key/)).toBeTruthy()
+  })
 })

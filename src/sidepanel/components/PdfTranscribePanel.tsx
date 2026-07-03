@@ -20,12 +20,12 @@ type Phase = 'idle' | 'extracting' | 'polishing' | 'done' | 'error'
 
 interface DocTarget { token: string; title: string }
 
-export default function PdfTranscribePanel({ settings, context, onBack }: Props) {
+export default function PdfTranscribePanel({ settings, context, disabled, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [rawMd, setRawMd] = useState('')
   const [polishedMd, setPolishedMd] = useState('')
   const [editMd, setEditMd] = useState('')
-  const [polishEnabled, setPolishEnabled] = useState(true)
+  const [polishEnabled, setPolishEnabled] = useState(!disabled)
   const [polishFailed, setPolishFailed] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -134,7 +134,7 @@ export default function PdfTranscribePanel({ settings, context, onBack }: Props)
           <>
             <label className="sc-input-field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
-                type="checkbox" checked={polishEnabled}
+                type="checkbox" checked={polishEnabled} disabled={disabled}
                 onChange={e => {
                   setPolishEnabled(e.target.checked)
                   setEditMd(e.target.checked ? polishedMd : rawMd)
@@ -142,6 +142,7 @@ export default function PdfTranscribePanel({ settings, context, onBack }: Props)
               />
               <span className="sc-input-label">启用 AI 润色</span>
             </label>
+            {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
             <textarea
               className="field-input sc-pdf-editor" data-testid="pdf-editor"
               value={editMd} onChange={e => setEditMd(e.target.value)} rows={16}
