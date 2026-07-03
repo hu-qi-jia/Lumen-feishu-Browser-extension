@@ -1,14 +1,20 @@
 /* @vitest-environment jsdom */
+import { useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import type { RecentFile } from '../recentFiles'
-import DocCombobox from './DocCombobox'
+import DocCombobox, { type DocTarget } from './DocCombobox'
 
 const RECENT: RecentFile[] = [
   { token: 'tokA', title: '需求文档', kind: 'doc', seen: 3 },
   { token: 'tokB', title: '周报', kind: 'sheet', seen: 2 },
 ]
 afterEach(cleanup)
+
+function Harness({ initial }: { initial: DocTarget | null }) {
+  const [target, setTarget] = useState<DocTarget | null>(initial)
+  return <DocCombobox recentFiles={[]} target={target} onTargetChange={setTarget} onConfirm={() => {}} />
+}
 
 describe('DocCombobox', () => {
   it('lists recent docs on focus and picks one', () => {
@@ -35,5 +41,11 @@ describe('DocCombobox', () => {
     render(<DocCombobox recentFiles={[]} target={{ token: 't', title: 'x' }} onTargetChange={() => {}} onConfirm={onConfirm} />)
     fireEvent.click(screen.getByText('添加到文档'))
     expect(onConfirm).toHaveBeenCalled()
+  })
+  it('keeps the typed text even when it does not parse (target was non-null)', () => {
+    render(<Harness initial={{ token: 'CURDOC', title: '当前文档' }} />)
+    const input = screen.getByTestId('dc-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '乱' } })
+    expect(input.value).toBe('乱')
   })
 })

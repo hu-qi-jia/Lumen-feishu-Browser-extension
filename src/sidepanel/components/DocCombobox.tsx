@@ -21,8 +21,6 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setText(target?.title ?? '') }, [target])
-
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
@@ -53,7 +51,7 @@ export default function DocCombobox({ recentFiles, onRemoveRecent, target, onTar
           value={text} placeholder="粘贴文档链接或选择最近文档"
           onFocus={() => setOpen(true)} onChange={(e) => onText(e.target.value)}
         />
-        <button type="button" className="dc-chevron" onClick={() => setOpen((o) => !o)} aria-label="展开最近文档">▾</button>
+        <button type="button" className="dc-chevron" onClick={() => setOpen((o) => !o)} aria-label="展开最近文档"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>
         {open && filtered.length > 0 && (
           <div className="dc-dropdown" data-testid="dc-dropdown">
             {filtered.map((f) => (

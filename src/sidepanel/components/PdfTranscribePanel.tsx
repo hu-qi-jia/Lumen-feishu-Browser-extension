@@ -41,7 +41,6 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   )
   const [historyOpen, setHistoryOpen] = useState(false)
   const [pdfs, setPdfs] = useState<SavedPdf[]>([])
-  const inputRef = useRef<HTMLInputElement>(null)
   const pickedFile = useRef<File | null>(null)
 
   useEffect(() => { loadPdfs().then(setPdfs) }, [])
@@ -94,7 +93,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
   }
   async function handleAddToDoc() {
-    if (!target?.token) { setInfo('请先选择目标文档。'); return }
+    if (!target?.token) { setError('请先选择目标文档。'); return }
     setWriting(true); setError(''); setInfo('')
     try {
       const token = await resolveToken(settings)
@@ -135,7 +134,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         {phase === 'idle' && (
           <label className="sc-pdf-drop" data-testid="pdf-drop"
             onDragEnter={stop} onDragOver={stop} onDragLeave={stop} onDrop={onDrop}>
-            <input ref={inputRef} type="file" accept=".pdf,application/pdf" hidden data-testid="pdf-input"
+            <input type="file" accept=".pdf,application/pdf" hidden data-testid="pdf-input"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
             <span className="sc-pdf-drop-ic"><IconUpload /></span>
             <p>点击或拖入 PDF 文件</p>
@@ -204,9 +203,10 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
             {[...pdfs].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
               <div className="pdf-history-row" key={p.id}>
                 <button className="pdf-history-main" onClick={() => openHistory(p)}>
-                  <span className="pdf-history-name">{p.fileName}</span>
+                  <span className="pdf-history-name">{p.fileName}.pdf</span>
                   <span className="pdf-history-time">{timeAgo(p.createdAt)}</span>
                 </button>
+                {/* reuses .drawer-row-btn from SessionDrawer.css (bundled globally), mirroring SlidesPanel */}
                 <button className="drawer-row-btn" onClick={() => removeHistory(p.id)} aria-label="删除"><IconX /></button>
               </div>
             ))}
