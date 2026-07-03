@@ -269,54 +269,9 @@
   word-break: break-all;
 }
 
-/* ── Markdown ── */
-.md-content { display: contents; }
-.md-p { margin: 0; }
-.md-h2 { font-size: 14px; font-weight: 600; margin: 4px 0 2px; }
-.md-h3 { font-size: 13px; font-weight: 600; margin: 4px 0 2px; }
-.md-li { margin-left: 14px; list-style: disc; }
-.md-table {
-  border-collapse: collapse;
-  margin: 6px 0;
-  font-size: 12px;
-  width: 100%;
-  display: block;
-  overflow-x: auto;
-}
-.md-table th, .md-table td {
-  border: 1px solid var(--color-border);
-  padding: 4px 8px;
-  text-align: left;
-  vertical-align: top;
-}
-.md-table th { background: var(--color-bg-subtle, rgba(0,0,0,0.03)); font-weight: 600; }
-.md-link {
-  color: var(--color-primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  word-break: break-all;
-  cursor: pointer;
-}
-.md-link:hover { text-decoration: none; }
+/* ── Markdown: user-bubble overrides (base .md-* styles now live in Markdown.css) ── */
 .bubble--user .md-link { color: #fff; text-decoration: underline; }
-.md-code {
-  background: rgba(0,0,0,.06);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 12px;
-}
 .bubble--user .md-code { background: rgba(255,255,255,.2); }
-.md-code-block {
-  background: #1e1e2e;
-  color: #cdd6f4;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  overflow-x: auto;
-  margin: 4px 0;
-  position: relative;
-}
 
 /* ── Attachments inside user bubble ── */
 .msg-attachments {
@@ -345,12 +300,4 @@
   max-height: 90px;
   border-radius: 6px;
   display: block;
-}
-
-.md-code-lang {
-  display: block;
-  font-size: 10px;
-  color: #6c7086;
-  margin-bottom: 4px;
-  font-family: monospace;
 }

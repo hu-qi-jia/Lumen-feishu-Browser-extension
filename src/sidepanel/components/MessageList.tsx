@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '../../shared/types'
-import { openUrlInNewTab } from '../../shared/url'
+import Markdown from './Markdown'
 import './MessageList.css'
 
 type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
@@ -228,7 +228,7 @@ const ReplyItem = React.memo(function ReplyItem({ msg }: { msg: ChatMessage }) {
   if (msg.role === 'assistant' && msg.tool_calls?.length && !msg.content) return <ToolCallIndicator msg={msg} />
   return (
     <div className="reply-text">
-      <MarkdownText text={msg.content ?? ''} />
+      <Markdown>{msg.content ?? ''}</Markdown>
       {msg.isStreaming && <span className="cursor">▋</span>}
     </div>
   )
@@ -308,145 +308,4 @@ function ToolResult({ msg }: { msg: ChatMessage }) {
       {expanded && <pre className="tool-result-body">{content}</pre>}
     </div>
   )
-}
-
-function MarkdownText({ text }: { text: string }) {
-  // Minimal markdown: bold, inline code, code blocks, lists
-  const lines = text.split('\n')
-  const elements: React.ReactNode[] = []
-  let i = 0
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim()
-      const codeLines: string[] = []
-      i++
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i])
-        i++
-      }
-      // A fenced block that's just a URL (models sometimes "format" the open link this
-      // way) would be a dead monospace string — render it as a clickable link instead.
-      const joined = codeLines.join('\n').trim()
-      const codeUrl = safeHref(joined)
-      if (codeUrl && !/\s/.test(joined)) {
-        elements.push(<p key={i} className="md-p">{linkEl(codeUrl, codeUrl, i)}</p>)
-      } else {
-        elements.push(
-          <pre key={i} className="md-code-block">
-            {lang && <span className="md-code-lang">{lang}</span>}
-            <code>{codeLines.join('\n')}</code>
-          </pre>
-        )
-      }
-    } else if (isTableHeader(lines, i)) {
-      // GitHub-style table: header row, a |---|---| separator, then body rows.
-      const header = splitCells(line)
-      let j = i + 2
-      const rows: string[][] = []
-      while (j < lines.length && lines[j].trim().startsWith('|')) {
-        rows.push(splitCells(lines[j]))
-        j++
-      }
-      elements.push(
-        <table key={i} className="md-table">
-          <thead>
-            <tr>{header.map((h, k) => <th key={k}>{inlineFormat(h)}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rows.map((r, ri) => (
-              <tr key={ri}>{header.map((_, ci) => <td key={ci}>{inlineFormat(r[ci] ?? '')}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      )
-      i = j - 1 // the trailing i++ steps past the last consumed body row
-    } else if (line.startsWith('### ')) {
-      elements.push(<h3 key={i} className="md-h3">{inlineFormat(line.slice(4))}</h3>)
-    } else if (line.startsWith('## ')) {
-      elements.push(<h2 key={i} className="md-h2">{inlineFormat(line.slice(3))}</h2>)
-    } else if (line.startsWith('# ')) {
-      elements.push(<h2 key={i} className="md-h2">{inlineFormat(line.slice(2))}</h2>)
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      elements.push(<li key={i} className="md-li">{inlineFormat(line.slice(2))}</li>)
-    } else if (line.trim() === '') {
-      elements.push(<br key={i} />)
-    } else {
-      elements.push(<p key={i} className="md-p">{inlineFormat(line)}</p>)
-    }
-    i++
-  }
-
-  return <div className="md-content">{elements}</div>
-}
-
-const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : null)
-
-// Split a markdown table row "| a | b |" → ['a','b'] (drop the outer pipes).
-function splitCells(row: string): string[] {
-  return row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
-}
-
-// A table starts when this line is a "| … |" row and the NEXT line is a |---|:---| separator.
-function isTableHeader(lines: string[], i: number): boolean {
-  const sep = lines[i + 1]
-  return (
-    lines[i].trim().startsWith('|') &&
-    !!sep &&
-    sep.includes('-') &&
-    /^\s*\|?[\s:|-]+\|?\s*$/.test(sep)
-  )
-}
-
-// A plain <a target="_blank"> click is unreliable inside a Chrome side panel (the panel
-// swallows the navigation), so links look "dead". Open via chrome.tabs.create instead.
-function openExternal(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
-  e.preventDefault()
-  openUrlInNewTab(href)
-}
-
-function linkEl(href: string, label: string, key: React.Key) {
-  return (
-    <a key={key} className="md-link" href={href} target="_blank" rel="noreferrer" onClick={(e) => openExternal(e, href)}>
-      {label}
-    </a>
-  )
-}
-
-// A URL the model wrapped in backticks (`https://…`) or as a `[text](url)` inside backticks
-// should still be clickable — return an anchor, else null (caller keeps the <code>).
-function linkInCode(inner: string, key: React.Key): React.ReactNode | null {
-  const md = inner.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
-  if (md && safeHref(md[2])) return linkEl(safeHref(md[2])!, md[1], key)
-  const href = safeHref(inner.trim())
-  return href ? linkEl(href, inner.trim(), key) : null
-}
-
-function inlineFormat(text: string): React.ReactNode {
-  // Split on inline code / bold / markdown links / bare URLs so links render as
-  // clickable anchors (created-document links open in a new tab — no copy-paste).
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g)
-  return parts.map((part, i) => {
-    if (!part) return null
-    if (part.startsWith('`') && part.endsWith('`')) {
-      const inner = part.slice(1, -1)
-      // Models often wrap the "open" URL in backticks → it'd render as a dead monospace
-      // string. If the code span is really a URL/link, make it clickable instead.
-      return linkInCode(inner, i) ?? <code key={i} className="md-code">{inner}</code>
-    }
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>
-    }
-    const mdLink = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
-    if (mdLink) {
-      const href = safeHref(mdLink[2])
-      return href ? linkEl(href, mdLink[1], i) : mdLink[1]
-    }
-    if (safeHref(part)) {
-      return linkEl(part, part, i)
-    }
-    return part
-  })
 }
