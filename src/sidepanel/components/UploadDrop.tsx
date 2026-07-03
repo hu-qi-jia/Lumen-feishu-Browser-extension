@@ -9,11 +9,15 @@ interface Props {
   onFiles: (files: FileList) => void
   /** Called when the button is clicked — the parent should trigger its hidden <input type="file">. */
   onTrigger: () => void
+  /** Override the main label (defaults to the image-upload copy for back-compat with ImagePicker). */
+  mainText?: string
+  /** Override the hint line (defaults to "可多选 · 最多 {max} 张"). */
+  hintText?: string
 }
 
 /** A standalone file-upload dropzone (click or drag). White background, stopPropagation
  *  on drag events to prevent Feishu's page-level "剪藏到飞书" handler from intercepting. */
-export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger }: Props) {
+export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger, mainText, hintText }: Props) {
   const [dragging, setDragging] = useState(false)
   const dragCounter = useRef(0)
 
@@ -78,8 +82,8 @@ export function UploadDrop({ busy, disabled, max, count, onFiles, onTrigger }: P
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
-      <span className="sl-upload-drop-main">{busy ? '处理中…' : '点击或拖拽上传图片'}</span>
-      <span className="sl-upload-drop-hint">可多选 · 最多 {max} 张</span>
+      <span className="sl-upload-drop-main">{busy ? '处理中…' : (mainText ?? '点击或拖拽上传图片')}</span>
+      <span className="sl-upload-drop-hint">{hintText ?? `可多选 · 最多 ${max} 张`}</span>
     </button>
   )
 }
