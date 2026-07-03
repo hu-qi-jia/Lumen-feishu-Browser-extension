@@ -19,18 +19,18 @@ const enterGallery = (c: HTMLElement) => {
 
 describe('ScenarioPanel — feature hub + template gallery', () => {
   it('lands on the hub with a template-library entry', () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} />)
     expect(container.querySelector('.hub-card--clickable')).toBeTruthy()
   })
 
   it('renders builtin template cards in the gallery', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} />)
     enterGallery(container)
     await waitFor(() => expect(realCard(container)).toBeTruthy())
   })
 
   it('clicking anywhere on a card enters the detail/config view', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} />)
     enterGallery(container)
     await waitFor(() => expect(realCard(container)).toBeTruthy())
     fireEvent.click(realCard(container)!)
@@ -38,7 +38,7 @@ describe('ScenarioPanel — feature hub + template gallery', () => {
   })
 
   it('detail is reachable even when disabled (browsing not gated), but 创建 is blocked', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={true} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={true} recentFiles={[]} />)
     enterGallery(container)
     await waitFor(() => expect(realCard(container)).toBeTruthy())
     fireEvent.click(realCard(container)!)
@@ -54,7 +54,7 @@ describe('ScenarioPanel — feature hub + template gallery', () => {
 
   it('on a Base page, table- and content-feature groups are all active (nothing dimmed)', () => {
     const baseCtx: PageContext = { url: '', title: '', selectedText: '', feishu: { isBase: true, kind: 'base', appToken: 'x' } }
-    const { container } = render(<ScenarioPanel settings={settings} context={baseCtx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={baseCtx} disabled={false} recentFiles={[]} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
     expect(groupOf(container, '数据可视化').className).not.toContain('sc-hub-group--dim')
     expect(groupOf(container, '数据分析').className).not.toContain('sc-hub-group--dim')
@@ -64,7 +64,7 @@ describe('ScenarioPanel — feature hub + template gallery', () => {
 
   it('on a Doc page, table-feature groups are dimmed but content/any groups stay active', () => {
     const docCtx: PageContext = { url: '', title: '', selectedText: '', feishu: { isBase: false, kind: 'doc', documentId: 'd' } }
-    const { container } = render(<ScenarioPanel settings={settings} context={docCtx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={docCtx} disabled={false} recentFiles={[]} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
     expect(groupOf(container, '数据可视化').className).toContain('sc-hub-group--dim')
     expect(groupOf(container, '数据分析').className).toContain('sc-hub-group--dim')
@@ -72,7 +72,7 @@ describe('ScenarioPanel — feature hub + template gallery', () => {
   })
 
   it('off a Feishu resource, nothing is dimmed (we can\'t tell what the page is)', () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} />)
+    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
     expect(container.querySelector('.sc-hub-group--dim')).toBeFalsy()
   })

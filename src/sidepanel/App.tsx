@@ -375,7 +375,7 @@ export default function App() {
                   onRemoveRecent={removeFromRecent}
                 />
               ) : (
-                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} />
+                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} />
               )}
             </div>
           </main>

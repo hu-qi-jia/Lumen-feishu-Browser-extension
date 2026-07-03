@@ -1,3 +1,4 @@
+/* ── v1 drop zone / progress / editor (retained) ────────────────────────── */
 .sc-pdf-drop {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 6px; padding: 40px 16px; margin: 16px 0;
@@ -5,7 +6,75 @@
   cursor: pointer; color: var(--muted-fg, #888); text-align: center;
 }
 .sc-pdf-drop:hover { border-color: var(--accent, #3370ff); color: var(--accent, #3370ff); }
+.sc-pdf-drop-ic { display: inline-flex; color: var(--color-text-secondary, #888); margin-bottom: 2px; }
+.sc-pdf-drop-ic svg { width: 28px; height: 28px; display: block; }
 .sc-pdf-hint { font-size: 12px; opacity: .8; }
 .sc-pdf-progress { padding: 24px 0; text-align: center; color: var(--muted-fg, #888); }
 .sc-pdf-editor { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; resize: vertical; box-sizing: border-box; }
-.sc-pdf-target-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+
+/* ── TopBar history button (mirrors .sl-history-btn) ────────────────────── */
+.sc-history-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-secondary, #888); padding: 6px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.sc-history-btn svg { display: block; width: 18px; height: 18px; }
+.sc-history-btn:hover { background: var(--color-surface-2, #f2f2f2); color: var(--color-text, #222); }
+
+/* ── v2 selected-file card ─────────────────────────────────────────────── */
+.pdf-file-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; margin: 12px 0;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e3e3);
+  border-radius: 10px;
+}
+.pdf-file-ic { display: inline-flex; color: var(--color-primary, #3370ff); }
+.pdf-file-ic svg { width: 20px; height: 20px; display: block; }
+.pdf-file-name {
+  flex: 1; min-width: 0;
+  font-size: 13.5px; font-weight: 500; color: var(--color-text, #222);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── action row (转换 / 选择文件) ──────────────────────────────────────── */
+.pdf-action-row { margin: 8px 0 12px; }
+
+/* ── result region ────────────────────────────────────────────────────── */
+.pdf-result { margin-top: 8px; }
+.pdf-result-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.pdf-view-toggle { flex: 0 0 auto; min-width: 180px; }
+.pdf-actions { margin-top: 10px; }
+
+/* Preview container — bounded height, scrollable; reuses shared Markdown styles. */
+.pdf-preview {
+  max-height: 40vh; overflow: auto;
+  padding: 12px 14px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e3e3);
+  border-radius: 8px;
+  font-size: 13.5px; line-height: 1.6; color: var(--color-text, #222);
+}
+
+/* ── history drawer rows ──────────────────────────────────────────────── */
+.pdf-history { display: flex; flex-direction: column; gap: 2px; }
+.pdf-history-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border, #efefef);
+}
+.pdf-history-row:last-child { border-bottom: none; }
+.pdf-history-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 4px 6px; border-radius: 6px;
+}
+.pdf-history-main:hover { background: var(--color-surface-2, #f5f5f5); }
+.pdf-history-name {
+  font-size: 13px; font-weight: 500; color: var(--color-text, #222);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.pdf-history-time { font-size: 11px; color: var(--color-text-secondary, #999); }
+.pdf-history-empty { padding: 24px 8px; text-align: center; color: var(--color-text-secondary, #999); font-size: 13px; }
