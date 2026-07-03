@@ -108,6 +108,23 @@ export const IconList = (p: P) => (
   </svg>
 )
 
+export const IconUpload = (p: P) => (
+  <svg {...common} {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+)
+
+export const IconHistory = (p: P) => (
+  <svg {...common} {...p}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <line x1="12" y1="7" x2="12" y2="12" />
+    <line x1="12" y1="12" x2="15.5" y2="14" />
+  </svg>
+)
+
 /**
  * Distinct line icon per Feishu resource kind — sheet / base / doc are scannable at a glance.
  * Used by the doc-selector dropdown and the session-history drawer (group headers). `wiki`
