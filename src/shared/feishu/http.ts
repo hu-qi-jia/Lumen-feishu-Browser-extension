@@ -95,3 +95,43 @@ export async function feishuReq<T = unknown>(
   }
   return json.data
 }
+
+/**
+ * Multipart upload helper — same auth + outbound guard + private-deploy version
+ * fallback as feishuFetch, but sends FormData without a Content-Type header so
+ * the browser can set the multipart boundary automatically. Body is NEVER
+ * JSON-stringified. Throws on non-ok response (caller inspects .json() envelope
+ * themselves).
+ */
+export async function feishuUpload(
+  path: string,
+  formData: FormData,
+  token: string
+): Promise<Response> {
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  }
+  const candidates = IS_PRIVATE_DEPLOY ? versionCandidates(path) : [{ path, ver: 0 }]
+  let last: Response | null = null
+  for (const cand of candidates) {
+    const url = new URL(`${BASE}${cand.path}`)
+    if (!isFeishuOutboundAllowed(url.toString())) {
+      throw new Error(`出站被拦截：${url.hostname} 不在允许的飞书主机列表内`)
+    }
+    const res = await robustFetch(url.toString(), init, 'POST') // writes never retry
+    if (res.status === 404 && cand.ver > 1) {
+      const text = await res.text()
+      let isFeishuEnvelope = false
+      try { const j = JSON.parse(text); isFeishuEnvelope = !!j && typeof j.code === 'number' } catch { /* */ }
+      const rewrapped = new Response(text, { status: 404, statusText: res.statusText, headers: res.headers })
+      if (!isFeishuEnvelope) { last = rewrapped; continue }
+      rememberVersion(path, cand.ver)
+      return rewrapped
+    }
+    if (res.status !== 404) rememberVersion(path, cand.ver)
+    return res
+  }
+  return last as Response
+}

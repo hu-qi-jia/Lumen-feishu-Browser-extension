@@ -96,6 +96,13 @@ describe('buildTableDescendants', () => {
   })
 })
 
+describe('buildBlock — image (block_type 27)', () => {
+  it('buildBlock image returns block_type 27', () => {
+    const block = buildBlock({ text: '', style: 'image', imageToken: 'tok-xyz' })
+    expect(block).toEqual({ block_type: 27, image: { token: 'tok-xyz' } })
+  })
+})
+
 describe('splitSheetToken', () => {
   it('splits {spreadsheetToken}_{sheetId} on the LAST underscore', () => {
     expect(splitSheetToken('LxvrsycFwhQ_QJ6HZR')).toEqual({ spreadsheetToken: 'LxvrsycFwhQ', sheetId: 'QJ6HZR' })

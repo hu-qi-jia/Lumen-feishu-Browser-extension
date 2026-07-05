@@ -12,8 +12,8 @@ import { feishuReq } from './http'
 import { writeRange } from './sheets'
 
 export type BlockStyle =
-  | 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'quote' | 'code' | 'todo' | 'divider'
-export interface BlockSpec { text: string; style?: BlockStyle }
+  | 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'ordered' | 'quote' | 'code' | 'todo' | 'divider' | 'image'
+export interface BlockSpec { text: string; style?: BlockStyle; imageToken?: string }
 
 // block_type codes (verified live): 2=text 3/4/5=heading1-3 12=bullet 13=ordered
 // 14=code 15=quote 17=todo 22=divider
@@ -28,6 +28,7 @@ const BLOCK_TYPE: Record<BlockStyle, { type: number; key: string }> = {
   code: { type: 14, key: 'code' },
   todo: { type: 17, key: 'todo' },
   divider: { type: 22, key: 'divider' },
+  image: { type: 27, key: 'image' },
 }
 
 // Parse inline markdown (**bold**, *italic*, `code`) into styled text_run elements.
@@ -47,6 +48,9 @@ function parseInline(text: string): Array<Record<string, unknown>> {
 }
 
 export function buildBlock(spec: BlockSpec): Record<string, unknown> {
+  if (spec.style === 'image') {
+    return { block_type: 27, image: { token: spec.imageToken ?? '' } }
+  }
   const { type, key } = BLOCK_TYPE[spec.style ?? 'text'] ?? BLOCK_TYPE.text
   if (key === 'divider') return { block_type: type, divider: {} }
   const inner: Record<string, unknown> = { elements: parseInline(spec.text), style: {} }
