@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { ChatCompletionMessageParam, ChatCompletionContentPart } from 'openai/resources'
+import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext, ToolCallDef, Attachment } from '../types'
 import { FEISHU_TOOLS } from './tools'
 import * as API from '../feishu/api'
@@ -28,9 +28,8 @@ import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
 import { uploadMedia } from '../feishu/upload'
 import { downloadMedia } from '../feishu/media'
-import { cloneDocumentWithImages } from '../feishu/cloneDoc'
 import { reloadActiveTab } from '../../sidepanel/tabReload'
-import { compressImageToDataUrl } from '../attachments'
+import { compressImageToDataUrl, dataUrlToBlob } from '../attachments'
 
 export interface ConfirmRequest {
   kind: 'create_base' | 'delete' | 'write'
@@ -231,7 +230,7 @@ const SHEET_TOOLS = new Set([
 const DOC_TOOLS = new Set([
   'create_document', 'create_doc_from_markdown', 'get_document_content', 'list_blocks',
   'add_document_content', 'insert_table', 'insert_sheet', 'delete_document_blocks',
-  'insert_image', 'copy_document', 'clone_doc_with_images', 'replace_image', 'export_doc_images',
+  'insert_image', 'copy_document', 'replace_image', 'export_doc_images',
 ])
 // Pure READ tools — side-effect-free, so when the model batches several in one round they can run
 // CONCURRENTLY instead of one-after-another (cuts wall-time for "read A and B and C" patterns).
@@ -652,16 +651,22 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
       if (attachments.length === 0) {
         out.push({ role: 'user', content: m.content ?? '' })
       } else {
-        const parts: ChatCompletionContentPart[] = []
-        if (m.content?.trim()) parts.push({ type: 'text', text: m.content })
+        // Represent attachments as TEXT metadata (attachment_id + name) so the agent can
+        // reference them in tool calls (e.g. insert_image's attachment_id). We do NOT embed
+        // image bytes as image_url vision parts — many configured LLMs aren't vision-capable
+        // and reject the request ("unknown variant image_url, expected text"). The actual
+        // image data reaches the tool via the separate `attachments` plumbing, so the agent
+        // doesn't need to "see" the image to insert it.
+        const bits: string[] = []
+        if (m.content?.trim()) bits.push(m.content.trim())
         for (const a of attachments) {
           if (a.type === 'image' && a.dataUrl) {
-            parts.push({ type: 'image_url', image_url: { url: a.dataUrl, detail: 'auto' } })
+            bits.push(`【附件：图片 ${a.name}（attachment_id: ${a.id}）】`)
           } else if (a.type === 'file' && a.content) {
-            parts.push({ type: 'text', text: `\n\n【附件：${a.name}】\n${a.content}` })
+            bits.push(`\n\n【附件：${a.name}】\n${a.content}`)
           }
         }
-        out.push({ role: 'user', content: parts.length ? parts : '' })
+        out.push({ role: 'user', content: bits.join('\n\n') })
       }
     } else if (m.role === 'assistant') {
       out.push({ role: m.role, content: m.content ?? '' })
@@ -1221,7 +1226,13 @@ async function executeDocTool(
   attachments?: Attachment[]
 ): Promise<unknown> {
   void attachments // consumed by image-tool dispatch cases (Tasks 4-8)
+  // Most doc tools expose `document_id` in their schema and the agent fills it. But insert_image /
+  // replace_image have NO document_id field (only attachment_id/anchor), so args.document_id is
+  // undefined for them — without this fallback `doc` is undefined and the very first listBlocks
+  // call hits /docx/v1/documents/undefined/blocks → 1770001, before any anchor/upload logic runs.
+  // (Same bug class as copy_document's source_doc_token fallback below.)
   const doc = sanitizeToken(args.document_id as string | undefined)
+    ?? (context.feishu?.kind === 'doc' ? context.feishu.documentId : undefined)
 
   switch (name) {
     case 'create_document': {
@@ -1277,9 +1288,9 @@ async function executeDocTool(
       const att = attachments.find((a) => a.id === attachmentId && a.type === 'image')
       if (!att || !att.dataUrl) throw new Error(`附件 ${attachmentId} 不存在或不是图片。`)
 
-      // dataUrl → Blob
-      const res = await fetch(att.dataUrl)
-      const blob = await res.blob()
+      // dataUrl → Blob. Decode in-memory (NOT fetch) — fetching data: URLs is blocked by
+      // the extension's CSP and throws "Failed to fetch".
+      const blob = dataUrlToBlob(att.dataUrl)
       if (blob.size === 0) throw new Error('无法读取图片数据。')
 
       // Resolve anchor → index
@@ -1322,24 +1333,36 @@ async function executeDocTool(
         throw new Error(`不支持的锚点类型：${t}`)
       }
 
-      // Upload + insert
+      // Official 3-step insert-image flow (per Feishu "如何插入图片" FAQ):
+      //   1) create an EMPTY image block at the anchor index → block_id
+      //   2) upload the material with parent_node = that block_id → file_token
+      //   3) PATCH the block with replace_image to bind the material
+      // The upload-then-create-with-token approach fails: upload needs the block_id as
+      // parent_node (not the doc id), and a token can't be set at block-create time (1770001).
+      const created = (await Docx.insertBlocks(token, doc!, [{ text: '', style: 'image' }], insertAt)) as {
+        children?: Array<{ block_id?: string }>
+      }
+      const imageBlockId = created.children?.[0]?.block_id
+      if (!imageBlockId) throw new Error('创建图片块失败。')
       const fileToken = await uploadMedia({
         blob,
         fileName: att.name || 'image.png',
-        mimeType: att.mimeType || 'image/png',
-        parentNode: doc!,
-        parentType: 'docx_image',
+        blockId: imageBlockId,
+        docToken: doc!,
         token,
       })
-      await Docx.insertBlocks(token, doc!, [{ text: '', style: 'image', imageToken: fileToken }], insertAt)
+      await Docx.patchBlock(token, doc!, imageBlockId, { replace_image: { token: fileToken } })
 
       // Reload so the user sees the new image in the doc
       void reloadActiveTab()
       return `已插入到${t === 'end' ? '文档末尾' : `"${anchor.value ?? ''}"${t === 'section_end' ? '节末' : '后面'}`}`
     }
     case 'copy_document': {
-      const sourceToken = sanitizeToken(args.source_doc_token as string | undefined) ?? doc!
-      // Get source title for default new-title
+      // Default to the CURRENT page's doc (not args.document_id — this tool's schema exposes
+      // source_doc_token, not document_id, so the agent can't populate the doc fallback).
+      const currentDocId = context.feishu?.kind === 'doc' ? context.feishu.documentId : undefined
+      const sourceToken = sanitizeToken(args.source_doc_token as string | undefined) ?? currentDocId
+      if (!sourceToken) throw new Error('请在一篇飞书文档页面使用，或指定 source_doc_token。')
       let sourceTitle = '文档副本'
       try {
         const meta = (await Docx.getDocumentMeta(token, sourceToken)) as { document?: { title?: string } }
@@ -1347,17 +1370,26 @@ async function executeDocTool(
       } catch { /* fallback */ }
       const newTitle = (args.new_title as string) || `${sourceTitle} 副本`
 
+      // The copy API REQUIRES a target folder_token (no default). batch_query/metas doesn't
+      // return a file's parent, so copy to the user's root folder ("我的空间") — the
+      // documented way to obtain a folder token for a copy target.
+      const rootMeta = (await feishuReq('GET', '/drive/explorer/v2/root_folder/meta', token)) as { token?: string }
+      const folderToken = rootMeta.token
+      if (!folderToken) throw new Error('复制文档失败：无法获取根目录 token')
+
       const copyRes = (await feishuReq('POST', `/drive/v1/files/${sourceToken}/copy`, token, {
         name: newTitle,
         type: 'docx',
+        folder_token: folderToken,
       })) as { file?: { token?: string; url?: string } }
 
       const newToken = copyRes.file?.token ?? copyRes.file?.url
       if (!newToken) throw new Error('复制文档失败：未返回新文档 token')
 
       void reloadActiveTab()
-      return { message: '已保真克隆为新文档', document: copyRes }
+      return { message: '已保真克隆为新文档（保存在「我的空间」根目录）', document: copyRes }
     }
+
     case 'replace_image': {
       const which = args.which as { by: string; value: number | string }
       const src = args.source as { attachment_id: string }
@@ -1402,40 +1434,18 @@ async function executeDocTool(
         throw new Error(`不支持的定位方式：${which.by}（仅支持 index 或 heading）`)
       }
 
-      // Upload new image
-      const res = await fetch(att.dataUrl)
-      const blob = await res.blob()
+      // The target image block already exists — upload the new material straight to it and
+      // bind via PATCH replace_image (the official replace flow). No delete + re-insert needed.
+      const blob = dataUrlToBlob(att.dataUrl)
       const fileToken = await uploadMedia({
-        blob, fileName: att.name || 'image.png', mimeType: att.mimeType || 'image/png',
-        parentNode: doc!, parentType: 'docx_image', token,
+        blob, fileName: att.name || 'image.png', blockId: target.id, docToken: doc!, token,
       })
-
-      // Delete old + insert new at same position
-      await Docx.deleteBlocks(token, doc!, target.parent_id, target.idx, target.idx + 1)
-      await Docx.insertBlocks(token, doc!, [{ text: '', style: 'image', imageToken: fileToken }], target.idx, target.parent_id)
+      await Docx.patchBlock(token, doc!, target.id, { replace_image: { token: fileToken } })
 
       void reloadActiveTab()
       return `已将${which.by === 'index' ? `第 ${Number(which.value)} 张` : `"${String(which.value)}"标题下的`}图片替换为新图。`
     }
-    case 'clone_doc_with_images': {
-      const srcToken = sanitizeToken(args.source_doc_token as string | undefined) ?? doc!
-      let sourceTitle = '文档副本'
-      try {
-        const meta = (await Docx.getDocumentMeta(token, srcToken)) as { document?: { title?: string } }
-        sourceTitle = meta.document?.title || '文档副本'
-      } catch { /* fallback */ }
-      const newTitle = (args.new_doc_title as string) || `${sourceTitle} 副本`
-
-      const result = await cloneDocumentWithImages({ sourceDocToken: srcToken, newDocTitle: newTitle, token })
-      void reloadActiveTab()
-      return {
-        message: `已克隆为新文档，迁移 ${result.migratedImages} 张图片` +
-          (result.skippedImages ? `，跳过 ${result.skippedImages} 张` : '') +
-          (result.skippedBlocks ? `，跳过 ${result.skippedBlocks} 个块` : ''),
-        ...result,
-      }
-    }
-    case 'export_doc_images': {
+case 'export_doc_images': {
       const exportDocToken = sanitizeToken(args.doc_token as string | undefined) ?? doc!
       const { items } = (await Docx.listBlocks(token, exportDocToken)) as { items?: Record<string, unknown>[] }
       if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构')
@@ -1565,8 +1575,9 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
 - 文档 Docs：创建文档、读取正文、插入内容块（段落/标题/列表/引用/代码/分割线/待办）、删除块
   - 工具用 \`document_id\` 标识文档；写正文用 \`add_document_content\`（blocks 数组，style 选 text/h1/h2/h3/bullet/ordered/quote/code/todo/divider）
   - **写整篇文档优先用 \`create_doc_from_markdown\`**：直接给 Markdown，自动建文档并排版（"帮我写一份方案/周报"走这个最快）
-  - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制优先用 copy_document（一次调用保真），
-    总结/抽取/合并用 clone_doc_with_images（块级重建带图片）；换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
+  - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制用 copy_document（一次调用保真）；
+	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
+  - **用户上传的图片**会在其消息里以「【附件：图片 <文件名>（attachment_id: <id>）】」形式给出。insert_image / replace_image 的 attachment_id 就填这个 id（原样照抄），不要瞎编。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能
 

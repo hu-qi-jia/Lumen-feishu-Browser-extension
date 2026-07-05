@@ -67,6 +67,22 @@ export async function compressImageToDataUrl(
   return canvas.toDataURL(mime, useJpeg ? quality : undefined)
 }
 
+/** Decode a base64 data: URL ("data:image/png;base64,...") straight to a Blob WITHOUT a
+ *  network fetch. The naive `await (await fetch(dataUrl)).blob()` throws "Failed to fetch"
+ *  in the extension side panel — fetching `data:` URLs is blocked by the MV3 page CSP. This
+ *  decodes in-memory, so it works regardless of CSP and avoids a needless round-trip. */
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const comma = dataUrl.indexOf(',')
+  if (comma < 0) throw new Error('无效的图片数据')
+  const meta = dataUrl.slice(0, comma)
+  const b64 = dataUrl.slice(comma + 1)
+  const mime = /data:([^;,]+)/.exec(meta)?.[1] ?? 'application/octet-stream'
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
 async function compressImage(file: File): Promise<string> {
   // Chat-attachment wrapper: shared compression, plus a JPEG-quality step-down
   // loop if the result still exceeds the per-image storage budget.

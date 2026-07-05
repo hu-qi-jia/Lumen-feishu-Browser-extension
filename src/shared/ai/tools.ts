@@ -1108,29 +1108,13 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'copy_document',
       description:
-        '用飞书服务端深拷贝**保真克隆**一篇文档（优先于 clone_doc_with_images）。' +
+        '用飞书服务端深拷贝**保真克隆**一篇文档。' +
         '一次调用，全部内容（文本/表格/图片/内嵌表格）完整保留，零挖矿。适用于复制/备份/另存一份。',
       parameters: {
         type: 'object',
         properties: {
           source_doc_token: { type: 'string', description: '源文档 token（默认当前文档）' },
           new_title: { type: 'string', description: '新文档标题（默认"<源标题> 副本"）' },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'clone_doc_with_images',
-      description:
-        '**转换式迁移**一篇文档到新文档，块级重建（文本+表格+图片全保留，图片下载原图再上传无损）。' +
-        '适用于总结/抽取/合并/改写场景——不是纯克隆时用此工具。纯克隆/备份/复制请优先用 copy_document。',
-      parameters: {
-        type: 'object',
-        properties: {
-          source_doc_token: { type: 'string', description: '源文档 token（默认当前文档）' },
-          new_doc_title: { type: 'string', description: '新文档标题（默认"<源标题> 副本"）' },
         },
       },
     },

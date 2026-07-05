@@ -49,7 +49,13 @@ function parseInline(text: string): Array<Record<string, unknown>> {
 
 export function buildBlock(spec: BlockSpec): Record<string, unknown> {
   if (spec.style === 'image') {
-    return { block_type: 27, image: { token: spec.imageToken ?? '' } }
+    // With a token this is a finished image block; WITHOUT one it's the EMPTY image block that
+    // the official insert-image flow creates first (Step 1), then binds a material to via PATCH
+    // `replace_image` (Step 3). Emitting `image:{token:''}` for the empty block is rejected, so
+    // only include `token` when we actually have one.
+    return spec.imageToken
+      ? { block_type: 27, image: { token: spec.imageToken } }
+      : { block_type: 27, image: {} }
   }
   const { type, key } = BLOCK_TYPE[spec.style ?? 'text'] ?? BLOCK_TYPE.text
   if (key === 'divider') return { block_type: type, divider: {} }
@@ -370,4 +376,16 @@ export function deleteBlocks(
     token,
     { start_index: startIndex, end_index: endIndex }
   )
+}
+
+/** Patch a single block (PATCH /docx/v1/documents/:doc/blocks/:block_id). Used to bind an
+ *  uploaded image material to an empty image block via the `replace_image` operation — Step 3
+ *  of the official insert-image flow (create empty block → upload to it → PATCH replace_image). */
+export function patchBlock(
+  token: string,
+  documentId: string,
+  blockId: string,
+  body: Record<string, unknown>
+) {
+  return feishuReq('PATCH', `/docx/v1/documents/${documentId}/blocks/${blockId}`, token, body)
 }

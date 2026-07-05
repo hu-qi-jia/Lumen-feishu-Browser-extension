@@ -101,6 +101,13 @@ describe('buildBlock — image (block_type 27)', () => {
     const block = buildBlock({ text: '', style: 'image', imageToken: 'tok-xyz' })
     expect(block).toEqual({ block_type: 27, image: { token: 'tok-xyz' } })
   })
+  // Step 1 of the official insert-image flow: create an EMPTY image block (image:{}), then bind
+  // the material via PATCH replace_image. Emitting image:{token:''} here is rejected, so a
+  // missing imageToken must yield image:{}.
+  it('buildBlock image without imageToken yields an EMPTY image block (image:{})', () => {
+    const block = buildBlock({ text: '', style: 'image' })
+    expect(block).toEqual({ block_type: 27, image: {} })
+  })
 })
 
 describe('splitSheetToken', () => {

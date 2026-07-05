@@ -150,11 +150,14 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
 
   function onDragOver(e: DragEvent) {
     e.preventDefault()
+    e.stopPropagation()
     e.dataTransfer.dropEffect = 'copy'
+
   }
 
   function onDrop(e: DragEvent) {
     e.preventDefault()
+    e.stopPropagation()
     const files = Array.from(e.dataTransfer.files ?? [])
     if (!files.length) return
     const cur = attachments.length
