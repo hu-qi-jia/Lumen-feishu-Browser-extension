@@ -1,4 +1,4 @@
-/* Standalone upload dropzone — white background, dashed border, minimal. */
+/* Standalone upload dropzone — theme-aware via CSS vars, dashed border, minimal. */
 .sl-upload-drop {
   width: 100%;
   display: flex;
@@ -8,7 +8,7 @@
   gap: 3px;
   padding: 14px 10px;
   border: 2px dashed var(--color-border, #dee0e3);
-  background: #fff;
+  background: var(--color-bg, #fff);
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
@@ -18,12 +18,12 @@
 .sl-upload-drop:hover:not(:disabled) {
   border-color: var(--color-primary, #3370ff);
   color: var(--color-primary, #3370ff);
-  background: #f5f7ff;
+  background: var(--color-primary-tint, #f5f7ff);
   box-shadow: 0 0 0 3px rgba(51, 112, 255, .08);
 }
 .sl-upload-drop.is-drag {
   border-color: var(--color-primary, #3370ff);
-  background: #eef2ff;
+  background: var(--color-primary-soft, #eef2ff);
   color: var(--color-primary, #3370ff);
   box-shadow: 0 0 0 4px rgba(51, 112, 255, .12);
 }

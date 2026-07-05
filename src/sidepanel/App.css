@@ -278,6 +278,8 @@
 [data-theme="dark"] .sc-dash-created { background: #16291b; border-color: #285033; }
 [data-theme="dark"] .sc-dash-created-item { color: #6ee79a; }
 [data-theme="dark"] .sc-dash-warnings { background: #2a2512; border-color: #4a4020; }
+[data-theme="dark"] .sc-dash-warn-title { color: #e3c168; }
+[data-theme="dark"] .sc-dash-warn-item { color: #d4a73a; }
 
 
 /* Non-Feishu page — assistant paused, only a hint shown */

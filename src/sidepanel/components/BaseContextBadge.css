@@ -156,6 +156,6 @@
   padding: 3px 10px 5px;
   font-size: 10.5px;
   color: var(--color-error);
-  background: #fff2f1;
-  border-top: 1px dashed #ffcdd2;
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-bg));
+  border-top: 1px dashed color-mix(in srgb, var(--color-error) 30%, var(--color-border));
 }

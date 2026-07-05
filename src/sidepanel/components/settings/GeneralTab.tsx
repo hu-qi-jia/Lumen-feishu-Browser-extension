@@ -59,7 +59,7 @@ export default function GeneralTab({
         <div className="appearance-toggle">
           <FormToggle
             options={[
-              { value: 'light', label: '浅色' },
+              { value: 'light', label: '亮色' },
               { value: 'dark', label: '深色' },
             ]}
             value={theme}
