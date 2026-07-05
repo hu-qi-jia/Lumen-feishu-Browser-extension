@@ -1076,4 +1076,105 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+
+  // ── Doc image tools ──
+  {
+    type: 'function',
+    function: {
+      name: 'insert_image',
+      description:
+        '把对话框里上传的一张图片插入到当前文档的指定位置（锚点定位，非光标）。' +
+        'attachment_id 是当前消息里图片附件的 id；anchor 用 heading/text/section_end/end 指定插入点，' +
+        'value 是匹配文字（anchor 为 end 时不需要）。',
+      parameters: {
+        type: 'object',
+        required: ['attachment_id', 'anchor'],
+        properties: {
+          attachment_id: { type: 'string', description: '当前消息里图片附件的 id' },
+          anchor: {
+            type: 'object',
+            required: ['type'],
+            properties: {
+              type: { type: 'string', enum: ['heading', 'text', 'section_end', 'end'] },
+              value: { type: 'string', description: 'heading/text 时必填，匹配的标题/段落文字' },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'copy_document',
+      description:
+        '用飞书服务端深拷贝**保真克隆**一篇文档（优先于 clone_doc_with_images）。' +
+        '一次调用，全部内容（文本/表格/图片/内嵌表格）完整保留，零挖矿。适用于复制/备份/另存一份。',
+      parameters: {
+        type: 'object',
+        properties: {
+          source_doc_token: { type: 'string', description: '源文档 token（默认当前文档）' },
+          new_title: { type: 'string', description: '新文档标题（默认"<源标题> 副本"）' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'clone_doc_with_images',
+      description:
+        '**转换式迁移**一篇文档到新文档，块级重建（文本+表格+图片全保留，图片下载原图再上传无损）。' +
+        '适用于总结/抽取/合并/改写场景——不是纯克隆时用此工具。纯克隆/备份/复制请优先用 copy_document。',
+      parameters: {
+        type: 'object',
+        properties: {
+          source_doc_token: { type: 'string', description: '源文档 token（默认当前文档）' },
+          new_doc_title: { type: 'string', description: '新文档标题（默认"<源标题> 副本"）' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'replace_image',
+      description:
+        '替换文档中的一张已有图片为新图。按"第N张"或"某标题下那张"定位，删旧插新，原位保留。',
+      parameters: {
+        type: 'object',
+        required: ['which', 'source'],
+        properties: {
+          which: {
+            type: 'object',
+            required: ['by', 'value'],
+            properties: {
+              by: { type: 'string', enum: ['index', 'heading'] },
+              value: { oneOf: [{ type: 'number' }, { type: 'string' }], description: 'index 时写数字，heading 时写标题文字' },
+            },
+          },
+          source: {
+            type: 'object',
+            required: ['attachment_id'],
+            properties: {
+              attachment_id: { type: 'string', description: '当前消息里新图的附件 id' },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'export_doc_images',
+      description: '把一篇文档里的全部图片批量导出，返回缩略图画廊 + 下载全部 ZIP。',
+      parameters: {
+        type: 'object',
+        properties: {
+          doc_token: { type: 'string', description: '文档 token（默认当前文档）' },
+        },
+      },
+    },
+  },
 ]

@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import type { ChatCompletionMessageParam, ChatCompletionContentPart } from 'openai/resources'
-import type { ChatMessage, AppSettings, PageContext, ToolCallDef } from '../types'
+import type { ChatMessage, AppSettings, PageContext, ToolCallDef, Attachment } from '../types'
 import { FEISHU_TOOLS } from './tools'
 import * as API from '../feishu/api'
 import * as Sheets from '../feishu/sheets'
@@ -226,6 +226,7 @@ const SHEET_TOOLS = new Set([
 const DOC_TOOLS = new Set([
   'create_document', 'create_doc_from_markdown', 'get_document_content', 'list_blocks',
   'add_document_content', 'insert_table', 'insert_sheet', 'delete_document_blocks',
+  'insert_image', 'copy_document', 'clone_doc_with_images', 'replace_image', 'export_doc_images',
 ])
 // Pure READ tools — side-effect-free, so when the model batches several in one round they can run
 // CONCURRENTLY instead of one-after-another (cuts wall-time for "read A and B and C" patterns).
@@ -321,6 +322,16 @@ export async function runAgent(
   // Phase 4 fallback: re-surface community skills ONCE, at the first failing round, to nudge a retry.
   let skillFallbackTried = false
 
+  // Latest user-message attachments for image tools to consume
+  const latestAttachments = (() => {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].role === 'user' && history[i].attachments?.length) {
+        return history[i].attachments
+      }
+    }
+    return []
+  })()
+
   // Agentic loop — runs until no more tool calls or hard limit reached
   for (;;) {
     // Stop cleanly if the turn was cancelled (panel unmounted / new send / nav away).
@@ -408,7 +419,7 @@ export async function runAgent(
       for (const c of rawToolCalls) {
         let a: Record<string, unknown> = {}
         try { a = JSON.parse(c.function.arguments) as Record<string, unknown> } catch { /* malformed */ }
-        const p = runToolWithFallback(c.function.name, a, context, settings)
+        const p = runToolWithFallback(c.function.name, a, context, settings, [])
         p.catch(() => {}) // mark handled now; the real await + error handling happens in the loop
         preReads.set(c.id, p)
       }
@@ -497,11 +508,11 @@ export async function runAgent(
               note: '用户选择加到当前 Base。请使用此 app_token 继续 create_table 等操作，不要新建 Base。',
             }
           } else {
-            data = await runToolWithFallback(tc.function.name, args, context, settings)
+            data = await runToolWithFallback(tc.function.name, args, context, settings, latestAttachments)
           }
         } else {
           // Use the concurrently-started read if we kicked one off above; else run it now.
-          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings))
+          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings, latestAttachments))
         }
         // Remember successful create-once results so an exact repeat is deduped.
         // (Reached only when the call succeeded — a thrown error skips to catch.)
@@ -698,11 +709,12 @@ async function runToolWithFallback(
   name: string,
   args: Record<string, unknown>,
   context: PageContext,
-  settings?: AppSettings
+  settings?: AppSettings,
+  attachments?: Attachment[]
 ): Promise<unknown> {
   const token = await resolveToken(settings ?? ({} as AppSettings))
   try {
-    return await executeTool(name, args, token, context, settings)
+    return await executeTool(name, args, token, context, settings, attachments)
   } catch (err) {
     if (isPermissionError(err)) {
       throw new Error(
@@ -714,7 +726,7 @@ async function runToolWithFallback(
     // catches cases the proactive (pre-expiry) refresh missed — the real auto-renew safety net.
     if (isTokenExpiredError(err)) {
       const fresh = await forceRefreshUserToken()
-      if (fresh) return await executeTool(name, args, fresh, context, settings)
+      if (fresh) return await executeTool(name, args, fresh, context, settings, attachments)
       throw new Error('飞书登录已过期，且自动续期失败（refresh_token 可能已失效，约 30 天）。请到「设置 → 用飞书账号授权」重新授权一次。')
     }
     throw err
@@ -726,7 +738,8 @@ export async function executeTool(
   args: Record<string, unknown>,
   token: string,
   context: PageContext,
-  settings?: AppSettings
+  settings?: AppSettings,
+  attachments?: Attachment[]
 ): Promise<unknown> {
   // Backstop for the file-level-delete block (primary check is in the agent loop) — the
   // assistant must never delete a whole table/spreadsheet/document/file by any path.
@@ -748,7 +761,7 @@ export async function executeTool(
   // Spreadsheet / Doc tools carry their own resource token — dispatch before the
   // Base app_token guard below.
   if (SHEET_TOOLS.has(name)) return executeSheetTool(name, args, token, settings)
-  if (DOC_TOOLS.has(name)) return executeDocTool(name, args, token, context, settings)
+  if (DOC_TOOLS.has(name)) return executeDocTool(name, args, token, context, settings, attachments)
 
   // Data-viz: generate a chart-render code template from the current table + request.
   // Returns a marker the side panel intercepts to render in the page overlay (the actual
@@ -1199,8 +1212,10 @@ async function executeDocTool(
   args: Record<string, unknown>,
   token: string,
   context: PageContext,
-  settings?: AppSettings
+  settings?: AppSettings,
+  attachments?: Attachment[]
 ): Promise<unknown> {
+  void attachments // consumed by image-tool dispatch cases (Tasks 4-8)
   const doc = sanitizeToken(args.document_id as string | undefined)
 
   switch (name) {
@@ -1336,6 +1351,8 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
 - 文档 Docs：创建文档、读取正文、插入内容块（段落/标题/列表/引用/代码/分割线/待办）、删除块
   - 工具用 \`document_id\` 标识文档；写正文用 \`add_document_content\`（blocks 数组，style 选 text/h1/h2/h3/bullet/ordered/quote/code/todo/divider）
   - **写整篇文档优先用 \`create_doc_from_markdown\`**：直接给 Markdown，自动建文档并排版（"帮我写一份方案/周报"走这个最快）
+  - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制优先用 copy_document（一次调用保真），
+    总结/抽取/合并用 clone_doc_with_images（块级重建带图片）；换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能
 
