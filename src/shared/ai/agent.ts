@@ -1578,6 +1578,7 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
   - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制用 copy_document（一次调用保真）；
 	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
   - **用户上传的图片**会在其消息里以「【附件：图片 <文件名>（attachment_id: <id>）】」形式给出。insert_image / replace_image 的 attachment_id 就填这个 id（原样照抄），不要瞎编。
+  - **insert_image / replace_image 只动图片**：调用它们时**只**插入/替换图片块本身，**不要**在同一轮里另外调用 \`add_document_content\` 去加标题、说明、图注、文件名或任何文字（那会留下一段删不掉的多余文字）。用户明确说"加个说明/配文/标题叫XX"时才加文字，否则只插图。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能
 

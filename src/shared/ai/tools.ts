@@ -1085,7 +1085,8 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
       description:
         '把对话框里上传的一张图片插入到当前文档的指定位置（锚点定位，非光标）。' +
         'attachment_id 是当前消息里图片附件的 id；anchor 用 heading/text/section_end/end 指定插入点，' +
-        'value 是匹配文字（anchor 为 end 时不需要）。',
+        'value 是匹配文字（anchor 为 end 时不需要）。' +
+        '只插入图片块本身，不要附带任何文字（标题/说明/图注/文件名都不要）。',
       parameters: {
         type: 'object',
         required: ['attachment_id', 'anchor'],
