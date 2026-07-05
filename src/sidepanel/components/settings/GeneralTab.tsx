@@ -1,7 +1,6 @@
-import { WEB_SPEECH_ALLOWED } from '../../../shared/config'
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
-import { FormCheckbox, FormSwitch, FormToggle } from '../form'
+import { FormSwitch, FormToggle } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
@@ -13,7 +12,7 @@ interface Props extends SettingsTabProps {
   policyLocks: Set<keyof AppSettings>
 }
 
-/** 通用 tab：主题色、外观模式、语音输入、自动确认。 */
+/** 通用 tab：主题色、外观模式、自动确认。 */
 export default function GeneralTab({
   form,
   patch,
@@ -48,42 +47,26 @@ export default function GeneralTab({
             />
           </label>
         </div>
-        <div className="accent-current">
-          <span className="accent-current-dot" style={{ background: accent }} />
-          <span className="accent-current-hex">{accent.toUpperCase()}</span>
-          {accentChanged && (
-            <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>
-              恢复默认
-            </button>
-          )}
-        </div>
+        {accentChanged && (
+          <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>
+            恢复默认
+          </button>
+        )}
       </SettingsSection>
 
       {/* ── 外观模式 ── */}
       <SettingsSection title="外观模式">
-        <FormToggle
-          options={[
-            { value: 'light', label: '浅色' },
-            { value: 'dark', label: '深色' },
-          ]}
-          value={theme}
-          onChange={(v) => onThemeChange(v as 'light' | 'dark')}
-        />
-        <p className="field-hint">浅 / 深色模式独立于主题色，立即生效并记住选择。</p>
+        <div className="appearance-toggle">
+          <FormToggle
+            options={[
+              { value: 'light', label: '浅色' },
+              { value: 'dark', label: '深色' },
+            ]}
+            value={theme}
+            onChange={(v) => onThemeChange(v as 'light' | 'dark')}
+          />
+        </div>
       </SettingsSection>
-
-      {/* ── 语音输入 ── */}
-      {WEB_SPEECH_ALLOWED && (
-        <SettingsSection title="语音输入">
-          <FormCheckbox
-            checked={form.voiceInput !== false}
-            onChange={(checked) => patch({ voiceInput: checked })}
-            hint="用浏览器内置语音识别(zh-CN)把说话转成文字填进输入框，可编辑后再发。语音识别由浏览器走 Google 服务完成，音频会发往外部——私有化/内网部署已自动禁用本功能。"
-          >
-            在输入框显示语音输入
-          </FormCheckbox>
-        </SettingsSection>
-      )}
 
       {/* ── 自动确认 ── */}
       <SettingsSection title="自动确认">

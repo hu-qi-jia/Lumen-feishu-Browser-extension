@@ -1,0 +1,62 @@
+/**
+ * Global iOS-style scrollbar — thin, trackless, rounded translucent thumb.
+ * Applied to every scrollable element via the universal selector. The thumb
+ * sits on a fully transparent track so it overlays content cleanly (iOS feel);
+ * it darkens on hover/active. Dark theme flips to a lighter thumb so it reads
+ * against dark surfaces.
+ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(140, 140, 145, 0.45) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 145, 0.45);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 140, 145, 0.7);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(140, 140, 145, 0.85);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Dark theme — lighter thumb over dark surfaces. */
+[data-theme="dark"] {
+  scrollbar-color: rgba(190, 190, 195, 0.35) transparent;
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb {
+  background: rgba(190, 190, 195, 0.35);
+  background-clip: padding-box;
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(190, 190, 195, 0.55);
+  background-clip: padding-box;
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb:active {
+  background: rgba(190, 190, 195, 0.7);
+  background-clip: padding-box;
+}

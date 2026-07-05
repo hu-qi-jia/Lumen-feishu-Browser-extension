@@ -3,7 +3,7 @@ import type { AppSettings, Attachment, ChatMessage, PageContext, SessionKind } f
 import type { BaseCtx } from '../../shared/feishu/context'
 import { fetchBaseCtx } from '../../shared/feishu/context'
 import { resolveToken } from '../../shared/feishu/auth'
-import { WEB_SPEECH_ALLOWED, HAS_BUILTIN_CREDS } from '../../shared/config'
+import { HAS_BUILTIN_CREDS } from '../../shared/config'
 import { runAgent } from '../../shared/ai/agent'
 import type { ConfirmRequest, ConfirmChoice } from '../../shared/ai/agent'
 import { fetchVizData } from '../../shared/dataviz/data'
@@ -417,7 +417,6 @@ export default function ChatPanel({
         disabled={disabled}
         busy={streaming}
         onStop={handleStop}
-        voiceEnabled={WEB_SPEECH_ALLOWED && settings.voiceInput !== false}
         selection={context.selectedText}
         resourceKind={context.feishu?.kind ?? 'general'}
       />

@@ -114,8 +114,6 @@
 .btn-icon:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
 .btn-icon:disabled { opacity: .4; cursor: not-allowed; }
 
-.btn-mic--on { color: #e5484d; }
-
 /* Tools menu */
 .tools-menu-wrap { position: relative; }
 

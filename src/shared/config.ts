@@ -147,12 +147,6 @@ export const CLIP_ENABLED = BUILD_CONFIG.clipEnabled
  *  store-packaging flag, so a store build can keep full features (remote code) while still BYO. */
 export const NO_REMOTE_CODE = BUILD_CONFIG.noRemoteCode
 
-/** Web Speech API (webkitSpeechRecognition) routes audio through Google's servers, which
- *  breaks the "only Feishu + LLM / pure-intranet" posture. So it's only offered on the
- *  default public build — a private domain or a pinned LLM host disables voice input. */
-export const WEB_SPEECH_ALLOWED =
-  BUILD_CONFIG.feishuBaseDomain === 'feishu.cn' && BUILD_CONFIG.openaiAllowedHosts.length === 0
-
 /** A private / on-prem Feishu deploy (base domain ≠ public SaaS). Its API versions may lag
  *  behind SaaS, so the request layer probes older `/<svc>/vN/` paths when a newer one 404s. */
 export const IS_PRIVATE_DEPLOY = BUILD_CONFIG.feishuBaseDomain !== 'feishu.cn'

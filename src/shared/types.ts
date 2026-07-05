@@ -75,8 +75,6 @@ export interface AppSettings {
   /** "越用越聪明": remember successful operation patterns locally and feed the most
    *  relevant back into the prompt next time. Default on. */
   learnFromHistory?: boolean
-  /** Voice input (Web Speech API). Default on where WEB_SPEECH_ALLOWED. */
-  voiceInput?: boolean
   /** Auto mode: auto-approve CONTENT-level deletes (rows/fields/blocks/dedupe) within a
    *  document — no per-action button click. File-level deletes stay hard-blocked. Default off. */
   autoConfirm?: boolean
@@ -134,6 +132,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feishuOwnerOpenId: '',
   templateRegistryUrl: '',
   learnFromHistory: true,
-  voiceInput: true,
   autoConfirm: false,
 }

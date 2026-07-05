@@ -25,6 +25,7 @@ import { useWikiResolve } from './hooks/useWikiResolve'
 import { useRecentFiles } from './hooks/useRecentFiles'
 import { useDocBinding, type AppTab } from './hooks/useDocBinding'
 import './App.css'
+import './Scrollbar.css'
 
 type NetworkState = 'checking' | 'allowed' | 'blocked'
 

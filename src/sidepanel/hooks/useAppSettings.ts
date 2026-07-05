@@ -35,7 +35,6 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: stored.feishuOwnerOpenId ?? '',
         templateRegistryUrl: stored.templateRegistryUrl ?? '',
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
-        voiceInput: (stored.voiceInput as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
         llmSource: (stored.llmSource as AppSettings['llmSource']) ?? undefined,
       }
@@ -65,7 +64,6 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: s.feishuOwnerOpenId,
         templateRegistryUrl: s.templateRegistryUrl,
         learnFromHistory: s.learnFromHistory !== false,
-        voiceInput: s.voiceInput !== false,
         autoConfirm: s.autoConfirm === true,
         llmSource: s.llmSource, // managed/manual choice must persist (was dropped → switch never stuck)
       },
