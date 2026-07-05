@@ -16,6 +16,7 @@ import { reloadActiveTab } from '../tabReload'
 import InputBar from './InputBar'
 import type { InputBarHandle } from './InputBar'
 import BaseContextBadge from './BaseContextBadge'
+import FieldChips from './FieldChips'
 import ConfirmDialog from './ConfirmDialog'
 import DocSelector from './DocSelector'
 import type { RecentFile } from '../recentFiles'
@@ -37,8 +38,10 @@ interface Props {
   onStreamingChange?: (streaming: boolean) => void
   /** Backfill the document session title once the Base name is known. */
   onBaseName?: (appToken: string, name: string) => void
-  /** Current session title to display in the session bar. */
-  sessionTitle?: string
+  /** Working DOCUMENT/TABLE name to display in the topbar (never the session title). */
+  docTitle?: string
+  /** How many sessions live under the current doc — shown as a badge after the title. */
+  docSessionCount?: number
   /** Opener for the session drawer. */
   onOpenSessions?: () => void
   /** Create a new session from the chat header. */
@@ -62,7 +65,7 @@ interface Props {
 export default function ChatPanel({
   settings, context, disabled,
   messages, setMessages, setMessagesFor, activeSessionId,
-  onStreamingChange, onBaseName, sessionTitle, onOpenSessions, onNewSession, chatBusy,
+  onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
   docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
@@ -309,7 +312,8 @@ export default function ChatPanel({
       <div className="chat-topbar">
         <DocSelector
           mode={docMode}
-          currentTitle={sessionTitle || '新会话'}
+          currentTitle={docTitle || '飞书文档'}
+          sessionCount={docSessionCount}
           activeToken={docActiveToken}
           onPickDoc={onPickDoc}
           onFollow={onFollowTabs}
@@ -363,27 +367,15 @@ export default function ChatPanel({
 
       {/* Field picker — Feishu Base grids are canvas-rendered (no DOM text to select), so
           we list the current table's fields from the structure we already read. Click a
-          field → it drops into the input for a precise edit. */}
+          field → it drops into the input for a precise edit. The row hides its scrollbar
+          and scrolls sideways on vertical wheel (see FieldChips). */}
       {(() => {
         if (!baseCtx?.tables?.length) return null
         const tid = context.feishu?.tableId || baseCtx.currentTableId
         const table = baseCtx.tables.find((t) => t.tableId === tid) ?? baseCtx.tables[0]
         const fields = table?.fields ?? []
         if (!fields.length) return null
-        return (
-          <div className="field-chips" title="点击字段插入到输入框，再描述要做的修改">
-            {fields.map((f) => (
-              <button
-                key={f.fieldId}
-                className="field-chip"
-                onClick={() => inputRef.current?.insert(`${f.fieldName} (id:${f.fieldId})`)}
-                title={`${f.fieldName}（${f.typeName}）· ${f.fieldId}`}
-              >
-                {f.fieldName}
-              </button>
-            ))}
-          </div>
-        )
+        return <FieldChips fields={fields} onPick={(t) => inputRef.current?.insert(t)} />
       })()}
 
       {/* 主动推送：新会话时把社区高分做法做成 chip，点一下填进输入框（复核后再发）。

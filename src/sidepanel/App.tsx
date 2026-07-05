@@ -75,6 +75,19 @@ export default function App() {
   })
   const { sessions, docMode, pinned, chatContext } = doc
 
+  // Working doc's display name + session count for the chat topbar. The topbar shows the
+  // DOCUMENT/TABLE name (never the session title); the count badge is how many sessions are
+  // bound to this doc token. `activeDocToken` is reused for docActiveToken below (single source).
+  const activeDocToken = docMode === 'pin' ? (pinned?.token ?? null) : (sessions.activeSession?.appToken ?? null)
+  const docTitle = docMode === 'pin' && pinned
+    ? pinned.title
+    : chatContext.feishu
+      ? (cleanDocTitle(chatContext.title) || '飞书文档')
+      : (sessions.activeSession?.title || '新会话')
+  const docSessionCount = activeDocToken
+    ? sessions.index.sessions.filter((s) => s.appToken === activeDocToken).length
+    : 0
+
   // Ensure the pinned work doc is always in the recent list — a pin restored from storage on
   // mount (not via setWorkDoc→recordRecent) wouldn't be recorded otherwise, so it'd be missing
   // from the dropdown even though it's the active work doc.
@@ -362,12 +375,13 @@ export default function App() {
                   activeSessionId={sessions.activeSession?.id}
                   onStreamingChange={setChatStreaming}
                   onBaseName={(appToken, name) => sessions.resolveTitle(ctx.feishu?.wikiToken ?? appToken, name, 'base')}
-                  sessionTitle={docMode === 'pin' && pinned ? pinned.title : sessions.activeSession?.title}
+                  docTitle={docTitle}
+                  docSessionCount={docSessionCount}
                   onOpenSessions={() => setDrawerOpen(true)}
                   onNewSession={doc.handleNewSession}
                   chatBusy={chatStreaming}
                   docMode={docMode}
-                  docActiveToken={docMode === 'pin' ? pinned?.token ?? null : sessions.activeSession?.appToken ?? null}
+                  docActiveToken={activeDocToken}
                   onPickDoc={doc.setWorkDoc}
                   onFollowTabs={doc.handleFollowTabs}
                   resolveWikiKind={resolveWikiKind}

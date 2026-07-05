@@ -27,12 +27,16 @@
 
 .doc-selector-mode {
   flex-shrink: 0;
-  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 6px;
   border-radius: 5px;
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  line-height: 1.5;
+  line-height: 1;
 }
 .doc-selector-mode--pin {
   color: var(--color-primary);
@@ -43,17 +47,44 @@
   background: var(--color-surface-2);
 }
 
+/* Title + count cluster: shrink-to-fit so the count sits right next to the (possibly
+   truncated) title, while the chevron is pushed to the row's right edge by margin-left:auto.
+   min-width:0 + flex:0 1 auto lets the title truncate when the row overflows. */
+.doc-selector-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
 .doc-selector-title {
-  flex: 1;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: left;
+  line-height: 1.4;
+}
+/* Session-count badge — how many sessions live under the current doc. */
+.doc-selector-count {
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .doc-selector-chev {
   flex-shrink: 0;
+  margin-left: auto; /* push to the right edge; title+count cluster stays left-aligned */
   width: 14px;
   height: 14px;
   color: var(--color-text-secondary);

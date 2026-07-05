@@ -61,29 +61,7 @@
 .selected-ctx-tag { flex-shrink: 0; font-weight: 600; color: var(--color-accent, #5b7cff); }
 .selected-ctx-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Field picker — click a field name to drop it into the input (Base grids are canvas) */
-.field-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 4px 10px 2px;
-  scrollbar-width: thin;
-}
-.field-chips::-webkit-scrollbar { height: 4px; }
-.field-chip {
-  flex-shrink: 0;
-  padding: 3px 9px;
-  font-size: 12px;
-  font-family: inherit;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-2);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background .15s, color .15s, border-color .15s;
-}
-.field-chip:hover { background: var(--color-accent, #5b7cff); color: #fff; border-color: transparent; }
+/* Field picker (.field-chips / .field-chip) lives in FieldChips.css now. */
 
 /* 主动推送：社区高分做法 chip 行（新会话时显示） */
 .skill-suggest {

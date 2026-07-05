@@ -335,13 +335,13 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
             {busy ? (
               <Tooltip content="停止生成">
                 <button
-                  className="btn-send-circle btn-send-circle--stop"
+                  className="btn-send-circle"
                   onClick={() => onStop?.()}
                   disabled={!onStop}
                   type="button"
                   aria-label="停止生成"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                   </svg>
                 </button>
@@ -353,10 +353,11 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   onClick={submit}
                   disabled={blocked || (!text.trim() && attachments.length === 0)}
                   type="button"
+                  aria-label="发送"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13" />
-                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
                   </svg>
                 </button>
               </Tooltip>

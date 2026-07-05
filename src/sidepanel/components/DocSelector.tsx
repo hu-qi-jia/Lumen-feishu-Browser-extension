@@ -6,8 +6,11 @@ import './DocSelector.css'
 
 interface Props {
   mode: 'follow' | 'pin'
-  /** Title shown on the trigger (the active session's working doc). */
+  /** Title shown on the trigger — the working DOCUMENT/TABLE name (never the session title). */
   currentTitle: string
+  /** Number of sessions bound to the current doc, shown as a small badge after the title.
+   *  Omit / 0 → no badge. */
+  sessionCount?: number
   /** Active resource token — marks the selected option in the menu. */
   activeToken: string | null
   /** Pin a specific document as the working doc. */
@@ -30,7 +33,7 @@ interface Props {
  * or switch to "follow tabs". The recent list persists across tab closes (unlike a live
  * chrome.tabs query), so closed docs stay reachable.
  */
-export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc, onFollow, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
+export default function DocSelector({ mode, currentTitle, sessionCount, activeToken, onPickDoc, onFollow, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [open, setOpen] = useState(false)
   // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows
   // the base icon). The pin still uses 'wiki' (the stored kind) so it resolves on pin.
@@ -80,8 +83,13 @@ export default function DocSelector({ mode, currentTitle, activeToken, onPickDoc
         <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
           {mode === 'pin' ? '固定' : '跟随'}
         </span>
-        <span className="doc-selector-title">{currentTitle}</span>
-        <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <span className="doc-selector-title-wrap">
+          <span className="doc-selector-title">{currentTitle}</span>
+          {sessionCount != null && sessionCount > 0 && (
+            <span className="doc-selector-count" aria-label={`${sessionCount} 个会话`}>{sessionCount}</span>
+          )}
+        </span>
+        <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>

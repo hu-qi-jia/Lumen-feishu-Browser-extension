@@ -10,13 +10,13 @@
   border: 1.5px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface);
-  padding: 6px 8px;
-  gap: 4px;
-  transition: border-color .18s ease, box-shadow .18s ease;
+  padding: 8px 10px;
+  gap: 6px;
+  transition: border-color .18s ease;
 }
+/* Focus = border color only (no glow ring). */
 .input-bar-inner:focus-within {
-  border-color: var(--color-primary-border);
-  box-shadow: 0 0 0 3px rgba(79, 107, 255, .12);
+  border-color: var(--color-primary);
 }
 
 .input-textarea {
@@ -29,8 +29,8 @@
   line-height: 1.5;
   font-family: inherit;
   color: var(--color-text);
-  padding: 2px 4px;
-  min-height: 22px;
+  padding: 4px 4px;
+  min-height: 30px;
   max-height: 120px;
 }
 .input-textarea::placeholder { color: var(--color-text-secondary); }
@@ -177,7 +177,9 @@
   color: var(--color-text-secondary);
 }
 
-/* Send button */
+/* Send / stop button — one primary circle. The idle (send) and generating (stop) states
+   share the exact same treatment so the button reads as a single control; only the icon
+   swaps (arrow-up → stop square). No color invert, no pulse. */
 .btn-send-circle {
   display: flex;
   align-items: center;
@@ -194,21 +196,6 @@
 }
 .btn-send-circle:hover:not(:disabled) { filter: brightness(1.08); transform: scale(1.04); }
 .btn-send-circle:disabled { opacity: .35; cursor: not-allowed; }
-
-/* Stop button — shown while generating. Inverts to a neutral surface so it reads as
-   "interruptible" rather than another action, with a soft pulse to signal it's live. */
-.btn-send-circle--stop {
-  background: var(--color-text);
-  animation: btnStopPulse 1.6s ease-in-out infinite;
-}
-.btn-send-circle--stop:hover:not(:disabled) { filter: brightness(1.15); }
-@keyframes btnStopPulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-text) 30%, transparent); }
-  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-text) 0%, transparent); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .btn-send-circle--stop { animation: none; }
-}
 
 /* Hint line */
 .input-hint {
