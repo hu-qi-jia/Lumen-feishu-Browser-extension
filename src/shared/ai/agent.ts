@@ -27,6 +27,7 @@ import { buildDataReport } from '../report/build'
 import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
 import { uploadMedia } from '../feishu/upload'
+import { cloneDocumentWithImages } from '../feishu/cloneDoc'
 import { reloadActiveTab } from '../../sidepanel/tabReload'
 
 export interface ConfirmRequest {
@@ -1413,6 +1414,24 @@ async function executeDocTool(
 
       void reloadActiveTab()
       return `已将${which.by === 'index' ? `第 ${Number(which.value)} 张` : `"${String(which.value)}"标题下的`}图片替换为新图。`
+    }
+    case 'clone_doc_with_images': {
+      const srcToken = sanitizeToken(args.source_doc_token as string | undefined) ?? doc!
+      let sourceTitle = '文档副本'
+      try {
+        const meta = (await Docx.getDocumentMeta(token, srcToken)) as { document?: { title?: string } }
+        sourceTitle = meta.document?.title || '文档副本'
+      } catch { /* fallback */ }
+      const newTitle = (args.new_doc_title as string) || `${sourceTitle} 副本`
+
+      const result = await cloneDocumentWithImages({ sourceDocToken: srcToken, newDocTitle: newTitle, token })
+      void reloadActiveTab()
+      return {
+        message: `已克隆为新文档，迁移 ${result.migratedImages} 张图片` +
+          (result.skippedImages ? `，跳过 ${result.skippedImages} 张` : '') +
+          (result.skippedBlocks ? `，跳过 ${result.skippedBlocks} 个块` : ''),
+        ...result,
+      }
     }
     default:
       throw new Error(`未知工具: ${name}`)
