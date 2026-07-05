@@ -51,12 +51,17 @@ describe('PdfTranscribePanel', () => {
     expect(mockPolish).not.toHaveBeenCalled()
     expect(mockSavePdf).toHaveBeenCalled()
   })
-  it('shows the picked file as a row below the always-empty upload dropzone', () => {
+  it('once a file is picked, replaces the dropzone with the file row (× removes it)', () => {
     mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
     render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
     pickFile('report.pdf')
     const row = screen.getByTestId('pdf-picked-file')
     expect(row.textContent).toContain('report.pdf')
+    // 选中文件后大上传区收起（只剩紧凑文件行），不再"上传区 + 文件行"双显。
+    expect(screen.queryByText('点击或拖入 PDF 文件')).toBeNull()
+    // × 移除选中文件 → 回 idle → 上传区重新出现。
+    fireEvent.click(screen.getByLabelText('移除文件'))
+    expect(screen.getByText('点击或拖入 PDF 文件')).toBeTruthy()
   })
   it('done screen hides the upload module and 新建任务 resets to a fresh upload', async () => {
     mockExtract.mockResolvedValue('# T\nbody'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
@@ -187,5 +192,17 @@ describe('PdfTranscribePanel', () => {
     // switch to Markdown view to read the editor content
     fireEvent.click(screen.getByText('Markdown'))
     expect((screen.getByTestId('pdf-editor') as HTMLTextAreaElement).value).toContain('raw text here')
+  })
+
+  it('polishes the cleaned/edited content, not the raw extraction (B1)', async () => {
+    // rawMd='orig\nline'（抽取原文），默认清理后 editMd='orig line'（断行合并）。润色应基于 editMd。
+    mockExtract.mockResolvedValue('orig\nline'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    mockPolish.mockResolvedValue('polished')
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    fireEvent.click(screen.getByLabelText('AI 润色'))
+    await waitFor(() => expect(mockPolish).toHaveBeenCalled())
+    expect(mockPolish.mock.calls[0][1]).toBe('orig line')
   })
 })

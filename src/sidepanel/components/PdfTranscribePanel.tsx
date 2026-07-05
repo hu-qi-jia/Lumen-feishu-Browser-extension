@@ -4,6 +4,7 @@ import type { RecentFile } from '../recentFiles'
 import { resolveToken } from '../../shared/feishu/auth'
 import { polishMarkdown } from '../../shared/ai/mdPolish'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '../../shared/feishu/docx'
+import { cleanMarkdown } from '../../shared/mdClean'
 import { loadPdfs, savePdf, deletePdf, type SavedPdf } from '../pdfHistory'
 import TopBar from './TopBar'
 import Button from './Button'
@@ -13,7 +14,7 @@ import DocCombobox, { type DocTarget } from './DocCombobox'
 import UploadDrop from './UploadDrop'
 import HistoryRow from './HistoryRow'
 import Tooltip from './Tooltip'
-import { KindIcon, IconPlus, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle } from './icons'
+import { KindIcon, IconPlus, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle, IconX } from './icons'
 import './PdfTranscribePanel.css'
 
 interface Props {
@@ -32,7 +33,6 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [phase, setPhase] = useState<Phase>('idle')
   const [fileName, setFileName] = useState('document')
   const [activePdfId, setActivePdfId] = useState<string | null>(null)
-  const [rawMd, setRawMd] = useState('')
   const [editMd, setEditMd] = useState('')
   const [view, setView] = useState<View>('preview')
   const [polishing, setPolishing] = useState(false)
@@ -69,7 +69,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) { setError('请上传 PDF 文件。'); setPhase('error'); return }
     setFileName(file.name.replace(/\.pdf$/i, ''))
-    setRawMd(''); setEditMd(''); setError(''); setInfo('')
+    setEditMd(''); setError(''); setInfo('')
     setPhase('selected')
     pickedFile.current = file
   }
@@ -84,7 +84,8 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       const md = await extractMarkdown(buf)
       const scan = detectScan(md)
       if (scan.likelyScan) { setError(scan.reason); setPhase('error'); return }
-      setRawMd(md); setEditMd(md); setView('preview'); setPhase('done')
+      // editMd = 默认清理（断行修复 + 压缩空行）后的干净稿。
+      setEditMd(cleanMarkdown(md)); setView('preview'); setPhase('done')
       const id = crypto.randomUUID()
       setActivePdfId(id)
       setPdfs(await savePdf({ id, fileName, markdown: md, createdAt: Date.now() }))
@@ -96,7 +97,8 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   async function handlePolish() {
     setPolishing(true); setError(''); setInfo('')
     try {
-      const polished = await polishMarkdown(settings, rawMd)
+      // 基于当前编辑内容润色（editMd）——润色你"看到的"，不再丢手改。
+      const polished = await polishMarkdown(settings, editMd)
       setEditMd(polished); setInfo('已 AI 润色。')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -141,7 +143,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     // History items saved before the PAGE_BREAK strip could still carry HTML comments —
     // scrub them so neither the editor nor the preview shows literal <!-- PAGE_BREAK -->.
     const md = p.markdown.replace(/<!--[\s\S]*?-->/g, '')
-    setFileName(p.fileName); setRawMd(md); setEditMd(md)
+    setFileName(p.fileName); setEditMd(cleanMarkdown(md))
     setActivePdfId(p.id)
     pickedFile.current = null; setError(''); setInfo('已载入历史记录。')
     setPhase('done'); setHistoryOpen(false)
@@ -156,7 +158,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     setPhase('idle')
     setFileName('document')
     setActivePdfId(null)
-    setRawMd(''); setEditMd('')
+    setEditMd('')
     setView('preview')
     setError(''); setInfo('')
     setCopied(false)
@@ -194,15 +196,36 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
           <label className="sc-field-label">上传文件</label>
           {phase !== 'done' && (
             <UploadDrop
-              busy={phase === 'converting'} max={1} count={0}
+              busy={phase === 'converting'} max={1} count={hasFile ? 1 : 0}
               mainText="点击或拖入 PDF 文件" hintText="本地解析，不上传服务器"
               onFiles={(fl) => { const f = fl[0]; if (f) handleFile(f) }}
               onTrigger={() => fileInputRef.current?.click()} />
           )}
           {hasFile && (
-            <div className="pdf-picked-file" data-testid="pdf-picked-file">
+            <div
+              className={`pdf-picked-file${phase === 'converting' ? ' is-busy' : ''}`}
+              data-testid="pdf-picked-file"
+              role={phase === 'selected' ? 'button' : undefined}
+              tabIndex={phase === 'selected' ? 0 : undefined}
+              aria-label={phase === 'selected' ? '点击或拖入 PDF 更换文件' : undefined}
+              onClick={phase === 'selected' ? () => fileInputRef.current?.click() : undefined}
+              onDragOver={phase === 'selected' ? (e) => { e.preventDefault(); e.stopPropagation() } : undefined}
+              onDrop={phase === 'selected' ? (e) => {
+                e.preventDefault(); e.stopPropagation()
+                const f = e.dataTransfer.files?.[0]; if (f) handleFile(f)
+              } : undefined}
+            >
               <span className="pdf-picked-file-ic"><KindIcon kind="doc" /></span>
               <span className="pdf-picked-file-name">{fileName}.pdf</span>
+              {phase === 'selected' && (
+                <>
+                  <span className="pdf-picked-hint">点击或拖入更换</span>
+                  <button type="button" className="pdf-picked-x" aria-label="移除文件"
+                    onClick={(e) => { e.stopPropagation(); pickedFile.current = null; setPhase('idle') }}>
+                    <IconX />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -222,7 +245,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
             <Button variant="primary" className="pdf-action-btn" onClick={handleConvert} disabled={phase === 'converting'} loading={phase === 'converting'}>
               {phase === 'converting' ? '转换中…' : '转换'}
             </Button>
-            <Button variant="secondary" className="pdf-action-btn" onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
+            <Button variant="secondary" className="pdf-action-btn" disabled={phase === 'converting'} onClick={() => { pickedFile.current = null; setPhase('idle') }}>选择文件</Button>
           </div>
         )}
 
