@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { HAS_ARTIFACT_SYNC } from '../../../shared/config'
 import { restoreAllArtifacts } from '../../cloudRestore'
 import { applyBackup, buildBackup } from '../../../shared/configBackup'
+import { FormCheckbox } from '../form'
 import SettingsSection from './SettingsSection'
 
 /**
@@ -99,14 +100,12 @@ export default function BackupTab() {
           把你的<b>配置、保存的小程序 / AI建站 / PPT、本地经验、会话</b>导出成一个文件；
           换设备、重装或清缓存后导入即可恢复，<b>防止数据丢失</b>。全程在本机，不上传任何服务器。
         </p>
-        <label className="field-label" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={includeSecrets}
-            onChange={(e) => setIncludeSecrets(e.target.checked)}
-          />
-          包含密钥（API Key / 飞书 Token / App Secret）
-        </label>
+        <FormCheckbox
+          checked={includeSecrets}
+          onChange={setIncludeSecrets}
+        >
+          <>包含密钥（API Key / 飞书 Token / App Secret）</>
+        </FormCheckbox>
         {includeSecrets && (
           <p className="field-hint" style={{ color: '#d4380d' }}>
             勾选后文件含<b>明文密钥</b>，请妥善保管、勿外发；不勾选则更安全，恢复后重新填一次 Key 即可。

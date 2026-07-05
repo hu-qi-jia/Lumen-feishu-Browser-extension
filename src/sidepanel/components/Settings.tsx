@@ -5,9 +5,16 @@ import GeneralTab from './settings/GeneralTab'
 import AiTab from './settings/AiTab'
 import FeishuTab from './settings/FeishuTab'
 import BackupTab from './settings/BackupTab'
-import SettingsTabs from './settings/SettingsTabs'
+import SettingsTabs from './SettingsTabs'
 import type { SettingsTabId } from './settings/types'
 import './Settings.css'
+
+const SETTINGS_TABS = [
+  { id: 'general', label: '偏好' },
+  { id: 'ai', label: '模型配置' },
+  { id: 'feishu', label: '飞书配置' },
+  { id: 'backup', label: '备份' },
+] as const
 
 interface Props {
   settings: AppSettings
@@ -59,13 +66,10 @@ export default function Settings({
   return (
     <div className="settings">
       <div className="settings-header">
-        <h2>Settings</h2>
-        <button className="btn-icon" onClick={onCancel} title="Close">
-          ×
-        </button>
+        <h2>设置</h2>
       </div>
 
-      <SettingsTabs active={tab} onChange={setTab} />
+      <SettingsTabs tabs={SETTINGS_TABS} active={tab} onChange={(id) => setTab(id as SettingsTabId)} />
 
       <div className="settings-body">
         {/* Enterprise policy notice — always visible regardless of tab. */}

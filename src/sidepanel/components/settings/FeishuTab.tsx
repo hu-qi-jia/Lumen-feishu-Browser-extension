@@ -16,6 +16,7 @@ import {
 import { clearUserToken, saveUserToken } from '../../../shared/feishu/auth'
 import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '../../../shared/feishu/appSecret'
 import { getUserAppId, hasUserAppCreds, saveUserAppCreds } from '../../../shared/feishu/userAppCreds'
+import { FormField, FormInput } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
@@ -304,16 +305,14 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         </div>
 
         {/* Owner open_id */}
-        <label className="field-label">
-          你的 open_id（新建多维表格归属）
-          <input
-            className="field-input"
+        <FormField label="你的 open_id（新建多维表格归属）">
+          <FormInput
             type="text"
             value={form.feishuOwnerOpenId}
             onChange={set('feishuOwnerOpenId')}
             placeholder="ou_xxxxxxxxxxxxxxxx（留空则新建的表归应用所有，你看不到）"
           />
-        </label>
+        </FormField>
 
         <div className="test-row">
           {(HAS_BUILTIN_CREDS || byoSaved) && (
