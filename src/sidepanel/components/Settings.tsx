@@ -6,6 +6,7 @@ import AiTab from './settings/AiTab'
 import FeishuTab from './settings/FeishuTab'
 import BackupTab from './settings/BackupTab'
 import SettingsTabs from './SettingsTabs'
+import Button from './Button'
 import type { SettingsTabId } from './settings/types'
 import './Settings.css'
 
@@ -113,12 +114,12 @@ export default function Settings({
             ? chrome.runtime.getManifest().version
             : 'dev'}
         </span>
-        <button className="btn-cancel" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="btn-save" onClick={() => onSave(form)}>
-          Save
-        </button>
+        <Button variant="secondary" onClick={onCancel}>
+          取消
+        </Button>
+        <Button variant="primary" onClick={() => onSave(form)}>
+          保存
+        </Button>
       </div>
     </div>
   )

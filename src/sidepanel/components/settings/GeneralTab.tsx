@@ -56,16 +56,14 @@ export default function GeneralTab({
 
       {/* ── 外观模式 ── */}
       <SettingsSection title="外观模式">
-        <div className="appearance-toggle">
-          <FormToggle
-            options={[
-              { value: 'light', label: '亮色' },
-              { value: 'dark', label: '深色' },
-            ]}
-            value={theme}
-            onChange={(v) => onThemeChange(v as 'light' | 'dark')}
-          />
-        </div>
+        <FormToggle
+          options={[
+            { value: 'light', label: '亮色' },
+            { value: 'dark', label: '深色' },
+          ]}
+          value={theme}
+          onChange={(v) => onThemeChange(v as 'light' | 'dark')}
+        />
       </SettingsSection>
 
       {/* ── 自动确认 ── */}
