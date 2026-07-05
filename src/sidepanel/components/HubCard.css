@@ -84,4 +84,6 @@
   font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
+  /* Reserve 2 lines so every card has identical height regardless of desc length. */
+  min-height: 33px;
 }
