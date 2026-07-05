@@ -194,6 +194,11 @@ const CREATE_ONCE_TOOLS = new Set([
   'create_document', 'create_doc_from_markdown', 'insert_table', 'insert_sheet',
   'create_spreadsheet', 'add_sheet', 'base_table_to_sheet', 'summarize_table',
   'generate_data_report',
+  // insert_image / replace_image: some LLMs emit the identical call twice in a turn,
+  // which inserts the image twice. An exact repeat (same attachment_id + anchor) is an
+  // accidental duplicate — dedupe it. Two genuinely different anchors still differ in args,
+  // so "插到 A 和 B 下面" (different sigs) is NOT affected.
+  'insert_image', 'replace_image',
 ])
 
 // Maximum CHARACTERS (UTF-16 code units, not bytes) of a single tool result sent to the LLM.
