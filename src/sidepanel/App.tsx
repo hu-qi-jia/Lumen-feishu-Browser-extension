@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipCapture } from '../shared/clip/types'
-import { fileToClip } from '../shared/clip/file'
 import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS, CLIP_ENABLED } from '../shared/config'
 import { checkNetworkAccess } from '../shared/network'
 import { usingManagedLlm } from '../shared/ai/llmConfig'
@@ -60,7 +59,6 @@ export default function App() {
 
   const [clip, setClip] = useState<ClipCapture | null>(null)
   const [clipError, setClipError] = useState<string | null>(null)
-  const [dragging, setDragging] = useState(false)
 
   const [chatStreaming, setChatStreaming] = useState(false)
   const [scenarioBusy, setScenarioBusy] = useState(false)
@@ -174,19 +172,6 @@ export default function App() {
     return () => { chrome.runtime.onMessage.removeListener(onMsg) }
   }, [applyCtx])
 
-  function onFileDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragging(false)
-    const file = e.dataTransfer.files?.[0]
-    if (!file) return
-    fileToClip(file)
-      .then((c) => { setClipError(null); setClip(c); setTab('clip') })
-      .catch((err) => { setClip(null); setClipError(err instanceof Error ? err.message : String(err)); setTab('clip') })
-  }
-  function onDragOver(e: React.DragEvent) {
-    if (!CLIP_ENABLED) return
-    if (Array.from(e.dataTransfer.types).includes('Files')) { e.preventDefault(); setDragging(true) }
-  }
-
   async function onSaveSettings(s: typeof settings) {
     await saveSettings(s)
     setTab('chat')
@@ -235,23 +220,7 @@ export default function App() {
   return (
     <div
       className="app"
-      onDragOver={onDragOver}
-      onDragEnter={onDragOver}
-      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragging(false) }}
-      onDrop={onFileDrop}
     >
-      {dragging && (
-        <div className="drop-overlay">
-          <div className="drop-overlay-card">
-            <svg className="drop-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <div>松手导入文件</div>
-            <div className="drop-overlay-sub">支持 CSV / TSV / 文本 → AI 整理写入飞书</div>
-          </div>
-        </div>
-      )}
       <div className="app-body">
         <div className="nav-rail-float">
           <NavRail
