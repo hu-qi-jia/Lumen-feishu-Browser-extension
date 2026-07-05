@@ -1355,6 +1355,65 @@ async function executeDocTool(
       void reloadActiveTab()
       return { message: '已保真克隆为新文档', document: copyRes }
     }
+    case 'replace_image': {
+      const which = args.which as { by: string; value: number | string }
+      const src = args.source as { attachment_id: string }
+      if (!attachments?.length) throw new Error('当前没有附件。')
+      const att = attachments.find((a) => a.id === src.attachment_id && a.type === 'image')
+      if (!att || !att.dataUrl) throw new Error(`附件 ${src.attachment_id} 不存在或不是图片。`)
+
+      // Find all image blocks
+      const { items } = (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构。')
+      const imgBlocks: Array<{ id: string; parent_id: string; idx: number; heading?: string }> = []
+      let lastHeading = ''
+      for (const b of items) {
+        const bt = b.block_type as number
+        if (bt === 3 || bt === 4 || bt === 5) {
+          const hKey = `heading${bt - 2}`
+          const el = (b as Record<string, unknown>)[hKey] as { elements?: Array<{ text_run?: { content?: string } }> }
+          lastHeading = (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('')
+        }
+        if (bt === 27) {
+          imgBlocks.push({
+            id: b.block_id as string,
+            parent_id: (b.parent_id as string) ?? doc!,
+            idx: (b.index as number) ?? imgBlocks.length,
+            heading: lastHeading || undefined,
+          })
+        }
+      }
+      if (!imgBlocks.length) throw new Error('文档中没有图片。')
+
+      // Resolve target
+      let target: (typeof imgBlocks)[number] | undefined
+      if (which.by === 'index') {
+        const n = Number(which.value) - 1
+        target = imgBlocks[n]
+        if (!target) throw new Error(`只有 ${imgBlocks.length} 张图片，没有第 ${n + 1} 张。`)
+      } else if (which.by === 'heading') {
+        const needle = String(which.value).toLowerCase()
+        target = imgBlocks.find((b) => b.heading?.toLowerCase().includes(needle))
+        if (!target) throw new Error(`找不到标题"${which.value}"下的图片。`)
+      } else {
+        throw new Error(`不支持的定位方式：${which.by}（仅支持 index 或 heading）`)
+      }
+
+      // Upload new image
+      const res = await fetch(att.dataUrl)
+      const blob = await res.blob()
+      const fileToken = await uploadMedia({
+        blob, fileName: att.name || 'image.png', mimeType: att.mimeType || 'image/png',
+        parentNode: doc!, parentType: 'docx_image', token,
+      })
+
+      // Delete old + insert new at same position
+      await Docx.deleteBlocks(token, doc!, target.parent_id, target.idx, target.idx + 1)
+      await Docx.insertBlocks(token, doc!, [{ text: '', style: 'image', imageToken: fileToken }], target.idx, target.parent_id)
+
+      void reloadActiveTab()
+      return `已将${which.by === 'index' ? `第 ${Number(which.value)} 张` : `"${String(which.value)}"标题下的`}图片替换为新图。`
+    }
     default:
       throw new Error(`未知工具: ${name}`)
   }
