@@ -26,6 +26,8 @@ import { deriveVizSource, fetchVizData } from '../dataviz/data'
 import { buildDataReport } from '../report/build'
 import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
+import { uploadMedia } from '../feishu/upload'
+import { reloadActiveTab } from '../../sidepanel/tabReload'
 
 export interface ConfirmRequest {
   kind: 'create_base' | 'delete' | 'write'
@@ -1265,6 +1267,73 @@ async function executeDocTool(
         args.start_index as number,
         args.end_index as number
       )
+    case 'insert_image': {
+      const attachmentId = args.attachment_id as string
+      const anchor = args.anchor as { type: string; value?: string }
+      if (!attachments?.length) throw new Error('当前没有附件，请先在对话框里上传图片。')
+      const att = attachments.find((a) => a.id === attachmentId && a.type === 'image')
+      if (!att || !att.dataUrl) throw new Error(`附件 ${attachmentId} 不存在或不是图片。`)
+
+      // dataUrl → Blob
+      const res = await fetch(att.dataUrl)
+      const blob = await res.blob()
+      if (blob.size === 0) throw new Error('无法读取图片数据。')
+
+      // Resolve anchor → index
+      const { items } = (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构。')
+      const rootChildren = items
+        .filter((b) => b.parent_id === doc)
+        .sort((a, b) => (a.index as number ?? 0) - (b.index as number ?? 0))
+
+      let insertAt = rootChildren.length // default: append
+      const t = anchor.type
+      if (t === 'end') { /* keep default */ }
+      else if ((t === 'heading' || t === 'text') && anchor.value) {
+        const needle = anchor.value.toLowerCase()
+        const idx = rootChildren.findIndex((b) => {
+          if (t === 'heading') {
+            const bt = b.block_type as number
+            if (bt !== 3 && bt !== 4 && bt !== 5) return false
+          } else if (b.block_type !== 2) return false
+          const el = (b as Record<string, unknown>)[t === 'heading' ? `heading${(b.block_type as number) - 2}` : 'text'] as { elements?: Array<{ text_run?: { content?: string } }> }
+          const txt = (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase()
+          return txt.includes(needle)
+        })
+        if (idx === -1) throw new Error(`找不到匹配的${t === 'heading' ? '标题' : '段落'}："${anchor.value}"`)
+        insertAt = idx + 1
+      } else if (t === 'section_end' && anchor.value) {
+        const needle = anchor.value.toLowerCase()
+        const hIdx = rootChildren.findIndex((b) => {
+          const bt = b.block_type as number
+          if (bt !== 3 && bt !== 4 && bt !== 5) return false
+          const hKey = `heading${bt - 2}`
+          const el = (b as Record<string, unknown>)[hKey] as { elements?: Array<{ text_run?: { content?: string } }> }
+          return (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase().includes(needle)
+        })
+        if (hIdx === -1) throw new Error(`找不到匹配的标题："${anchor.value}"`)
+        const hLevel = rootChildren[hIdx].block_type as number
+        const next = rootChildren.findIndex((b, i) => i > hIdx && (b.block_type as number) >= 3 && (b.block_type as number) <= 5 && (b.block_type as number) <= hLevel)
+        insertAt = next === -1 ? rootChildren.length : next
+      } else {
+        throw new Error(`不支持的锚点类型：${t}`)
+      }
+
+      // Upload + insert
+      const fileToken = await uploadMedia({
+        blob,
+        fileName: att.name || 'image.png',
+        mimeType: att.mimeType || 'image/png',
+        parentNode: doc!,
+        parentType: 'docx_image',
+        token,
+      })
+      await Docx.insertBlocks(token, doc!, [{ text: '', style: 'image', imageToken: fileToken }], insertAt)
+
+      // Reload so the user sees the new image in the doc
+      void reloadActiveTab()
+      return `已插入到${t === 'end' ? '文档末尾' : `"${anchor.value ?? ''}"${t === 'section_end' ? '节末' : '后面'}`}`
+    }
     default:
       throw new Error(`未知工具: ${name}`)
   }
