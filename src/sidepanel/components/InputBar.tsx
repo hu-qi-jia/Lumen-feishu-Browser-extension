@@ -164,6 +164,22 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     }).catch(() => { /* invalid file */ })
   }
 
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.files
+    if (!items || items.length === 0) return // plain text paste — let default happen
+    for (let i = 0; i < items.length; i++) {
+      const f = items[i]
+      if (f.type.startsWith('image/')) {
+        e.preventDefault() // only prevent default when we handle an image
+        fileToAttachment(f).then((a) => {
+          setAttachments((prev) => prev.concat(a))
+        }).catch((err) => {
+          console.warn('剪贴板图片处理失败', err)
+        })
+      }
+    }
+  }
+
   // ── Voice ──
   async function toggleMic() {
     setMicError('')
@@ -218,7 +234,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   }, [skillsOpen])
 
   return (
-    <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop}>
+    <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
       <div className="input-bar-inner">
         {attachments.length > 0 && (
           <div className="attachment-list">
