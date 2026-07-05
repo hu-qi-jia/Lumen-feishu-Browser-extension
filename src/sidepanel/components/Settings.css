@@ -15,6 +15,35 @@
 }
 .settings-header h2 { font-size: 14px; font-weight: 600; }
 
+/* ── Top tab bar ── */
+.settings-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.settings-tab {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--color-text); }
+.settings-tab--active {
+  color: var(--color-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
 .settings-body {
   flex: 1;
   overflow-y: auto;
@@ -22,6 +51,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: var(--color-surface);
 }
 
 .settings-section {

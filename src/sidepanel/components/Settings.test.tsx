@@ -21,14 +21,23 @@ function renderSettings(overrides: Partial<Parameters<typeof Settings>[0]> = {})
 }
 
 describe('Settings — LLM provider preset', () => {
+  /** Click the "AI 模型" tab — these fields are gated behind tab navigation. */
+  function switchToAiTab(container: HTMLElement) {
+    const tabs = [...container.querySelectorAll('.settings-tab')]
+    const aiTab = tabs.find((t) => t.textContent === '模型配置')!
+    fireEvent.click(aiTab)
+  }
+
   it('defaults Base URL to DeepSeek', () => {
     const { container } = renderSettings()
+    switchToAiTab(container)
     const url = container.querySelector('input[type="url"]') as HTMLInputElement
     expect(url.value).toBe('https://api.deepseek.com')
   })
 
   it('picking 通义千问 fills its Base URL', () => {
     const { container } = renderSettings()
+    switchToAiTab(container)
     const selects = [...container.querySelectorAll('select')]
     const provider = selects.find((s) => [...s.options].some((o) => o.value === 'qwen'))!
     fireEvent.change(provider, { target: { value: 'qwen' } })
@@ -38,6 +47,7 @@ describe('Settings — LLM provider preset', () => {
 
   it('model field is free-text (input, not locked select)', () => {
     const { container } = renderSettings()
+    switchToAiTab(container)
     // Model is an <input list=model-suggestions>, so any latest id can be typed
     expect(container.querySelector('input[list="model-suggestions"]')).toBeTruthy()
   })
