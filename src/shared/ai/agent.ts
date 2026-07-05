@@ -27,8 +27,10 @@ import { buildDataReport } from '../report/build'
 import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
 import { uploadMedia } from '../feishu/upload'
+import { downloadMedia } from '../feishu/media'
 import { cloneDocumentWithImages } from '../feishu/cloneDoc'
 import { reloadActiveTab } from '../../sidepanel/tabReload'
+import { compressImageToDataUrl } from '../attachments'
 
 export interface ConfirmRequest {
   kind: 'create_base' | 'delete' | 'write'
@@ -1432,6 +1434,50 @@ async function executeDocTool(
           (result.skippedBlocks ? `，跳过 ${result.skippedBlocks} 个块` : ''),
         ...result,
       }
+    }
+    case 'export_doc_images': {
+      const exportDocToken = sanitizeToken(args.doc_token as string | undefined) ?? doc!
+      const { items } = (await Docx.listBlocks(token, exportDocToken)) as { items?: Record<string, unknown>[] }
+      if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构')
+
+      const imgBlocks: Array<{ token: string; context: string }> = []
+      let lastHeading = ''
+      for (const b of items) {
+        const bt = b.block_type as number
+        if (bt === 3 || bt === 4 || bt === 5) {
+          const hKey = `heading${bt - 2}`
+          const el = (b as Record<string, unknown>)[hKey] as { elements?: Array<{ text_run?: { content?: string } }> }
+          lastHeading = (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('')
+        }
+        if (bt === 27) {
+          const img = (b as { image?: { token?: string } }).image
+          if (typeof img?.token === 'string' && img.token) {
+            imgBlocks.push({ token: img.token, context: lastHeading })
+          }
+        }
+      }
+
+      if (!imgBlocks.length) return JSON.stringify({ __image_export: true, images: [], docTitle: exportDocToken })
+
+      // Download all in parallel (capped 4)
+      const images: Array<{ name: string; context: string; dataUrl: string }> = []
+      let cursor = 0
+      async function worker() {
+        while (cursor < imgBlocks.length) {
+          const idx = cursor++
+          const { token: imgTok, context } = imgBlocks[idx]
+          try {
+            const blob = await downloadMedia(imgTok, token)
+            const dataUrl = await compressImageToDataUrl(blob)
+            images[idx] = { name: `image-${idx + 1}.${blob.type.split('/')[1] || 'png'}`, context, dataUrl }
+          } catch {
+            images[idx] = { name: `failed-${idx + 1}`, context, dataUrl: '' }
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(4, imgBlocks.length) }, () => worker()))
+
+      return JSON.stringify({ __image_export: true, images, docTitle: exportDocToken })
     }
     default:
       throw new Error(`未知工具: ${name}`)

@@ -11,6 +11,7 @@ import { sendVizToActiveTab } from '../../shared/dataviz/send'
 import type { VizSource } from '../../shared/dataviz/types'
 import MessageList from './MessageList'
 import UndoBar from './UndoBar'
+import ImageExportCard from './ImageExportCard'
 import { loadDeleteUndo } from '../../shared/feishu/undo'
 import { reloadActiveTab } from '../tabReload'
 import InputBar from './InputBar'
@@ -83,6 +84,12 @@ export default function ChatPanel({
   const [pendingConfirm, setPendingConfirm] = useState<
     { req: ConfirmRequest; resolve: (c: ConfirmChoice) => void } | null
   >(null)
+
+  // Image export card state (set from onToolMessage when __image_export marker detected)
+  const [imageExport, setImageExport] = useState<{
+    images: Array<{ name: string; context: string; dataUrl: string }>
+    docTitle: string
+  } | null>(null)
 
   function requestConfirmation(req: ConfirmRequest): Promise<ConfirmChoice> {
     return new Promise((resolve) => setPendingConfirm({ req, resolve }))
@@ -241,6 +248,15 @@ export default function ChatPanel({
               if (p?.__dataviz) void renderDataVizResult(p, appendTurn)
             } catch { /* not a dataviz result */ }
           }
+          // export_doc_images returns a marker → render image gallery card
+          if (msg.role === 'tool' && typeof msg.content === 'string' && msg.content.includes('__image_export')) {
+            try {
+              const p = JSON.parse(msg.content) as { __image_export?: boolean; images: Array<{ name: string; context: string; dataUrl: string }>; docTitle: string }
+              if (p?.__image_export && Array.isArray(p.images)) {
+                setImageExport({ images: p.images, docTitle: p.docTitle })
+              }
+            } catch { /* not an image export result */ }
+          }
         },
         requestConfirmation,
       }, baseCtx ?? undefined, ac.signal)
@@ -364,6 +380,15 @@ export default function ChatPanel({
       {/* One-click 撤销 for the assistant's last record deletion — shown right here in the
           conversation flow (under the delete), reading the undo the agent stashed. */}
       <UndoBar settings={settings} />
+
+      {/* Image export gallery — shown when export_doc_images tool completes */}
+      {imageExport && (
+        <ImageExportCard
+          images={imageExport.images}
+          docTitle={imageExport.docTitle}
+          onClose={() => setImageExport(null)}
+        />
+      )}
 
       {/* Field picker — Feishu Base grids are canvas-rendered (no DOM text to select), so
           we list the current table's fields from the structure we already read. Click a
