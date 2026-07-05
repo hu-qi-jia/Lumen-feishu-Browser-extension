@@ -1,7 +1,7 @@
 import { WEB_SPEECH_ALLOWED } from '../../../shared/config'
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
-import { FormCheckbox, FormToggle } from '../form'
+import { FormCheckbox, FormSwitch, FormToggle } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
@@ -13,7 +13,7 @@ interface Props extends SettingsTabProps {
   policyLocks: Set<keyof AppSettings>
 }
 
-/** 通用 tab：外观主题色、语音输入、Auto 模式（自动确认删除）。 */
+/** 通用 tab：主题色、外观模式、语音输入、自动确认。 */
 export default function GeneralTab({
   form,
   patch,
@@ -23,10 +23,12 @@ export default function GeneralTab({
   onThemeChange,
   policyLocks,
 }: Props) {
+  const accentChanged = accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase()
+
   return (
     <>
-      {/* ── 外观 · 主题色 ── */}
-      <SettingsSection title="外观 · 主题色">
+      {/* ── 主题色 ── */}
+      <SettingsSection title="主题色">
         <div className="accent-row">
           {ACCENT_PRESETS.map((p) => (
             <button
@@ -38,15 +40,27 @@ export default function GeneralTab({
               onClick={() => onAccentChange(p.hex)}
             />
           ))}
-          <label className="accent-custom" title="自定义颜色">
+          <label className="accent-custom" title="自定义颜色" aria-label="自定义颜色">
             <input
               type="color"
               value={accent}
               onChange={(e) => onAccentChange(e.target.value)}
             />
-            <span>主题色</span>
           </label>
         </div>
+        <div className="accent-current">
+          <span className="accent-current-dot" style={{ background: accent }} />
+          <span className="accent-current-hex">{accent.toUpperCase()}</span>
+          {accentChanged && (
+            <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>
+              恢复默认
+            </button>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* ── 外观模式 ── */}
+      <SettingsSection title="外观模式">
         <FormToggle
           options={[
             { value: 'light', label: '浅色' },
@@ -55,12 +69,7 @@ export default function GeneralTab({
           value={theme}
           onChange={(v) => onThemeChange(v as 'light' | 'dark')}
         />
-        <p className="field-hint">
-          主题色即时生效并记住选择；与浅/深色模式独立。
-          {accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase() && (
-            <> <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>恢复默认</button></>
-          )}
-        </p>
+        <p className="field-hint">浅 / 深色模式独立于主题色，立即生效并记住选择。</p>
       </SettingsSection>
 
       {/* ── 语音输入 ── */}
@@ -76,18 +85,23 @@ export default function GeneralTab({
         </SettingsSection>
       )}
 
-      {/* ── Auto 模式（自动确认删除） ── */}
-      <SettingsSection title="Auto 模式（自动确认删除）">
-        <FormCheckbox
+      {/* ── 自动确认 ── */}
+      <SettingsSection title="自动确认">
+        <FormSwitch
           checked={form.autoConfirm === true}
           disabled={policyLocks.has('autoConfirm')}
           onChange={(checked) => patch({ autoConfirm: checked })}
-          hint={<>谨慎开启：开启后助手删除文档内容前<b>不再向你确认</b>。<b>文件级删除（整表 / 电子表格 / 文档 / 云文件）始终被拦截</b>，Auto 模式也不会放开。</>}
+          hint={
+            <>
+              开启后，删除文档内的行 / 字段 / 内容块 / 去重等操作<b>不再弹确认按钮</b>。
+              文件级删除（整表 / 电子表格 / 文档 / 云文件）始终拦截。
+              {policyLocks.has('autoConfirm') && <span className="field-hint">（由企业策略锁定）</span>}
+            </>
+          }
           hintColor={form.autoConfirm ? '#d4380d' : undefined}
         >
-          <>开启后，文档内的内容删除（行 / 字段 / 内容块 / 去重）<b>自动确认、不再弹按钮</b>
-          {policyLocks.has('autoConfirm') && <span className="field-hint">（由企业策略锁定）</span>}</>
-        </FormCheckbox>
+          删除文档内容时自动确认
+        </FormSwitch>
       </SettingsSection>
     </>
   )
