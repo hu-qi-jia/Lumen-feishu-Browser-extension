@@ -1334,6 +1334,27 @@ async function executeDocTool(
       void reloadActiveTab()
       return `已插入到${t === 'end' ? '文档末尾' : `"${anchor.value ?? ''}"${t === 'section_end' ? '节末' : '后面'}`}`
     }
+    case 'copy_document': {
+      const sourceToken = sanitizeToken(args.source_doc_token as string | undefined) ?? doc!
+      // Get source title for default new-title
+      let sourceTitle = '文档副本'
+      try {
+        const meta = (await Docx.getDocumentMeta(token, sourceToken)) as { document?: { title?: string } }
+        sourceTitle = meta.document?.title || '文档副本'
+      } catch { /* fallback */ }
+      const newTitle = (args.new_title as string) || `${sourceTitle} 副本`
+
+      const copyRes = (await feishuReq('POST', `/drive/v1/files/${sourceToken}/copy`, token, {
+        name: newTitle,
+        type: 'docx',
+      })) as { file?: { token?: string; url?: string } }
+
+      const newToken = copyRes.file?.token ?? copyRes.file?.url
+      if (!newToken) throw new Error('复制文档失败：未返回新文档 token')
+
+      void reloadActiveTab()
+      return { message: '已保真克隆为新文档', document: copyRes }
+    }
     default:
       throw new Error(`未知工具: ${name}`)
   }
