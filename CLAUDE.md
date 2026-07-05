@@ -37,6 +37,7 @@ Chrome **MV3** 扩展「飞书文档AI助手」：在飞书 多维表格/电子�
 ## 约定
 - 配置：`config.ts BUILD_CONFIG`（读 `import.meta.env.VITE_*`），记录在 `.env.example`。
 - 持久化：`chrome.storage.local`，键带 `_v1`（版本更新不丢；改 schema 要迁移）。
+- UI 样式：纯 CSS（语义 className + 各组件自己的 `.css` + `App.css` 的 `--color-*` 变量层），**不引用 shadcn / Tailwind / UI 组件库**；图标用手写内联 SVG。旧 M3/Tailwind 基建已于 2026-07-05 归档到 `_archive/shadcn/`（恢复步骤见 `_archive/shadcn/README.md`）。
 - 提交结束语：`Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`。
 - 仅在用户要求时才 commit/push。
-- **当前模式（用户 2026-07-02 指定）**：直接在 `main` 分支上提交，不再先开特性分支。`origin/main` 已合并统一（merge commit `f270dee`，含 Tailwind/shadcn/M3 基建 + 聊天面板 + PPT 增强）。push 到远端仍需用户明确要求。
+- **当前模式（用户 2026-07-02 指定）**：直接在 `main` 分支上提交，不再先开特性分支。`origin/main` 已合并统一（merge commit `f270dee`：聊天面板 + PPT 增强；Tailwind/shadcn/M3 基建已于 2026-07-05 移除）。push 到远端仍需用户明确要求。
