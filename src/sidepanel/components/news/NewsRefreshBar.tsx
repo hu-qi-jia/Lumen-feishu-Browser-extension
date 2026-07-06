@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Dropdown from '../Dropdown'
+import Tooltip from '../Tooltip'
 import type { NewsInterval } from '../../../shared/news/types'
 
 interface Props {
@@ -39,19 +40,20 @@ export default function NewsRefreshBar({ refreshing, lastUpdated, error, interva
 
   return (
     <div className="news-bar">
-      <button
-        type="button"
-        className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
-        onClick={onRefresh}
-        disabled={refreshing}
-        aria-label="刷新"
-        title="刷新"
-      >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-          <path d="M21 3v6h-6" />
-        </svg>
-      </button>
+      <Tooltip content="刷新" position="bottom">
+        <button
+          type="button"
+          className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label="刷新"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 3v6h-6" />
+          </svg>
+        </button>
+      </Tooltip>
       <div className="news-bar-meta">
         <span className={`updated${error ? ' updated-err' : ''}`}>
           {error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`}
@@ -64,19 +66,20 @@ export default function NewsRefreshBar({ refreshing, lastUpdated, error, interva
         align="right"
         menuClassName="news-interval-menu"
         trigger={
-          <button
-            type="button"
-            className={`news-interval-trigger${open ? ' is-open' : ''}`}
-            onClick={() => setOpen((v) => !v)}
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            title="刷新频率"
-          >
-            <span className="news-interval-label">{currentLabel}</span>
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
+          <Tooltip content="刷新频率" position="bottom">
+            <button
+              type="button"
+              className={`news-interval-trigger${open ? ' is-open' : ''}`}
+              onClick={() => setOpen((v) => !v)}
+              aria-haspopup="listbox"
+              aria-expanded={open}
+            >
+              <span className="news-interval-label">{currentLabel}</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </Tooltip>
         }
       >
         {INTERVAL_OPTIONS.map((o) => {

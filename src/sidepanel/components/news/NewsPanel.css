@@ -212,19 +212,6 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* English original shown below the Chinese translation — smaller, more muted */
-.news-card-desc-en {
-  font-size: 10.5px;
-  color: var(--color-text-secondary);
-  opacity: .65;
-  line-height: 1.4;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-style: italic;
-}
 
 /* ── Meta row ── */
 .news-card-meta {
@@ -281,8 +268,10 @@
   color: var(--color-text-secondary);
 }
 
-/* Stat (icon+number) doesn't get the · separator — reads as a pair */
-.news-meta-stat + .news-meta-stat::before { content: none; margin-right: 0; }
+/* Stat (icon+number) doesn't get the · separator — reads as a pair.
+   Stats are wrapped in Tooltip spans, so suppress the dot between the wrappers. */
+.news-meta-stat + .news-meta-stat::before,
+.news-card-meta > .tooltip + .tooltip::before { content: none; margin-right: 0; }
 
 /* ── Skeleton ── */
 .news-card--skeleton {

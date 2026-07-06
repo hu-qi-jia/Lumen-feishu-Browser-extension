@@ -321,15 +321,18 @@ async function refreshNewsSource(source: NewsSourceId): Promise<void> {
   try {
     if (source === 'github') {
       const items = await fetchGitHubTrending(settings.githubSince)
-      // Translate descriptions to Chinese after a successful fetch. Needs an LLM
-      // (AppSettings with an API key); falls back silently to English on any failure.
+      // Save the English list immediately so the panel shows it instantly — translation is
+      // slow (a single LLM call over 25 descriptions) and shouldn't block the UI. After the
+      // translation finishes we re-save with descriptionZh populated; the panel picks up the
+      // update via storage.onChanged.
+      await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
       if (settings.translateGithub) {
         const app = await loadSettingsBg()
         if (app?.openaiApiKey) {
           await translateDescriptions(app, items).catch(() => {})
+          await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
         }
       }
-      await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
     } else {
       const items = await fetchWeiboHotSearch()
       await saveNewsCacheEntry('weibo', { items, fetchedAt: Date.now() })
@@ -367,12 +370,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   void refreshAllNews()
 })
 
-// Manual refresh from the side panel (no LLM, no auth — straight fetch). Responds with
-// the freshly-written cache so the panel doesn't have to re-read storage on the round trip.
+// Manual refresh from the side panel (no LLM, no auth — straight fetch). The panel sends
+// NEWS_REFRESH with an optional `source` ('github' | 'weibo') so only the visible list is
+// re-fetched; omit `source` to refresh both (alarm path). Responds with the freshly-written
+// cache so the panel doesn't have to re-read storage on the round trip.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'NEWS_REFRESH') return undefined
+  const source = msg?.source as NewsSourceId | undefined
   void (async () => {
-    await refreshAllNews()
+    if (source === 'github' || source === 'weibo') {
+      await refreshNewsSource(source)
+    } else {
+      await refreshAllNews()
+    }
     try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
   })()
   return true // async sendResponse

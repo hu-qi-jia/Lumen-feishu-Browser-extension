@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { NewsCache, NewsSettings } from '../../../shared/news/types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { NewsCache, NewsSettings, NewsSourceId } from '../../../shared/news/types'
 import { DEFAULT_NEWS_SETTINGS } from '../../../shared/news/types'
 import { loadNewsCache, loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
 
@@ -7,12 +7,15 @@ type RefreshResp = { ok: true; cache: NewsCache } | { ok: false }
 
 /** Side-panel hook for the news feature. Reads the cache the background SW writes, subscribes
  *  to chrome.storage.onChanged so the alarm-driven refresh shows up live, and exposes a
- *  manual refresh action that messages the SW (NEWS_REFRESH). Settings are persisted through
+ *  manual refresh action that messages the SW (NEWS_REFRESH). Pass a `source` to refresh
+ *  only one list ('github' | 'weibo'); omit it to refresh both. Settings are persisted through
  *  the same store so the SW's storage.onChanged listener re-arms the alarm. */
 export function useNewsData() {
   const [cache, setCache] = useState<NewsCache>({})
   const [settings, setSettings] = useState<NewsSettings>({ ...DEFAULT_NEWS_SETTINGS, enabled: { ...DEFAULT_NEWS_SETTINGS.enabled } })
-  const [refreshing, setRefreshing] = useState(false)
+  const [refreshing, setRefreshing] = useState<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
+  // In-flight guard (ref, not state) so a double-click doesn't fire two SW messages.
+  const inFlightRef = useRef<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
 
   // Initial load: cache + settings.
   useEffect(() => {
@@ -38,15 +41,30 @@ export function useNewsData() {
     return () => chrome.storage.onChanged.removeListener(handler)
   }, [])
 
-  const refresh = useCallback(async () => {
-    if (refreshing) return
-    setRefreshing(true)
+  const refresh = useCallback(async (source?: NewsSourceId) => {
+    const targets: NewsSourceId[] = source ? [source] : ['github', 'weibo']
+    // Skip any source already in flight; only fire for the rest.
+    const pending = targets.filter((t) => !inFlightRef.current[t])
+    if (!pending.length) return
+    for (const t of pending) inFlightRef.current[t] = true
+    setRefreshing((prev) => {
+      const next = { ...prev }
+      for (const t of pending) next[t] = true
+      return next
+    })
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'NEWS_REFRESH' }) as RefreshResp
+      const resp = await chrome.runtime.sendMessage({ type: 'NEWS_REFRESH', source: pending.length === 1 ? pending[0] : undefined }) as RefreshResp
       if (resp?.ok && resp.cache) setCache(resp.cache)
     } catch { /* SW may be mid-startup; the alarm will catch up */ }
-    finally { setRefreshing(false) }
-  }, [refreshing])
+    finally {
+      for (const t of pending) inFlightRef.current[t] = false
+      setRefreshing((prev) => {
+        const next = { ...prev }
+        for (const t of pending) next[t] = false
+        return next
+      })
+    }
+  }, [])
 
   const updateSettings = useCallback(async (next: NewsSettings) => {
     setSettings(next)

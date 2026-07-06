@@ -15,17 +15,14 @@ const NEWS_TABS = [
 
 /** News panel — mirrors Settings.tsx structure: header + tabs + refresh bar + body.
  *  The panel is a pure view of chrome.storage.local['news_cache_v1']; all fetching happens
- *  in the background SW. Manual refresh sends NEWS_REFRESH to the SW. */
+ *  in the background SW. The refresh bar refreshes ONLY the active tab's source — switch
+ *  tabs to refresh the other one. */
 export default function NewsPanel() {
   const { cache, settings, refreshing, refresh, updateSettings } = useNewsData()
   const [tab, setTab] = useState<NewsTabId>('github')
 
   const gh = cache.github
   const wb = cache.weibo
-  // The bar shows the most recent successful refresh across both sources, and any error.
-  const timestamps = [gh?.fetchedAt, wb?.fetchedAt].filter((t): t is number => typeof t === 'number')
-  const lastUpdated = timestamps.length ? Math.max(...timestamps) : null
-  const barError = (tab === 'github' ? gh?.error : wb?.error)
 
   const tabs = NEWS_TABS.filter((t) => {
     if (t.id === 'github') return settings.enabled.github
@@ -34,6 +31,10 @@ export default function NewsPanel() {
 
   // Ensure `tab` always points at an enabled source (e.g. after a settings change).
   const activeTab: NewsTabId = tabs.some((t) => t.id === tab) ? tab : (tabs[0]?.id as NewsTabId ?? 'github')
+  const activeSource = activeTab === 'github' ? 'github' : 'weibo'
+  const activeEntry = activeTab === 'github' ? gh : wb
+  const lastUpdated = activeEntry?.fetchedAt ?? null
+  const barError = activeEntry?.error
 
   return (
     <div className="news">
@@ -51,28 +52,28 @@ export default function NewsPanel() {
       )}
 
       <NewsRefreshBar
-        refreshing={refreshing}
+        refreshing={refreshing[activeSource]}
         lastUpdated={lastUpdated}
         error={barError}
         interval={settings.interval}
         onIntervalChange={(i) => updateSettings({ ...settings, interval: i })}
-        onRefresh={refresh}
+        onRefresh={() => refresh(activeSource)}
       />
 
       <div className="news-body">
         {activeTab === 'github' ? (
           <GitHubTab
             items={gh?.items ?? []}
-            loading={refreshing && !gh}
+            loading={refreshing.github && !gh}
             error={gh?.error}
-            onRetry={refresh}
+            onRetry={() => refresh('github')}
           />
         ) : (
           <WeiboTab
             items={wb?.items ?? []}
-            loading={refreshing && !wb}
+            loading={refreshing.weibo && !wb}
             error={wb?.error}
-            onRetry={refresh}
+            onRetry={() => refresh('weibo')}
           />
         )}
       </div>

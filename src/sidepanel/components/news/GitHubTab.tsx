@@ -1,5 +1,6 @@
 import type { GitHubTrendingRepo } from '../../../shared/news/types'
 import NewsList from './NewsList'
+import Tooltip from '../Tooltip'
 
 interface Props {
   items: GitHubTrendingRepo[]
@@ -61,18 +62,19 @@ export default function GitHubTab({ items, loading, error, onRetry }: Props) {
               ) : r.description ? (
                 <span className="news-card-desc">{r.description}</span>
               ) : null}
-              {r.descriptionZh && r.description && (
-                <span className="news-card-desc-en" title={r.description}>{r.description}</span>
-              )}
               <div className="news-card-meta">
-                <span className="news-meta-stat" title="Stars">
-                  <StarIcon />
-                  {formatNum(r.stars)}
-                </span>
-                <span className="news-meta-stat" title="Forks">
-                  <ForkIcon />
-                  {formatNum(r.forks)}
-                </span>
+                <Tooltip content="Stars" position="top">
+                  <span className="news-meta-stat">
+                    <StarIcon />
+                    {formatNum(r.stars)}
+                  </span>
+                </Tooltip>
+                <Tooltip content="Forks" position="top">
+                  <span className="news-meta-stat">
+                    <ForkIcon />
+                    {formatNum(r.forks)}
+                  </span>
+                </Tooltip>
               </div>
             </div>
           </a>
