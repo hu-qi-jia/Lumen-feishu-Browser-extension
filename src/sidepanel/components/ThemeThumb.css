@@ -1,6 +1,5 @@
-/* Theme picker tile — a 16:9 mini slide wireframe (unified cover-page mock) colored by the
-   theme's own palette. Button chrome uses panel tokens; only the preview swatch inherits theme
-   vars, so a dark theme doesn't darken the surrounding name/border. */
+/* Theme picker tile — button chrome uses panel tokens; the 16:9 swatch is a per-theme mini
+   composition (driven by [data-theme] below) painted in the theme's own palette. */
 .sl-theme{
   display:flex;flex-direction:column;gap:0;
   padding:0;border:1.5px solid var(--color-border);border-radius:10px;
@@ -11,24 +10,76 @@
 .sl-theme--active{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
 .sl-theme:disabled{opacity:.5;cursor:not-allowed}
 
-/* 16:9 mini slide preview — same wireframe for every theme, colored by theme vars. */
+/* 16:9 swatch — the mock canvas. All mock parts are absolutely positioned; each theme enables +
+   arranges its own subset via [data-theme]. */
 .sl-theme-preview{
-  position:relative;display:flex;flex-direction:column;gap:5px;
-  aspect-ratio:16/9;padding:10px 10px 10px 15px;
+  position:relative;aspect-ratio:16/9;overflow:hidden;
   background:var(--bg);border-bottom:1px solid var(--color-border);
 }
-/* left accent rail (the theme's signature color as a structural anchor) */
-.sl-theme-preview::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);
-}
-.sl-tp-eyebrow{width:22px;height:2px;background:var(--accent);border-radius:1px;margin-bottom:1px}
-.sl-tp-title{width:74%;height:7px;background:var(--fg);border-radius:1.5px;opacity:.95}
-.sl-tp-title--sub{width:48%;height:7px;opacity:.7}
-.sl-tp-accent{width:28px;height:2.5px;background:var(--accent);border-radius:1px;margin-top:3px}
-.sl-tp-lines{margin-top:auto;display:flex;flex-direction:column;gap:4px}
-.sl-tp-line{height:2px;background:var(--muted);border-radius:1px;opacity:.55}
-.sl-tp-line:nth-child(1){width:82%}
-.sl-tp-line:nth-child(2){width:56%}
+/* Mock parts — hidden by default; per-theme rules switch them on. */
+.m-glow,.m-topline,.m-rail,.m-eyebrow,.m-num,.m-title,.m-sub,.m-accent,
+.m-lines,.m-cards,.m-bento,.m-line,.m-card,.m-b{position:absolute;display:none}
+.m-glow{border-radius:50%;filter:blur(14px)}
+.m-eyebrow{height:2px;background:var(--accent);border-radius:1px}
+.m-title{height:7px;background:var(--fg);border-radius:1.5px;opacity:.95}
+.m-sub{height:6px;background:var(--fg);border-radius:1.5px;opacity:.5}
+.m-accent{height:3px;background:var(--accent);border-radius:1.5px}
+.m-line{height:2px;background:var(--muted);border-radius:1px;opacity:.5}
+.m-card{background:var(--card);border:1px solid var(--border);border-radius:3px}
+.m-rail{background:var(--accent)}
+.m-num{font-family:var(--font-display);line-height:1;color:var(--accent)}
+
+/* ── business：左侧 accent 竖条 + 标题 + accent 短杠 + 两张顶边 accent 卡片 ── */
+[data-theme="business"] .m-rail{display:block;left:0;top:0;bottom:0;width:4px}
+[data-theme="business"] .m-eyebrow{display:block;left:14px;top:14px;width:22px}
+[data-theme="business"] .m-title{display:block;left:14px;top:22px;width:60%}
+[data-theme="business"] .m-accent{display:block;left:14px;top:36px;width:18px}
+[data-theme="business"] .m-cards{display:flex;left:14px;right:14px;bottom:12px;gap:6px}
+[data-theme="business"] .m-cards .m-card{display:block;flex:1;height:30px;border-top:2px solid var(--accent)}
+
+/* ── editorial：大号章节编号 + 衬线标题 + 宽 accent + 叙事行 ── */
+[data-theme="editorial"] .m-num{display:block;right:12px;top:8px;font-size:22px;font-weight:900}
+[data-theme="editorial"] .m-eyebrow{display:block;left:14px;top:16px;width:26px;opacity:.6}
+[data-theme="editorial"] .m-title{display:block;left:14px;top:26px;width:58%;height:8px}
+[data-theme="editorial"] .m-accent{display:block;left:14px;top:40px;width:30px;height:2px}
+[data-theme="editorial"] .m-lines{display:flex;flex-direction:column;gap:4px;left:14px;right:14px;top:54px}
+[data-theme="editorial"] .m-lines .m-line{display:block}
+[data-theme="editorial"] .m-lines .m-line:nth-child(1){width:92%}
+[data-theme="editorial"] .m-lines .m-line:nth-child(2){width:68%}
+[data-theme="editorial"] .m-lines .m-line:nth-child(3){width:80%}
+
+/* ── night：暗底光晕 + 等宽小标 + 标题 + 两张毛玻璃卡片 ── */
+[data-theme="night"] .m-glow{display:block;width:90px;height:90px;right:-24px;top:-28px;background:var(--accent);opacity:.4}
+[data-theme="night"] .m-eyebrow{display:block;left:14px;top:14px;width:24px}
+[data-theme="night"] .m-title{display:block;left:14px;top:24px;width:58%}
+[data-theme="night"] .m-accent{display:block;left:14px;top:38px;width:24px;height:2px;opacity:.85}
+[data-theme="night"] .m-cards{display:flex;left:14px;right:14px;bottom:12px;gap:6px}
+[data-theme="night"] .m-cards .m-card{display:block;flex:1;height:32px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:5px}
+
+/* ── minimal：顶部细线 + 宽距小标 + 细标题 + 01/02 编号要点 ── */
+[data-theme="minimal"] .m-topline{display:block;left:0;right:0;top:0;height:1px;background:var(--fg)}
+[data-theme="minimal"] .m-eyebrow{display:block;left:14px;top:16px;width:42px;height:1.5px;background:var(--muted);opacity:.7}
+[data-theme="minimal"] .m-title{display:block;left:14px;top:25px;width:48%;height:6px;opacity:.85}
+[data-theme="minimal"] .m-lines{display:flex;flex-direction:column;gap:8px;left:28px;right:14px;top:44px;counter-reset:mli}
+[data-theme="minimal"] .m-lines .m-line{display:block;height:1.5px;background:var(--fg);opacity:.85;counter-increment:mli}
+[data-theme="minimal"] .m-lines .m-line:nth-child(1){width:80%}
+[data-theme="minimal"] .m-lines .m-line:nth-child(2){width:64%}
+[data-theme="minimal"] .m-lines .m-line:nth-child(3){width:72%}
+[data-theme="minimal"] .m-lines .m-line::before{content:counter(mli,decimal-leading-zero);position:absolute;left:-16px;top:-7px;width:12px;font-size:7px;font-weight:300;letter-spacing:.1em;color:var(--muted);background:none}
+
+/* ── vibrant：渐变标题 + accent 短杠 + 2×2 bento（首块渐变实色）── */
+[data-theme="vibrant"] .m-title{display:block;left:14px;top:14px;width:54%;height:7px;background:linear-gradient(90deg,var(--accent),#ec4899)}
+[data-theme="vibrant"] .m-accent{display:block;left:14px;top:26px;width:20px;height:2px;background:linear-gradient(90deg,var(--accent),#ec4899)}
+[data-theme="vibrant"] .m-bento{display:grid;grid-template-columns:1fr 1fr;gap:6px;left:14px;right:14px;top:40px;bottom:12px}
+[data-theme="vibrant"] .m-bento .m-b{display:block;border-radius:5px;background:linear-gradient(135deg,var(--card),#fdf2f8);border:1px solid var(--border)}
+[data-theme="vibrant"] .m-bento .m-b:first-child{background:linear-gradient(135deg,var(--accent),#ec4899);border:none}
+
+/* ── pitch：暗底暖光晕 + 居中巨号数字 + 标题 + 短行 ── */
+[data-theme="pitch"] .m-glow{display:block;width:130px;height:90px;left:50%;bottom:-36px;transform:translateX(-50%);background:var(--accent);opacity:.32;filter:blur(20px)}
+[data-theme="pitch"] .m-num{display:block;left:0;right:0;top:16px;text-align:center;font-size:30px;font-weight:900}
+[data-theme="pitch"] .m-title{display:block;left:50%;transform:translateX(-50%);top:54px;width:46%;height:6px}
+[data-theme="pitch"] .m-lines{display:flex;flex-direction:column;align-items:center;gap:4px;left:0;right:0;top:66px}
+[data-theme="pitch"] .m-lines .m-line{display:block;width:28%}
 
 .sl-theme-name{
   font-size:12px;color:var(--color-text);padding:6px 0 7px;text-align:center;

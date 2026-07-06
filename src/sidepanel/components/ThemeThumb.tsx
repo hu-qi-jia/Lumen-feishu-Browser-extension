@@ -10,10 +10,11 @@ interface Props {
 
 const SYS_SANS = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif'
 
-/** A theme picker tile: a 16:9 mini slide wireframe (unified cover-page mock) rendered in the
- *  theme's own palette, so the grid reads like a PPT template gallery — same composition every
- *  tile, each colored by its theme. The button chrome uses panel tokens; only the preview swatch
- *  inherits the theme vars (so a dark theme doesn't darken the surrounding name/border). */
+/** A theme picker tile. The 16:9 swatch is a per-theme mini composition (driven by `[data-theme]`
+ *  in ThemeThumb.css) that mirrors each deck's real design language — so the grid reads like a PPT
+ *  template gallery, not the same wireframe recolored. One static skeleton of mock parts; CSS
+ *  shows/arranges a different subset per theme. Button chrome uses panel tokens; only the swatch
+ *  inherits theme vars (a dark theme doesn't darken the surrounding name/border). */
 export function ThemeThumb({ theme, selected, disabled, onSelect }: Props) {
   const p = theme.palette
   return (
@@ -34,17 +35,34 @@ export function ThemeThumb({ theme, selected, disabled, onSelect }: Props) {
           ['--fg' as any]: p.fg,
           ['--accent' as any]: p.accent,
           ['--muted' as any]: p.muted,
+          ['--card' as any]: p.card,
           ['--border' as any]: p.border,
           ['--font-display' as any]: theme.fontDisplay ?? SYS_SANS,
         }}
       >
-        <span className="sl-tp-eyebrow" />
-        <span className="sl-tp-title" />
-        <span className="sl-tp-title sl-tp-title--sub" />
-        <span className="sl-tp-accent" />
-        <span className="sl-tp-lines">
-          <span className="sl-tp-line" />
-          <span className="sl-tp-line" />
+        {/* Static skeleton of mock parts — CSS enables + positions a per-theme subset. */}
+        <span className="m-glow" />
+        <span className="m-topline" />
+        <span className="m-rail" />
+        <span className="m-eyebrow" />
+        <span className="m-num">01</span>
+        <span className="m-title" />
+        <span className="m-sub" />
+        <span className="m-accent" />
+        <span className="m-lines">
+          <span className="m-line" />
+          <span className="m-line" />
+          <span className="m-line" />
+        </span>
+        <span className="m-cards">
+          <span className="m-card" />
+          <span className="m-card" />
+        </span>
+        <span className="m-bento">
+          <span className="m-b" />
+          <span className="m-b" />
+          <span className="m-b" />
+          <span className="m-b" />
         </span>
       </span>
       <span className="sl-theme-name">{theme.name}</span>

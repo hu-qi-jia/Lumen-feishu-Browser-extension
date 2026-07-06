@@ -87,9 +87,9 @@ import { downloadMedia } from '../feishu/media'
 import { compressImageToDataUrl } from '../attachments'
 
 /** Cap parallel image downloads to avoid hammering the API. */
-const DL_CONCURRENCY = 6
+const DL_CONCURRENCY = 10
 /** Hard cap images per deck — high enough to capture all images in typical docs. */
-export const MAX_DOC_IMAGES = 30
+export const MAX_DOC_IMAGES = 60
 
 /** Download + compress all doc images in parallel (capped). Failed images are skipped
  *  (returned in failedTokens) — the caller strips their 【图n】 markers from text.

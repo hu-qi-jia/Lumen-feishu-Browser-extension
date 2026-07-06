@@ -12,10 +12,10 @@ describe('themes', () => {
       'pitch',
     ])
   })
-  it('every theme has palette, decorations, promptHint mentioning layouts', () => {
+  it('every theme has palette, a full css stylesheet, promptHint mentioning layouts', () => {
     for (const t of BUILT_IN_THEMES) {
       expect(t.palette.bg).toBeTruthy()
-      expect(t.decorations?.length).toBeGreaterThan(0)
+      expect(t.css?.length).toBeGreaterThan(0)
       expect(t.promptHint?.length).toBeGreaterThan(0)
     }
   })

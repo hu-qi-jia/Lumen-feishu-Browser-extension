@@ -242,7 +242,7 @@ function buildMaterialsPrompt(materials: Material[], request?: string, themeHint
     `  · {"layout":"quote","quote":"结论","by":"可选"} —— 重点结论 / 收尾\n` +
     `${fieldsLine}\n` +
     `【诚实硬规则】**只用上面资料里能直接读到 / 数出来的数字**；表格样本可能不是全部行，凡涉及数量请措辞为「样本中…」，**绝不编造精确总数或比例**；只用真实存在的字段名；不确定的用定性要点而非假数字。\n` +
-    `【要求】8–16 张；第 1 张必须是 title 或 cover 封面；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
+    `【要求】8–12 张（宁少勿多，每页一个主题）；第 1 张必须是 title 或 cover 封面；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
     `【视觉风格】${themeHint || '商务克制：结论先行、要点精炼、避免装饰。'}\n` +
     `【内容预算】画布固定 1920×1080 且不滚动：每页只承载一个主题。\n` +
     (request?.trim() ? `【用户额外要求】${request.trim()}\n` : '') +
@@ -259,21 +259,18 @@ export interface MaterialsSlidesResult {
   sources: SourceRef[]
 }
 
-/** Guarantee every doc image appears in the deck. The model is told to place each 【图n】 on its
- *  context page, but it sometimes skips images. Any doc image still unreferenced after generation
- *  is injected onto the text slide (bullets/two-col) whose content best matches the image's
- *  (heading + preceding text) context — converted to image-split so the image renders. Upload
- *  images are placed only on explicit user instruction, so they're left alone. Pure. */
+/** Guarantee EVERY doc image appears in the deck. Two passes:
+ *  1) The model is told to place each 【图n】 on its context page, but it sometimes skips images.
+ *     Any still-unreferenced doc image whose (heading + preceding text) context overlaps a text
+ *     slide (bullets/two-col) is injected there — converted to image-split so the image renders.
+ *  2) Anything still unreferenced (no textual match anywhere — e.g. an image whose context didn't
+ *     survive into any slide) is collected into `cards` gallery page(s), 6/page, so NO doc image is
+ *     ever dropped. The gallery is inserted before the final slide when that slide is a closing
+ *     quote/section, otherwise appended. Upload images are placed only on explicit user
+ *     instruction, so they're left alone. Pure. */
 export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
   const docImgs = images.filter((i) => i.source === 'doc')
   if (!docImgs.length || !slides.length) return slides
-  const referenced = new Set<string>()
-  for (const s of slides) {
-    if (s.image) referenced.add(s.image)
-    s.cards?.forEach((c) => { if (c.image) referenced.add(c.image) })
-  }
-  const orphans = docImgs.filter((i) => !referenced.has(i.id))
-  if (!orphans.length) return slides
 
   // Only bullets/two-col slides convert to image-split cleanly (their title+bullets map to the
   // text side). stats/chart/cover would lose content, so they're skipped as placement targets.
@@ -283,8 +280,16 @@ export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
   const toks = (s: string): Set<string> =>
     new Set(s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 1))
 
+  const placed = new Set<string>()
+  for (const s of slides) {
+    if (s.image) placed.add(s.image)
+    s.cards?.forEach((c) => { if (c.image) placed.add(c.image) })
+  }
   const rows = slides.map((s) => ({ s, toks: toks(textOf(s)) }))
-  for (const img of orphans) {
+
+  // Pass 1 — best textual match onto a bullets/two-col page.
+  for (const img of docImgs) {
+    if (placed.has(img.id)) continue
     const imgTok = toks(`${img.context ?? ''} ${img.label}`)
     let best = -1, bestScore = -1
     for (let i = 0; i < rows.length; i++) {
@@ -294,8 +299,7 @@ export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
       for (const t of imgTok) if (rows[i].toks.has(t)) score++
       if (score > bestScore) { bestScore = score; best = i }
     }
-    // No textual match → leave the image rather than misplace it on an unrelated page.
-    if (best < 0 || bestScore <= 0) continue
+    if (best < 0 || bestScore <= 0) continue               // no textual match → defer to pass 2
     const o = rows[best].s
     const bullets = [...(o.bullets ?? []), ...(o.bullets2 ?? [])]
     rows[best].s = {
@@ -304,10 +308,29 @@ export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
       bullets: bullets.length ? bullets : undefined,
       image: img.id, imageSide: 'right',
     }
-    // Refresh so the next orphan sees this slide as image-bearing (one image per page).
-    rows[best].toks = toks(textOf(rows[best].s))
+    placed.add(img.id)
+    rows[best].toks = toks(textOf(rows[best].s))           // now image-bearing (one image/page)
   }
-  return rows.map((r) => r.s)
+
+  let out = rows.map((r) => r.s)
+
+  // Pass 2 — every still-unreferenced doc image goes into gallery page(s) so none is dropped.
+  const remaining = docImgs.filter((i) => !placed.has(i.id))
+  if (remaining.length) {
+    const pages: Slide[] = []
+    for (let i = 0; i < remaining.length; i += 6) {
+      const batch = remaining.slice(i, i + 6)
+      pages.push({
+        layout: 'cards',
+        title: pages.length === 0 ? '附：文档图片' : undefined,
+        cards: batch.map((im) => ({ image: im.id, title: (im.context || im.label).slice(0, 60) })),
+      })
+    }
+    const last = out[out.length - 1]
+    const beforeLast = !!last && (last.layout === 'quote' || last.layout === 'section')
+    out = beforeLast ? [...out.slice(0, -1), ...pages, last] : [...out, ...pages]
+  }
+  return out
 }
 
 /** Drop slide.image / card.image references that point to images which failed to download

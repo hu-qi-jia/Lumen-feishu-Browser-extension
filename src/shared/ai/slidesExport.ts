@@ -41,11 +41,11 @@ export function buildSlidesHtml(slides: Slide[], name: string, theme: SlideTheme
 <title>${title}</title>
 <style>${SLIDES_CSS}
 :root{${themeVars(theme)}}
-${theme.decorations ?? ''}</style>
+${theme.css ?? ''}</style>
 ${hasChart ? '<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>' : ''}
 </head>
 <body>
-<div class="slides-stage" tabindex="0">
+<div class="slides-stage" tabindex="0" data-theme="${theme.id}">
   <div class="slide-frame-wrap"><div class="slide-frame-outer"><div class="slide-frame"></div></div></div>
   <div class="slides-bar-zone">
     <div class="slides-bar">

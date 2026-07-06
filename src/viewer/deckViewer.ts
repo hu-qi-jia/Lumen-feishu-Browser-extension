@@ -145,10 +145,11 @@ async function printAll(): Promise<void> {
 
 void chrome.storage.session.get('deckView').then((res) => {
   const dv = res?.deckView as DeckView | undefined
-  // Inject the deck's theme tokens + decorations (after SLIDES_CSS → overrides the fallback).
+  // Inject the deck's theme tokens + full per-theme stylesheet (after SLIDES_CSS → overrides baseline).
   const theme = getTheme(dv?.themeId)
+  stage.dataset.theme = theme.id
   const themeStyle = document.createElement('style')
-  themeStyle.textContent = `:root{${themeVars(theme)}}${theme.decorations ?? ''}`
+  themeStyle.textContent = `:root{${themeVars(theme)}}${theme.css ?? ''}`
   document.head.appendChild(themeStyle)
 
   if (!dv?.slides?.length) {

@@ -213,18 +213,58 @@ describe('placeDocImages — guarantee every doc image appears', () => {
     expect(out[1].layout).toBe('bullets') // untouched
   })
 
-  it('leaves an orphan in place when no slide text matches (no misplacement)', () => {
+  it('appends an orphan with no text match to a cards gallery page (still guarantees placement)', () => {
     const slides = [{ layout: 'bullets', title: '团队', bullets: ['成员'] }]
     const out = placeDocImages(slides as never, [docImg('doc-9', '完全不相关的XYZABC')])
-    expect(out[0].layout).toBe('bullets') // unchanged — no token overlap
+    expect(out[0].layout).toBe('bullets') // original slide untouched — no token overlap
     expect(out[0].image).toBeUndefined()
+    expect(out[1].layout).toBe('cards') // gallery appended so the image still appears
+    expect(out[1].cards?.[0].image).toBe('doc-9')
   })
 
-  it('skips non-text slides (stats/chart) as placement targets to avoid losing content', () => {
+  it('preserves a non-text slide (stats) and routes its orphan to a gallery page', () => {
     const slides = [{ layout: 'stats', title: '数据', stats: [{ num: '99', label: 'x' }] }]
     const out = placeDocImages(slides as never, [docImg('doc-1', '数据')])
-    // stats is not placeable → image stays unreferenced rather than clobbering the stat slide
+    // stats is not placeable → the stat slide is NOT clobbered...
     expect(out[0].layout).toBe('stats')
     expect(out[0].image).toBeUndefined()
+    // ...but the image still lands in an appended gallery rather than being dropped.
+    expect(out[1].layout).toBe('cards')
+    expect(out[1].cards?.[0].image).toBe('doc-1')
+  })
+
+  it('inserts the gallery before a closing quote/section slide, not after it', () => {
+    const slides = [
+      { layout: 'bullets', title: '团队', bullets: ['成员'] },
+      { layout: 'quote', quote: '结论' },
+    ]
+    const out = placeDocImages(slides as never, [docImg('doc-1', '无关ZZZ')])
+    expect(out.map((s) => s.layout)).toEqual(['bullets', 'cards', 'quote'])
+  })
+
+  it('splits >6 orphan images across multiple gallery pages (6 per page)', () => {
+    const slides = [{ layout: 'bullets', title: '团队', bullets: ['成员'] }]
+    const imgs = Array.from({ length: 7 }, (_, i) => docImg(`doc-${i + 1}`, '无关XYZ'))
+    const out = placeDocImages(slides as never, imgs)
+    const galleryPages = out.filter((s) => s.layout === 'cards')
+    expect(galleryPages).toHaveLength(2)
+    expect(galleryPages[0].cards?.length).toBe(6)
+    expect(galleryPages[1].cards?.length).toBe(1)
+  })
+
+  it('guarantees every doc image id is referenced somewhere in the deck', () => {
+    const slides = [
+      { layout: 'bullets', title: '产品架构', bullets: ['模块'] },
+      { layout: 'chart', title: '图表', chart: { series: [] } },
+      { layout: 'stats', title: '数据', stats: [{ num: '1', label: 'x' }] },
+    ]
+    const imgs = [docImg('doc-1', '产品架构'), docImg('doc-2', '图表'), docImg('doc-3', '无关QWERTY')]
+    const out = placeDocImages(slides as never, imgs)
+    const referenced = new Set<string>()
+    for (const s of out) {
+      if (s.image) referenced.add(s.image)
+      s.cards?.forEach((c) => { if (c.image) referenced.add(c.image) })
+    }
+    expect(referenced).toEqual(new Set(['doc-1', 'doc-2', 'doc-3']))
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildSlidesHtml, slideInnerHtml } from './slidesExport'
+import { getTheme } from './slidesThemes'
 import type { SlideImage } from './slidesImages'
 
 const pool: SlideImage[] = [{ id: 'doc-1', source: 'doc', label: '图1', dataUrl: 'data:image/png;base64,AA' }]
@@ -22,5 +23,12 @@ describe('slidesExport', () => {
     // character and the exported file rendered blank. The literal `[` right after the assignment
     // is the array opener.
     expect(html).toMatch(/window\.__SLIDES__\s*=\s*\[/)
+  })
+  it('injects the theme css + scopes the stage with data-theme', () => {
+    const night = getTheme('night')
+    const html = buildSlidesHtml([{ layout: 'bullets', title: 'X' }], '演示', night, [])
+    expect(html).toContain('data-theme="night"')
+    // The night theme's full stylesheet (radial glow) rides on top of the shared baseline.
+    expect(html).toContain('radial-gradient')
   })
 })
