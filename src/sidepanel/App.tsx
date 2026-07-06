@@ -14,7 +14,6 @@ import Settings from './components/Settings'
 import NewsPanel from './components/news/NewsPanel'
 import NetworkBlocked from './components/NetworkBlocked'
 import ScenarioPanel from './components/ScenarioPanel'
-import DemoPanel from './components/DemoPanel'
 import SessionDrawer from './components/SessionDrawer'
 import SwitchDocDialog from './components/SwitchDocDialog'
 import SwitchSessionDialog from './components/SwitchSessionDialog'
@@ -46,7 +45,6 @@ function InfoIcon({ size = 14 }: { size?: number }) {
 export default function App() {
   const { theme, setTheme, accent, setAccent } = useThemeAccent()
   const { settings, saveSettings } = useAppSettings()
-  const [showDemo, setShowDemo] = useState(false)
 
   // Shared wiki-resolution cache — read by applyCtx (page context) + the wiki/pin resolution
   // effects, written by them. Created here so both hooks share one map.
@@ -213,18 +211,6 @@ export default function App() {
   const llmReady = usingManagedLlm(settings) ? isFeishuConfigured(settings) : !!settings.openaiApiKey
   const configured = llmReady && isFeishuConfigured(settings)
 
-  // The assistant only operates on Feishu pages. On any other site we show a hint. null = unknown.
-  const onFeishuPage: boolean | null = (() => {
-    if (!ctx.url) return null
-    try {
-      const host = new URL(ctx.url).hostname.toLowerCase()
-      const d = BUILD_CONFIG.feishuBaseDomain
-      return host === d || host.endsWith('.' + d)
-    } catch {
-      return false
-    }
-  })()
-
   const needsOwner = HAS_BUILTIN_CREDS
   const ownerConfigured = !!settings.feishuOwnerOpenId?.trim()
   const canOperate = configured && (ownerConfigured || !needsOwner)
@@ -327,8 +313,6 @@ export default function App() {
                   onSave={onSaveSettings}
                   onCancel={() => setTab('chat')}
                 />
-              ) : showDemo ? (
-                <DemoPanel settings={settings} onBack={() => setShowDemo(false)} />
               ) : tab === 'clip' ? (
                 <ClipPanel
                   settings={settings}
@@ -339,27 +323,6 @@ export default function App() {
                 />
               ) : tab === 'news' ? (
                 <NewsPanel />
-              ) : onFeishuPage === false && docMode !== 'pin' && !chatStreaming && !hasConversation ? (
-                <div className="not-feishu">
-                  <svg className="not-feishu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="8" y1="13" x2="16" y2="13" />
-                    <line x1="8" y1="17" x2="14" y2="17" />
-                  </svg>
-                  <div className="not-feishu-title">请在飞书页面使用</div>
-                  <div className="not-feishu-sub">
-                    打开飞书多维表格 / 文档 / 电子表格，本助手会自动识别并协助你。
-                    <br />当前不是飞书页面，已暂停显示。
-                    {CLIP_ENABLED && <><br /><br />也可以把 <b>CSV / 表格文件</b>拖进来,AI 整理后写入飞书。</>}
-                  </div>
-                  <button className="not-feishu-demo" onClick={() => setTab('scenes')} style={{ marginTop: 16 }}>
-                    前往「场景」— AI 建站 / 数据报告
-                  </button>
-                  <button className="not-feishu-demo" onClick={() => setShowDemo(true)} style={{ marginTop: 8 }}>
-                    体验示例（无需飞书登录）
-                  </button>
-                </div>
               ) : tab === 'chat' ? (
                 <ChatPanel
                   settings={settings}
