@@ -1,6 +1,7 @@
-/* Working-document selector — replaces the static title in the chat topbar. */
+/* Working-document selector — replaces the static title in the chat topbar.
+   The popup mechanism (positioning, outside-click, animation) lives in Dropdown.css;
+   this file keeps only the trigger + item-specific styling. */
 .doc-selector {
-  position: relative;
   flex: 1;
   min-width: 0;
 }
@@ -92,28 +93,9 @@
 }
 .doc-selector-chev--open { transform: rotate(180deg); }
 
-/* ── Dropdown menu ── */
-.doc-selector-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 100%;
-  max-width: 280px;
-  z-index: 20;
-  padding: 4px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  box-shadow: var(--shadow-md);
-  animation: docSelectorIn .16s ease;
-}
-@keyframes docSelectorIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .doc-selector-menu { animation: none; }
-}
+/* ── Dropdown menu ──
+   Positioning/animation live in Dropdown.css (.dropdown-menu). The .doc-selector-menu
+   class is kept only as a hook for any future item-specific overrides. */
 
 .doc-selector-item {
   display: flex;

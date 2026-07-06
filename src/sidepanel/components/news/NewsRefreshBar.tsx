@@ -1,4 +1,5 @@
-import FormSelect from '../form/FormSelect'
+import { useState } from 'react'
+import Dropdown from '../Dropdown'
 import type { NewsInterval } from '../../../shared/news/types'
 
 interface Props {
@@ -24,9 +25,18 @@ function relativeTime(ts: number | null): string {
   return `${d} 天前`
 }
 
+const INTERVAL_OPTIONS: { value: NewsInterval; label: string }[] = [
+  { value: 10, label: '10 分钟' },
+  { value: 30, label: '30 分钟' },
+  { value: 60, label: '1 小时' },
+]
+
 /** Top bar of the news panel: icon refresh button + last-updated stamp + interval dropdown.
- *  Reuses FormSelect (project's standard dropdown) for the frequency picker. */
+ *  Reuses the Dropdown component (the same popup used by DocSelector in the chat topbar). */
 export default function NewsRefreshBar({ refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh }: Props) {
+  const [open, setOpen] = useState(false)
+  const currentLabel = INTERVAL_OPTIONS.find((o) => o.value === interval)?.label ?? `${interval} 分钟`
+
   return (
     <div className="news-bar">
       <button
@@ -47,16 +57,47 @@ export default function NewsRefreshBar({ refreshing, lastUpdated, error, interva
           {error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`}
         </span>
       </div>
-      <div className="news-bar-select">
-        <FormSelect
-          value={String(interval)}
-          onChange={(e) => onIntervalChange(Number(e.target.value) as NewsInterval)}
-        >
-          <option value="10">10 分钟</option>
-          <option value="30">30 分钟</option>
-          <option value="60">1 小时</option>
-        </FormSelect>
-      </div>
+      <Dropdown
+        className="news-bar-select"
+        open={open}
+        onOpenChange={setOpen}
+        align="right"
+        menuClassName="news-interval-menu"
+        trigger={
+          <button
+            type="button"
+            className={`news-interval-trigger${open ? ' is-open' : ''}`}
+            onClick={() => setOpen((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            title="刷新频率"
+          >
+            <span className="news-interval-label">{currentLabel}</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        }
+      >
+        {INTERVAL_OPTIONS.map((o) => {
+          const selected = o.value === interval
+          return (
+            <button
+              key={o.value}
+              type="button"
+              className={`news-interval-item${selected ? ' is-active' : ''}`}
+              onClick={() => { onIntervalChange(o.value); setOpen(false) }}
+            >
+              <span className="news-interval-item-label">{o.label}</span>
+              {selected && (
+                <svg className="news-interval-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+          )
+        })}
+      </Dropdown>
     </div>
   )
 }

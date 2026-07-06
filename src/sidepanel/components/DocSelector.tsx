@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SessionKind } from '../../shared/types'
 import type { RecentFile } from '../recentFiles'
+import Dropdown from './Dropdown'
 import { KindIcon } from './icons'
 import './DocSelector.css'
 
@@ -38,7 +39,6 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
   // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows
   // the base icon). The pin still uses 'wiki' (the stored kind) so it resolves on pin.
   const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
-  const wrapRef = useRef<HTMLDivElement>(null)
 
   // Resolve wiki display kinds when the menu opens. Bounded by the wiki-typed recent
   // count (usually 0–2); resolveWikiKind serves from the follow-mode cache when possible.
@@ -59,109 +59,101 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
     return () => { cancelled = true }
   }, [open, recentFiles, resolveWikiKind])
 
-  // Close on outside click.
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
   const displayKind = (d: RecentFile): SessionKind =>
     d.kind === 'wiki' ? (wikiKinds[d.token] ?? 'doc') : d.kind
 
   return (
-    <div className="doc-selector" ref={wrapRef}>
+    <Dropdown
+      className="doc-selector"
+      open={open}
+      onOpenChange={setOpen}
+      menuClassName="doc-selector-menu"
+      trigger={
+        <button
+          className={`doc-selector-trigger${open ? ' doc-selector-trigger--open' : ''}`}
+          onClick={() => setOpen((v) => !v)}
+          type="button"
+          title={currentTitle}
+        >
+          <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
+            {mode === 'pin' ? '固定' : '跟随'}
+          </span>
+          <span className="doc-selector-title-wrap">
+            <span className="doc-selector-title">{currentTitle}</span>
+            {sessionCount != null && sessionCount > 0 && (
+              <span className="doc-selector-count" aria-label={`${sessionCount} 个会话`}>{sessionCount}</span>
+            )}
+          </span>
+          <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      }
+    >
       <button
-        className={`doc-selector-trigger${open ? ' doc-selector-trigger--open' : ''}`}
-        onClick={() => setOpen((v) => !v)}
+        className={`doc-selector-item${mode === 'follow' ? ' doc-selector-item--active' : ''}`}
+        onClick={() => { onFollow(); setOpen(false) }}
         type="button"
-        title={currentTitle}
       >
-        <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
-          {mode === 'pin' ? '固定' : '跟随'}
+        <span className="doc-selector-item-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
         </span>
-        <span className="doc-selector-title-wrap">
-          <span className="doc-selector-title">{currentTitle}</span>
-          {sessionCount != null && sessionCount > 0 && (
-            <span className="doc-selector-count" aria-label={`${sessionCount} 个会话`}>{sessionCount}</span>
-          )}
+        <span className="doc-selector-item-text">
+          <span className="doc-selector-item-title">跟随标签页</span>
+          <span className="doc-selector-item-sub">切换标签页时询问</span>
         </span>
-        <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
       </button>
 
-      {open && (
-        <div className="doc-selector-menu" role="listbox">
-          <button
-            className={`doc-selector-item${mode === 'follow' ? ' doc-selector-item--active' : ''}`}
-            onClick={() => { onFollow(); setOpen(false) }}
-            type="button"
-          >
-            <span className="doc-selector-item-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-            </span>
-            <span className="doc-selector-item-text">
-              <span className="doc-selector-item-title">跟随标签页</span>
-              <span className="doc-selector-item-sub">切换标签页时询问</span>
-            </span>
-          </button>
-
-          {recentFiles.length > 0 && <div className="doc-selector-sep" />}
-          {recentFiles.length > 0 && (
-            <div className="doc-selector-group">
-              <div className="doc-selector-group-label">最近打开</div>
-              {recentFiles.map((d) => {
-                const selected = mode === 'pin' && activeToken === d.token
-                return (
-                  <div
-                    key={d.token}
-                    className={`doc-selector-item doc-selector-item--row${selected ? ' doc-selector-item--active' : ''}`}
-                    title={d.title}
+      {recentFiles.length > 0 && <div className="doc-selector-sep" />}
+      {recentFiles.length > 0 && (
+        <div className="doc-selector-group">
+          <div className="doc-selector-group-label">最近打开</div>
+          {recentFiles.map((d) => {
+            const selected = mode === 'pin' && activeToken === d.token
+            return (
+              <div
+                key={d.token}
+                className={`doc-selector-item doc-selector-item--row${selected ? ' doc-selector-item--active' : ''}`}
+                title={d.title}
+              >
+                <button
+                  className="doc-selector-item-main"
+                  onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
+                  type="button"
+                >
+                  <span className="doc-selector-item-icon" aria-hidden="true">
+                    <KindIcon kind={displayKind(d)} />
+                  </span>
+                  <span className="doc-selector-item-text">
+                    <span className="doc-selector-item-title">{d.title}</span>
+                  </span>
+                </button>
+                {onRemoveRecent && (
+                  <button
+                    className="doc-selector-item-remove"
+                    onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
+                    type="button"
+                    aria-label={`从最近打开中移除 ${d.title}`}
+                    title="从最近打开中移除"
                   >
-                    <button
-                      className="doc-selector-item-main"
-                      onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
-                      type="button"
-                    >
-                      <span className="doc-selector-item-icon" aria-hidden="true">
-                        <KindIcon kind={displayKind(d)} />
-                      </span>
-                      <span className="doc-selector-item-text">
-                        <span className="doc-selector-item-title">{d.title}</span>
-                      </span>
-                    </button>
-                    {onRemoveRecent && (
-                      <button
-                        className="doc-selector-item-remove"
-                        onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
-                        type="button"
-                        aria-label={`从最近打开中移除 ${d.title}`}
-                        title="从最近打开中移除"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {recentFiles.length === 0 && (
-            <div className="doc-selector-empty">打开飞书文档后会显示在这里</div>
-          )}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
-    </div>
+
+      {recentFiles.length === 0 && (
+        <div className="doc-selector-empty">打开飞书文档后会显示在这里</div>
+      )}
+    </Dropdown>
   )
 }
