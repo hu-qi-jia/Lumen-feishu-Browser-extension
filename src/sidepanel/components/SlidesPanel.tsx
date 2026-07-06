@@ -5,11 +5,13 @@ import type { SlideImage } from '../../shared/ai/slidesImages'
 import { loadDecks, saveDeck, deleteDeck, type SavedDeck, type SourceRef } from '../../shared/ai/slidesStore'
 import { resolveSource, fetchMaterial, type ResolvedSource } from '../../shared/ai/slidesSources'
 import { deckScopeKey } from '../../shared/dataviz/scope'
-import { parseFeishuContext } from '../../shared/feishu/pageUrl'
+import { parseFeishuContext, buildFeishuUrl } from '../../shared/feishu/pageUrl'
 import { isTokenExpiredError } from '../../shared/feishu/auth'
+import type { RecentFile } from '../recentFiles'
 import TopBar from './TopBar'
 import SideDrawer from './SideDrawer'
 import Button from './Button'
+import DocLinkField from './DocLinkField'
 import { IconPlus, IconX, IconEye, IconCode, IconFileText } from './icons'
 import { downloadSlidesHtml } from '../../shared/ai/slidesExport'
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getTheme } from '../../shared/ai/slidesThemes'
@@ -23,6 +25,8 @@ interface Props {
   context: PageContext
   disabled: boolean
   onBack: () => void
+  recentFiles: RecentFile[]
+  onRemoveRecent?: (token: string) => void
 }
 
 const errText = (e: unknown) => isTokenExpiredError(e)
@@ -42,7 +46,7 @@ async function openDeck(deck: Deck, themeId: string, print = false, images: Slid
   await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/deckViewer.html') })
 }
 
-export default function SlidesPanel({ settings, disabled, onBack }: Props) {
+export default function SlidesPanel({ settings, disabled, onBack, recentFiles, onRemoveRecent }: Props) {
   const [linkInput, setLinkInput] = useState('')
   const [sources, setSources] = useState<ResolvedSource[]>([])
   const [resolving, setResolving] = useState(false)
@@ -60,6 +64,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
   const [themeId, setThemeId] = useState(DEFAULT_THEME_ID)
   const [images, setImages] = useState<SlideImage[]>([])
   const [imgProg, setImgProg] = useState<{ done: number; total: number } | null>(null)
+  const [imgFailed, setImgFailed] = useState(0)
   const last = useRef<Deck | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const reqRef = useRef<HTMLTextAreaElement>(null)
@@ -89,10 +94,17 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
   useEffect(() => { autoSize(reqRef.current, request) }, [request])
   useEffect(() => { autoSize(adjRef.current, adjReq) }, [adjReq])
 
-  async function addLink() {
-    const url = linkInput.trim()
+  // Dedup on the resource TOKEN, not the raw URL string — a pasted link and the same doc picked
+  // from "最近打开" carry different origins (acme.feishu.cn vs the synthetic feishu.cn) but the
+  // same token, so a string compare would let the same doc in twice.
+  const tokenOf = (url: string): string | undefined => {
+    const c = parseFeishuContext(url); if (!c) return undefined
+    return c.appToken ?? c.spreadsheetToken ?? c.documentId ?? c.wikiToken ?? c.slideToken
+  }
+  async function resolveAndAdd(url: string) {
     if (!url || resolving) return
-    if (sources.some((s) => s.url === url)) { setErrMsg('这个链接已经添加过了'); return }
+    const key = tokenOf(url)
+    if (key && sources.some((s) => tokenOf(s.url) === key)) { setErrMsg('这个文档已经添加过了'); return }
     setResolving(true); setErrMsg('')
     try {
       const resolved = await resolveSource(settings, url)
@@ -102,6 +114,11 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
       setErrMsg(errText(e))
     } finally { setResolving(false) }
   }
+  function addLink() { void resolveAndAdd(linkInput.trim()) }
+  // Pick a cached recent doc → rebuild its Feishu link → resolve + add as a source chip, the same
+  // path a pasted link takes. ppt recents have no content-source path and are filtered out before
+  // reaching here, but guard anyway.
+  function addRecent(f: RecentFile) { const url = buildFeishuUrl(f.kind, f.token); if (url) void resolveAndAdd(url) }
 
   function removeSource(idx: number) {
     setSources((cur) => cur.filter((_, i) => i !== idx))
@@ -110,7 +127,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
   async function generate() {
     if (busy || sources.length === 0) return
     const ac = new AbortController(); abortRef.current = ac
-    setBusy(true); setErrMsg(''); setStatus(''); setGenChars(0); setImgProg(null)
+    setBusy(true); setErrMsg(''); setStatus(''); setGenChars(0); setImgProg(null); setImgFailed(0)
     try {
       setStatus(`读取 ${sources.length} 份资料…`)
       const materials = []
@@ -129,6 +146,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
       const deck: Deck = { name: r.name, slides: r.slides }
       last.current = deck
       setImages(pool)
+      setImgFailed(r.imgFailed)
       setHasGen(true)
 
       // Auto-save so the deck is in history immediately (no manual 保存 step).
@@ -154,7 +172,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
     last.current = null
     setActiveDeckId('')
     setHasGen(false); setRequest(''); setStatus(''); setErrMsg(''); setGenChars(0); setAdjReq(''); setThemeId(DEFAULT_THEME_ID)
-    setImages([]); setImgProg(null)
+    setImages([]); setImgProg(null); setImgFailed(0)
   }
 
   /** 重新生成 — ONE button, dual meaning (no separate 调整):
@@ -210,7 +228,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
     const tid = d.themeId ?? DEFAULT_THEME_ID
     const imgs = d.images ?? []
     last.current = deck; setHasGen(true); setActiveDeckId(d.id); setAdjReq(''); setThemeId(tid); setImages(imgs)
-    setStatus(''); setErrMsg('')
+    setStatus(''); setErrMsg(''); setImgFailed(0)
     try { await openDeck(deck, tid, false, imgs) }
     catch (e) { setErrMsg(errText(e)) }
   }
@@ -250,21 +268,17 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
             <div className="sl-field">
               <label className="sl-label">参考素材</label>
               <div className="sl-add">
-                <div className="sl-add-input-wrap">
-                  <input
-                    className="sl-add-input" value={linkInput}
-                    placeholder="粘贴飞书文档 / 表格链接"
-                    onChange={(e) => setLinkInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
+                <div className="sl-add-field">
+                  <DocLinkField
+                    value={linkInput}
+                    onValueChange={setLinkInput}
+                    recentFiles={recentFiles.filter((f) => f.kind !== 'ppt')}
+                    onPickRecent={(f) => void addRecent(f)}
+                    onRemoveRecent={onRemoveRecent}
+                    onSubmit={addLink}
+                    placeholder="粘贴飞书文档 / 表格 / 多维表格链接"
                     disabled={busy || resolving}
                   />
-                  {linkInput && !busy && !resolving && (
-                    <button className="sl-add-clear" onClick={() => setLinkInput('')} type="button" aria-label="清除">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
                 <Button icon={<IconPlus />} onClick={addLink} disabled={busy || resolving || !linkInput.trim()}>
                   {resolving ? '解析…' : '添加'}
@@ -350,9 +364,12 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
             </div>
 
             {/* Image-pool visibility post-generation: shows which page each image landed on via
-                pageOf reverse-lookup against the current slides. */}
+                pageOf reverse-lookup against the current slides. The count + failure note explain
+                why fewer images than the doc contains may show (download failures / >60 cap). */}
             <div className="sl-field">
-              <label className="sl-label">图片</label>
+              <label className="sl-label">
+                图片（共 {images.length} 张{imgFailed > 0 ? ` · ${imgFailed} 张下载失败` : ''}）
+              </label>
               <ImagePicker
                 images={images}
                 onChange={setImages}

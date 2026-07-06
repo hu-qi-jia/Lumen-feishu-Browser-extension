@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseFeishuContext, cleanDocTitle } from './pageUrl'
+import { parseFeishuContext, cleanDocTitle, buildFeishuUrl } from './pageUrl'
 
 describe('parseFeishuContext', () => {
   it('extracts appToken / table / view from a Base URL', () => {
@@ -58,6 +58,25 @@ describe('parseFeishuContext', () => {
   it('returns undefined for non-resource URLs', () => {
     expect(parseFeishuContext('https://feishu.cn/drive/folder/xxx')).toBeUndefined()
     expect(parseFeishuContext('https://example.com')).toBeUndefined()
+  })
+})
+
+describe('buildFeishuUrl', () => {
+  it('builds the canonical path per kind', () => {
+    expect(buildFeishuUrl('doc', 'Doc987zzz')).toBe('https://feishu.cn/docx/Doc987zzz')
+    expect(buildFeishuUrl('sheet', 'Sht123abc')).toBe('https://feishu.cn/sheets/Sht123abc')
+    expect(buildFeishuUrl('base', 'AbC123')).toBe('https://feishu.cn/base/AbC123')
+    expect(buildFeishuUrl('wiki', 'WikiNode1')).toBe('https://feishu.cn/wiki/WikiNode1')
+  })
+
+  it('round-trips through parseFeishuContext (the built URL re-parses to the same token)', () => {
+    expect(parseFeishuContext(buildFeishuUrl('doc', 'Doc987zzz'))?.kind).toBe('doc')
+    expect(parseFeishuContext(buildFeishuUrl('doc', 'Doc987zzz'))).toMatchObject({ documentId: 'Doc987zzz' })
+    expect(parseFeishuContext(buildFeishuUrl('base', 'AbC123'))).toMatchObject({ appToken: 'AbC123' })
+  })
+
+  it('returns "" for ppt (not valid content-source material)', () => {
+    expect(buildFeishuUrl('ppt', 'Sld1')).toBe('')
   })
 })
 

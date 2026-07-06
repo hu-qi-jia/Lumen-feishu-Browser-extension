@@ -137,9 +137,9 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--fon
 .s-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;flex:1;align-content:center}
 .s-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px 28px}
 .s-card-img{margin:-32px -28px 24px;height:180px;border-radius:12px 12px 0 0}
-.s-card-num{font-family:var(--font-display);font-size:32px;color:var(--accent);margin-bottom:12px}
-.s-card-title{font-family:var(--font-display);font-size:30px;font-weight:700;color:var(--fg);margin-bottom:12px}
-.s-card-body{font-size:18px;color:var(--muted);line-height:1.6}
+.s-card-num{font-family:var(--font-display);font-size:38px;color:var(--accent);margin-bottom:12px}
+.s-card-title{font-family:var(--font-display);font-size:34px;font-weight:700;color:var(--fg);margin-bottom:12px}
+.s-card-body{font-size:22px;color:var(--muted);line-height:1.6}
 /* cover */
 .s-cover{align-items:center;justify-content:center;position:relative}
 .s-cover--hasimg .s-cover-bg{position:absolute;inset:0;border-radius:0;box-shadow:none}

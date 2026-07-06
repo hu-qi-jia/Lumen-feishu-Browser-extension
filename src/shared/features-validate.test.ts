@@ -124,9 +124,9 @@ describe('PPT slides：净化脏输出 + 嵌入看板复用解释器', () => {
     expect(out[4].quote!.length).toBe(400)
   })
 
-  it('sanitizeSlides：整套 deck 上限 40 张', () => {
+  it('sanitizeSlides：整套 deck 上限 24 张', () => {
     const big = Array.from({ length: 45 }, (_, i) => ({ layout: 'section', title: '章节' + i }))
-    expect(sanitizeSlides(big).length).toBe(40)
+    expect(sanitizeSlides(big).length).toBe(24)
   })
 
   it('跨能力：embed 幻灯片携带 VizSpec → 被保留 → 用看板解释器对同一数据渲染', () => {

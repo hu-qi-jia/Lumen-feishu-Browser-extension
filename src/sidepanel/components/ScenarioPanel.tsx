@@ -220,7 +220,7 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
   }
 
   if (view.mode === 'slides') {
-    return <SlidesPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
+    return <SlidesPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
   }
 
   if (view.mode === 'pdfTranscribe') {

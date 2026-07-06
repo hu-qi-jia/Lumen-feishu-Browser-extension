@@ -95,7 +95,10 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-title,.s-head{font-family:var(--font-display);font-weight:900;line-height:1.1;letter-spacing:-.01em}' +
       '.s-head::after{content:"";display:block;width:96px;height:4px;background:var(--accent);margin-top:30px}' +
       '.s-eyebrow{font-style:italic;letter-spacing:.22em;font-family:var(--font-display);color:var(--accent)}' +
-      '.s-section-num{font-family:var(--font-display);font-size:1.6em;letter-spacing:.12em;color:var(--accent);font-weight:900}' +
+      // NB: no font-size here on purpose — `font-size:1.6em` resolved against the slide's 16px
+      // parent (em on font-size uses the PARENT's computed size), giving ~26px = caption-size
+      // anyway. Dropping it lets the baseline caption-size apply cleanly without the em trap.
+      '.s-section-num{font-family:var(--font-display);letter-spacing:.12em;color:var(--accent);font-weight:900}' +
       '.s-bullets li{padding:18px 0 18px 0;border-bottom:1px solid var(--border);line-height:1.5}' +
       '.s-bullets li:last-child{border-bottom:none}' +
       '.s-bullets li:first-child::first-letter{font-family:var(--font-display);font-size:1.9em;font-weight:900;float:left;line-height:.86;margin:8px 14px 0 0;color:var(--accent)}' +
@@ -103,7 +106,10 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-two{gap:96px;position:relative}' +
       '.s-two>div:not(:last-child){position:relative}' +
       '.s-two>div:not(:last-child)::after{content:"";position:absolute;right:-48px;top:6%;bottom:6%;width:1px;background:var(--border)}' +
-      '.slide--quote .s-quote{font-family:var(--font-display);font-size:1.18em;line-height:1.45;padding-left:56px;border-left:5px solid var(--accent);font-style:italic}' +
+      // font-size MUST be absolute/calc — `1.18em` here resolved against the slide's 16px parent
+      // (em on font-size uses the PARENT's size) → ~19px, rendering a pull-quote at body-text
+      // size. calc against --heading-size gives the intended ~74px magazine pull-quote.
+      '.slide--quote .s-quote{font-family:var(--font-display);font-size:calc(var(--heading-size)*1.15);line-height:1.45;padding-left:56px;border-left:5px solid var(--accent);font-style:italic}' +
       '.slide--title .s-sub,.slide--section .s-sub{font-style:italic;font-family:var(--font-display)}' +
       '.s-cards{grid-template-columns:repeat(2,1fr);gap:48px 64px}' +
       '.s-card{box-shadow:none;border-radius:0;border-bottom:3px solid var(--accent);background:transparent;padding:0 0 28px}' +
@@ -245,7 +251,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-section-num{color:var(--accent);font-weight:900;letter-spacing:.28em}' +
       '.s-stats{flex-direction:column;align-items:center;justify-content:center;gap:72px}' +
       '.s-stat{flex-direction:column;align-items:center;justify-content:center;text-align:center}' +
-      '.s-stat .s-num{font-size:calc(var(--hero-size)*1.6);font-weight:900;color:var(--accent);text-shadow:0 0 44px rgba(251,191,36,.32);line-height:1}' +
+      '.s-stat .s-num{font-size:calc(var(--hero-size)*1.3);font-weight:900;color:var(--accent);text-shadow:0 0 44px rgba(251,191,36,.32);line-height:1}' +
       '.s-stat .s-label{font-size:var(--body-size);color:var(--fg);margin-top:26px;letter-spacing:.04em}' +
       '.s-cards{grid-template-columns:repeat(2,1fr);gap:36px}' +
       '.s-card{border:1px solid var(--border);border-left:5px solid var(--accent);background:rgba(255,255,255,.025);border-radius:4px;padding:32px 30px}' +

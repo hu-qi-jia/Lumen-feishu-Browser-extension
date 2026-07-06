@@ -1,4 +1,4 @@
-import type { PageContext } from '../types'
+import type { PageContext, SessionKind } from '../types'
 
 /**
  * Parse a Feishu resource context out of a page URL — Base (多维表格), Spreadsheet
@@ -37,6 +37,24 @@ export function parseFeishuContext(url: string): PageContext['feishu'] | undefin
   if (wiki) return { isBase: false, kind: 'wiki', wikiToken: wiki[1] }
 
   return undefined
+}
+
+// Host is irrelevant to parseFeishuContext (it matches on the path), so any feishu.cn origin
+// round-trips. The bare apex is enough and keeps these synthetic URLs out of any one tenant.
+const FEISHU_URL_BASE = 'https://feishu.cn'
+
+/** Inverse of parseFeishuContext for the resource kinds that work as link-driven sources: build a
+ *  Feishu URL from a (kind, token) pair. Used to turn a cached recent doc (which only stores
+ *  token + kind) back into a link that resolveSource/fetchMaterial can consume. Returns '' for
+ *  kinds with no content-source path (e.g. 'ppt'). */
+export function buildFeishuUrl(kind: SessionKind, token: string): string {
+  switch (kind) {
+    case 'doc': return `${FEISHU_URL_BASE}/docx/${token}`
+    case 'sheet': return `${FEISHU_URL_BASE}/sheets/${token}`
+    case 'base': return `${FEISHU_URL_BASE}/base/${token}`
+    case 'wiki': return `${FEISHU_URL_BASE}/wiki/${token}`
+    default: return '' // 'ppt' — not valid source material for the doc/table → PPT flow
+  }
 }
 
 /**

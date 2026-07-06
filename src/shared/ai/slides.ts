@@ -99,7 +99,7 @@ export function sanitizeSlides(raw: unknown): Slide[] {
     // Drop empty/no-content slides (nothing to show).
     if (s.title || s.subtitle || s.quote || s.bullets?.length || s.bullets2?.length || s.stats?.length || s.cards?.length || s.chart || s.code || s.spec || s.image) out.push(s)
   }
-  return out.slice(0, 40)
+  return out.slice(0, 24)
 }
 
 /** Adjust ONE slide per a natural-language instruction (e.g. "这页改成饼图" / "精简为 3 条"). The
@@ -173,7 +173,7 @@ function buildDataSlidesPrompt(schema: VizField[], sampleRows: Record<string, st
     `  · {"layout":"quote","quote":"结论","by":"可选"} —— 重点结论 / 建议收尾\n` +
     `【内容建议】封面 → 这张表在跟踪什么（字段含义）→ **用 1–3 张 chart 展示主要分布 / 占比 / 排名 / 趋势** → 值得注意的模式 → 结论 / 建议。\n` +
     `【诚实硬规则】**只用下面【样本数据】里能直接数出来 / 算出来的数字**；样本可能不是全部行，凡涉及数量请措辞为「样本中…」，**绝不编造精确总数或比例**；只用真实存在的字段名；不确定的用定性要点而非假数字。\n` +
-    `【要求】8–14 张；第 1 张必须是 title 封面；文字精炼（标题≤20 字、要点≤30 字）；中文。\n` +
+    `【要求】8–16 张（最多 24）；第 1 张必须是 title 封面；文字精炼（标题≤20 字、要点≤30 字）；中文。\n` +
     (request?.trim() ? `【用户额外要求】${request.trim()}\n` : '') +
     `只输出那个 JSON 对象本身，不要任何解释、前言或代码围栏。\n\n【字段】\n${fieldList(schema)}\n\n【样本数据（前 ${sampleRows.length} 行）】\n${sanitizeForLlm(JSON.stringify(sampleRows))}`
   )
@@ -242,7 +242,7 @@ function buildMaterialsPrompt(materials: Material[], request?: string, themeHint
     `  · {"layout":"quote","quote":"结论","by":"可选"} —— 重点结论 / 收尾\n` +
     `${fieldsLine}\n` +
     `【诚实硬规则】**只用上面资料里能直接读到 / 数出来的数字**；表格样本可能不是全部行，凡涉及数量请措辞为「样本中…」，**绝不编造精确总数或比例**；只用真实存在的字段名；不确定的用定性要点而非假数字。\n` +
-    `【要求】8–12 张（宁少勿多，每页一个主题）；第 1 张必须是 title 或 cover 封面；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
+    `【要求】约 8–16 张（视内容长短，最多 24 张；每页一个主题）；第 1 张必须是 title 或 cover 封面；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
     `【视觉风格】${themeHint || '商务克制：结论先行、要点精炼、避免装饰。'}\n` +
     `【内容预算】画布固定 1920×1080 且不滚动：每页只承载一个主题。\n` +
     (request?.trim() ? `【用户额外要求】${request.trim()}\n` : '') +
@@ -257,6 +257,9 @@ export interface MaterialsSlidesResult {
   images: SlideImage[]
   truncated: boolean
   sources: SourceRef[]
+  /** Doc images that were attempted but failed to download — surfaced so the UI can explain why
+   *  fewer images than the doc contains appear in the pool/tray. */
+  imgFailed: number
 }
 
 /** Guarantee EVERY doc image appears in the deck. Two passes:
@@ -429,5 +432,6 @@ export async function runMaterialsToSlides(
     images: pool,
     truncated: docs.some((d) => d.text.length > perDoc) || globalDocImages.length > MAX_DOC_IMAGES,
     sources: materials.map((m) => ({ kind: m.kind, label: m.label, url: m.url })),
+    imgFailed: harvested.failedTokens.length,
   }
 }

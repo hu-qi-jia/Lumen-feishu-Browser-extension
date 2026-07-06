@@ -73,25 +73,12 @@
 .sl-history-btn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ── Link input + chips ─────────────────────────────────────────────────── */
+/* The source field is the shared DocLinkField (same control the PDF panel uses for "目标文档"):
+   paste a Feishu link, or click the chevron to drop down 最近打开 and add a cached doc directly.
+   .sl-add-field just claims the remaining width next to the 添加 button; the .dc-* classes
+   (in DocCombobox.css) style the input + chevron + clear + dropdown. */
 .sl-add { display: flex; gap: 8px; }
-.sl-add-input-wrap {
-  flex: 1; min-width: 0; position: relative; display: flex; align-items: center;
-}
-.sl-add-input {
-  width: 100%; height: 32px; padding: 0 32px 0 10px; font-size: 13px;
-  border: 1.5px solid var(--color-border); border-radius: 8px;
-  background: var(--color-bg); color: var(--color-text); outline: none;
-  transition: border-color .15s, box-shadow .15s; font-family: inherit; box-sizing: border-box;
-}
-.sl-add-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
-.sl-add-input::placeholder { color: var(--color-text-secondary); }
-.sl-add-clear {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer; color: var(--color-text-secondary);
-  padding: 3px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
-}
-.sl-add-clear svg { width: 14px; height: 14px; display: block; }
-.sl-add-clear:hover { color: var(--color-text); background: var(--color-surface-2); }
+.sl-add-field { flex: 1; min-width: 0; }
 
 .sl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .sl-chip {

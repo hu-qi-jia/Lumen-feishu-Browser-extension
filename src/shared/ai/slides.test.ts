@@ -51,7 +51,7 @@ describe('sanitizeSlides — coerce model output into safe, well-formed slides',
 
   it('caps the deck length and per-slide arrays', () => {
     const many = Array.from({ length: 60 }, (_, i) => ({ layout: 'bullets', title: `s${i}`, bullets: ['x'] }))
-    expect(sanitizeSlides(many)).toHaveLength(40)
+    expect(sanitizeSlides(many)).toHaveLength(24)
     const bigBullets = sanitizeSlides([{ layout: 'bullets', title: 't', bullets: Array.from({ length: 20 }, () => 'b') }])
     expect(bigBullets[0].bullets!.length).toBeLessThanOrEqual(12)
   })
