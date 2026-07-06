@@ -26,6 +26,13 @@ import { fetchWeiboHotSearch } from '../shared/news/weibo'
 import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '../shared/news/store'
 import { NEWS_ALARM_NAME, syncNewsAlarm } from '../shared/news/alarm'
 import type { NewsSourceId } from '../shared/news/types'
+import {
+  CACHE_CLEANUP_ALARM,
+  clearCache,
+  loadCacheSettings,
+  saveCacheSettings,
+  syncCacheCleanupAlarm,
+} from '../shared/cacheCleanup'
 
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
 // again reopens it). No per-tab state to get stuck.
@@ -352,14 +359,24 @@ chrome.runtime.onInstalled.addListener(() => {
   void (async () => {
     const s = await loadNewsSettings()
     syncNewsAlarm(s.enabled, s.interval)
+    syncCacheCleanupAlarm((await loadCacheSettings()).intervalDays)
   })()
 })
 
-// Alarm tick → refresh both sources. Use Promise.allSettled so a single source failing
-// (e.g. Weibo 5xx) doesn't block the other from being cached.
+// Alarm tick. Each feature owns one alarm name; route by name. Use Promise.allSettled for
+// news so a single source failing (e.g. Weibo 5xx) doesn't block the other from caching.
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== NEWS_ALARM_NAME) return
-  void refreshAllNews()
+  if (alarm.name === NEWS_ALARM_NAME) {
+    void refreshAllNews()
+    return
+  }
+  if (alarm.name === CACHE_CLEANUP_ALARM) {
+    void (async () => {
+      await clearCache()
+      const cs = await loadCacheSettings()
+      await saveCacheSettings({ ...cs, lastCleanedAt: Date.now() })
+    })()
+  }
 })
 
 // Manual refresh from the side panel (no LLM, no auth — straight fetch). The panel sends
@@ -405,13 +422,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // When the user changes news settings in the panel: re-arm the alarm to match.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local' || !changes.news_settings_v1) return
-  const next = changes.news_settings_v1.newValue as { enabled?: { github?: boolean; weibo?: boolean }; interval?: number } | undefined
-  if (!next) return
-  syncNewsAlarm(
-    { github: !!next.enabled?.github, weibo: !!next.enabled?.weibo },
-    (next.interval ?? 30) as 10 | 30 | 60,
-  )
+  if (area !== 'local') return
+  if (changes.news_settings_v1) {
+    const next = changes.news_settings_v1.newValue as { enabled?: { github?: boolean; weibo?: boolean }; interval?: number } | undefined
+    if (next) {
+      syncNewsAlarm(
+        { github: !!next.enabled?.github, weibo: !!next.enabled?.weibo },
+        (next.interval ?? 30) as 10 | 30 | 60,
+      )
+    }
+  }
+  // Cache auto-cleanup interval changed → re-arm the cleanup alarm to match. lastCleanedAt-only
+  // writes also land here; re-arming just restarts the countdown (a no-op when interval is 0).
+  if (changes.cache_settings_v1) {
+    const next = changes.cache_settings_v1.newValue as { intervalDays?: number } | undefined
+    syncCacheCleanupAlarm((next?.intervalDays ?? 0) as 0 | 3 | 7 | 30)
+  }
 })
 
 

@@ -60,6 +60,20 @@
   line-height: 1.5;
 }
 
+/* ── Cache row (label + interval dropdown on one line) ── */
+.cache-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cache-row-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
 /* ── Engine dropdown (reuses Dropdown component, styled like form-input) ── */
 .engine-dropdown {
   width: 100%;
