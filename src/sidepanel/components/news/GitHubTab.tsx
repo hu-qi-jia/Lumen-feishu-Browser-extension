@@ -51,7 +51,7 @@ export default function GitHubTab({ items, loading, error, onRetry }: Props) {
         const [owner, repo] = splitFullName(r.fullName)
         return (
           <a key={r.url} className="news-card" href={r.url} target="_blank" rel="noreferrer noopener">
-            <span className={`news-rank${r.rank <= 3 ? ' news-rank--top' : ''}`}>{r.rank}</span>
+            <span className={`news-rank${r.rank <= 3 ? ` news-rank--${r.rank}` : ''}`}>{r.rank}</span>
             <div className="news-card-body">
               <span className="news-card-title">
                 {owner && <span className="news-card-owner">{owner} / </span>}

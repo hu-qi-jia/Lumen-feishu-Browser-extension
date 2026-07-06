@@ -32,38 +32,20 @@ const INTERVAL_OPTIONS: { value: NewsInterval; label: string }[] = [
   { value: 60, label: '1 小时' },
 ]
 
-/** Top bar of the news panel: icon refresh button + last-updated stamp + interval dropdown.
- *  Reuses the Dropdown component (the same popup used by DocSelector in the chat topbar). */
+/** Top bar of the news panel: interval dropdown (left) + last-updated stamp (middle) +
+ *  icon refresh button (right). Reuses the Dropdown component (the same popup used by
+ *  DocSelector in the chat topbar). */
 export default function NewsRefreshBar({ refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh }: Props) {
   const [open, setOpen] = useState(false)
   const currentLabel = INTERVAL_OPTIONS.find((o) => o.value === interval)?.label ?? `${interval} 分钟`
 
   return (
     <div className="news-bar">
-      <Tooltip content="刷新" position="bottom">
-        <button
-          type="button"
-          className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
-          onClick={onRefresh}
-          disabled={refreshing}
-          aria-label="刷新"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-            <path d="M21 3v6h-6" />
-          </svg>
-        </button>
-      </Tooltip>
-      <div className="news-bar-meta">
-        <span className={`updated${error ? ' updated-err' : ''}`}>
-          {error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`}
-        </span>
-      </div>
       <Dropdown
         className="news-bar-select"
         open={open}
         onOpenChange={setOpen}
-        align="right"
+        align="left"
         menuClassName="news-interval-menu"
         trigger={
           <Tooltip content="刷新频率" position="bottom">
@@ -101,6 +83,25 @@ export default function NewsRefreshBar({ refreshing, lastUpdated, error, interva
           )
         })}
       </Dropdown>
+      <div className="news-bar-meta">
+        <span className={`updated${error ? ' updated-err' : ''}`}>
+          {error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`}
+        </span>
+      </div>
+      <Tooltip content="刷新" position="bottom">
+        <button
+          type="button"
+          className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label="刷新"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 3v6h-6" />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
   )
 }

@@ -43,12 +43,14 @@ export default function NewsPanel() {
       </div>
 
       {tabs.length > 1 && (
-        <SettingsTabs
-          tabs={tabs}
-          active={activeTab}
-          onChange={(id) => setTab(id as NewsTabId)}
-          ariaLabel="资讯分类"
-        />
+        <div className="news-tabs">
+          <SettingsTabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={(id) => setTab(id as NewsTabId)}
+            ariaLabel="资讯分类"
+          />
+        </div>
       )}
 
       <NewsRefreshBar

@@ -22,7 +22,7 @@ export default function WeiboTab({ items, loading, error, onRetry }: Props) {
       skeletonCount={8}
       renderItem={(it) => (
         <a key={it.url} className="news-card" href={it.url} target="_blank" rel="noreferrer noopener">
-          <span className={`news-rank${it.rank <= 3 ? ' news-rank--top' : ''}`}>{it.rank}</span>
+          <span className={`news-rank${it.rank <= 3 ? ` news-rank--${it.rank}` : ''}`}>{it.rank}</span>
           <div className="news-card-body">
             <span className="news-card-title">
               {it.keyword}

@@ -18,6 +18,11 @@
 }
 .news-header h2 { font-size: 14px; font-weight: 600; }
 
+/* Thinner active-tab underline in the news panel (2px instead of the default 3px). */
+.news-tabs .settings-tab {
+  border-bottom-width: 2px;
+}
+
 .news-body {
   flex: 1;
   overflow-y: auto;
@@ -171,9 +176,17 @@
   background: transparent;
   margin-top: 1px;
 }
-/* Top 3: filled badge with primary color */
-.news-rank--top {
-  background: var(--color-primary);
+/* Top 3: podium-style colored badges (gold / silver / bronze) */
+.news-rank--1 {
+  background: #f59e0b;
+  color: #fff;
+}
+.news-rank--2 {
+  background: #94a3b8;
+  color: #fff;
+}
+.news-rank--3 {
+  background: #b45309;
   color: #fff;
 }
 
@@ -313,9 +326,9 @@
 }
 
 /* ── Dark theme tweaks ── */
-[data-theme="dark"] .news-rank--top {
-  color: #fff;
-}
+[data-theme="dark"] .news-rank--1 { background: #d97706; }
+[data-theme="dark"] .news-rank--2 { background: #64748b; }
+[data-theme="dark"] .news-rank--3 { background: #92400e; }
 [data-theme="dark"] .news-card:hover {
   background: rgba(255, 255, 255, .04);
 }
