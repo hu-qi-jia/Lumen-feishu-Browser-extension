@@ -243,9 +243,9 @@
   --color-primary-hover: #93a1ff;
   --color-primary-soft: #232a45;
   --color-primary-tint: #232a45;
-  --color-bg: #16181d;
-  --color-surface: #1e2129;
-  --color-surface-2: #272b34;
+  --color-bg: #1a1b1d;
+  --color-surface: #1a1b1d;
+  --color-surface-2: #1a1b1d;
   --color-border: #2b2f39;
   --color-border-strong: #3a3f4a;
   --color-text: #e9ebef;
@@ -259,7 +259,7 @@
     var(--color-bg);
 }
 [data-theme="dark"] .app-header,
-[data-theme="dark"] .app-tabs { background: rgba(22, 24, 29, .7); }
+[data-theme="dark"] .app-tabs { background: rgba(26, 27, 29, .7); }
 [data-theme="dark"] .setup-banner {
   background: linear-gradient(180deg, #2a2410 0%, #221e0d 100%);
   border-bottom-color: #4a4020;
