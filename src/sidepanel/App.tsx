@@ -24,6 +24,7 @@ import { usePageContext } from './hooks/usePageContext'
 import { useWikiResolve } from './hooks/useWikiResolve'
 import { useRecentFiles } from './hooks/useRecentFiles'
 import { useDocBinding, type AppTab } from './hooks/useDocBinding'
+import { decideAutoDefault } from './autoDefault'
 import './App.css'
 import './Scrollbar.css'
 
@@ -121,17 +122,26 @@ export default function App() {
   const hasConversationRef = useRef(hasConversation)
   hasConversationRef.current = hasConversation
 
-  // Default the view by page type — a supported Feishu resource opens to 对话, an unsupported
-  // page opens to 首页 (scenes). Never yanks the user out of an active conversation.
+  // Default the view by page type ONCE on first context resolution — a supported Feishu
+  // resource opens to 对话, an unsupported page to 首页 (scenes). After that one shot the latch
+  // holds, so switching documents (which briefly churns the page context and can flip
+  // pageSupported) can't yank the user off chat. Never yanks during an active conversation.
+  const autoDefaultDoneRef = useRef(false)
   useEffect(() => {
-    if (!ctxResolved) return
-    if (clip || clipError) return
-    if (chatStreaming) return
-    if (scenarioBusy) return
-    if (tabRef.current === 'scenes') return
-    if (hasConversationRef.current) return
-    if (newSessionPinRef.current) { newSessionPinRef.current = false; return }
-    setTab(pageSupported ? 'chat' : 'scenes')
+    const d = decideAutoDefault({
+      ctxResolved,
+      pageSupported,
+      hasConversation: hasConversationRef.current,
+      currentTab: tabRef.current,
+      clip: !!(clip || clipError),
+      chatStreaming,
+      scenarioBusy,
+      newSessionPin: newSessionPinRef.current,
+      alreadyDefaulted: autoDefaultDoneRef.current,
+    })
+    if (d.settled) autoDefaultDoneRef.current = true
+    if (d.consumePin) newSessionPinRef.current = false
+    if (d.tab) setTab(d.tab)
   }, [ctxResolved, pageSupported, chatStreaming, scenarioBusy, clip, clipError])
 
   // Network check + background-message routing (clip pushes + content-script context pushes).
@@ -311,7 +321,7 @@ export default function App() {
                   clip={clip}
                   error={clipError ?? undefined}
                   disabled={!canOperate}
-                  onClose={() => { setClip(null); setClipError(null); setTab(pageSupported ? 'chat' : 'scenes') }}
+                  onClose={() => { setClip(null); setClipError(null); setTab('chat') }}
                 />
               ) : onFeishuPage === false && docMode !== 'pin' && !chatStreaming && !hasConversation ? (
                 <div className="not-feishu">
