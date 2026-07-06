@@ -321,17 +321,14 @@ async function refreshNewsSource(source: NewsSourceId): Promise<void> {
   try {
     if (source === 'github') {
       const items = await fetchGitHubTrending(settings.githubSince)
-      // Save the English list immediately so the panel shows it instantly — translation is
-      // slow (a single LLM call over 25 descriptions) and shouldn't block the UI. After the
-      // translation finishes we re-save with descriptionZh populated; the panel picks up the
-      // update via storage.onChanged.
+      // Save the English list immediately so the panel shows it instantly — translation
+      // shouldn't block the UI. After translation finishes we re-save with descriptionZh
+      // populated; the panel picks up the update via storage.onChanged.
       await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
-      if (settings.translateGithub) {
-        const app = await loadSettingsBg()
-        if (app?.openaiApiKey) {
-          await translateDescriptions(app, items).catch(() => {})
-          await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
-        }
+      if (settings.translationEngine !== 'off') {
+        const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
+        await translateDescriptions(settings.translationEngine, items, app ?? undefined).catch(() => {})
+        await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
       }
     } else {
       const items = await fetchWeiboHotSearch()

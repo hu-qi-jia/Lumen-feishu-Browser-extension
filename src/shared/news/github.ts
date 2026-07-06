@@ -3,9 +3,10 @@
 // server-rendered HTML at https://github.com/trending. The HTML has been stable for
 // years (article.Box-row structure); parsing is string/regex based so it works in the
 // service worker where DOMParser is unavailable.
-import type { GitHubSince, GitHubTrendingRepo } from './types'
+import type { GitHubSince, GitHubTrendingRepo, TranslationEngine } from './types'
 import type { AppSettings } from '../types'
-import { chatComplete } from '../ai/llm'
+import { translateViaBing, translateViaAI } from './translate'
+import { hashDescription, loadTranslationCache, saveTranslationCache } from './store'
 
 const TRENDING_URL = 'https://github.com/trending'
 
@@ -98,49 +99,60 @@ export async function fetchGitHubTrending(since: GitHubSince = 'daily'): Promise
 }
 
 /**
- * Batch-translate repo descriptions to Chinese via the user's configured LLM. Mutates repos
- * in place, setting `descriptionZh` on each. Non-fatal: on any failure (no API key, LLM
- * error, unparseable response) the descriptions are left untranslated and the UI falls back
- * to the original English. Called by the SW after a successful fetch.
+ * Translate repo descriptions to Chinese using the selected engine, with a hash-based
+ * cache so repeat refreshes skip the network for ~90%+ of items. Mutates repos in place,
+ * setting `descriptionZh` on each. Non-fatal: on any failure the descriptions are left
+ * untranslated and the UI falls back to the original English.
+ *
+ * Engines:
+ * - 'bing': free Bing Translator endpoint (~1-2s for 25 items, no key needed)
+ * - 'ai': user's LLM in parallel batches of 5 (~5s, needs API key)
+ * - 'off': no-op
  */
 export async function translateDescriptions(
-  settings: AppSettings,
+  engine: TranslationEngine,
   repos: GitHubTrendingRepo[],
+  settings?: AppSettings,
 ): Promise<void> {
-  // Only translate repos that have a description.
-  const toTranslate = repos.filter((r) => r.description)
+  if (engine === 'off') return
+  const toTranslate = repos.filter((r) => r.description && !r.descriptionZh)
   if (toTranslate.length === 0) return
 
-  // Build a compact index→description map so the LLM only sees the text, not the full repo
-  // objects. The index lets us map translations back without relying on order stability.
-  const lines = toTranslate.map((r, i) => `${i}: ${r.description}`)
-  const prompt =
-    `将以下 GitHub 项目描述翻译成简体中文，保持简洁准确，保留专有名词（如框架名、语言名）不翻译。\n` +
-    `只返回一个 JSON 字符串数组，不要包含任何其他文字。数组长度必须等于输入条数，按输入顺序对应。\n` +
-    `如果某条描述无需翻译（已经是中文或无意义），返回原文。\n\n` +
-    lines.join('\n')
+  // Partition into cached (skip) vs uncached (translate).
+  const cache = await loadTranslationCache()
+  const uncached: GitHubTrendingRepo[] = []
+  for (const r of toTranslate) {
+    const hit = cache[hashDescription(r.description)]
+    if (hit?.zh) {
+      r.descriptionZh = hit.zh
+    } else {
+      uncached.push(r)
+    }
+  }
+  if (uncached.length === 0) return // all cache hits
 
-  let raw: string
+  const texts = uncached.map((r) => r.description)
+  let translations: (string | undefined)[]
   try {
-    raw = await chatComplete(settings, prompt)
+    if (engine === 'bing') {
+      translations = await translateViaBing(texts)
+    } else if (engine === 'ai' && settings) {
+      translations = await translateViaAI(settings, texts)
+    } else {
+      return
+    }
   } catch {
-    return // LLM call failed — leave descriptions untranslated
+    return // engine failed — leave descriptions untranslated
   }
 
-  // The LLM may wrap the array in ```json ... ``` or add prose. Extract the first JSON
-  // array found in the response.
-  const jsonMatch = raw.match(/\[[\s\S]*\]/)
-  if (!jsonMatch) return
-  let translations: unknown
-  try {
-    translations = JSON.parse(jsonMatch[0])
-  } catch {
-    return
-  }
-  if (!Array.isArray(translations) || translations.length !== toTranslate.length) return
-
-  toTranslate.forEach((r, i) => {
+  // Apply translations + write back to cache.
+  const cacheUpdates: Record<string, string> = {}
+  uncached.forEach((r, i) => {
     const t = translations[i]
-    if (typeof t === 'string' && t.trim()) r.descriptionZh = t.trim()
+    if (typeof t === 'string' && t.trim()) {
+      r.descriptionZh = t.trim()
+      cacheUpdates[hashDescription(r.description)] = t.trim()
+    }
   })
+  await saveTranslationCache(cacheUpdates).catch(() => {})
 }

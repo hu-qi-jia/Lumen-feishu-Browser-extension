@@ -32,7 +32,9 @@
     "https://open.larksuite.com/*",
     "https://github.com/*",
     "https://weibo.com/*",
-    "https://*.weibo.com/*"
+    "https://*.weibo.com/*",
+    "https://edge.microsoft.com/*",
+    "https://api-edge.cognitive.microsofttranslator.com/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

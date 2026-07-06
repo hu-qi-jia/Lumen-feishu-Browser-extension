@@ -45,15 +45,18 @@ export type NewsSourceId = 'github' | 'weibo'
 /** Fetch interval in minutes. The three options the user picks from. */
 export type NewsInterval = 10 | 30 | 60
 
+/** Translation engine for GitHub repo descriptions. */
+export type TranslationEngine = 'off' | 'bing' | 'ai'
+
 export interface NewsSettings {
   interval: NewsInterval
   githubSince: GitHubSince
   /** Per-source enable. A disabled source is skipped by the alarm and hidden in the UI. */
   enabled: { github: boolean; weibo: boolean }
-  /** When true (and an LLM is configured), the SW translates GitHub repo descriptions to
-   *  Chinese after each fetch. Translation failure is non-fatal — descriptions fall back
-   *  to the original English. */
-  translateGithub: boolean
+  /** How GitHub repo descriptions are translated to Chinese. 'bing' uses the free Bing
+   *  Translator endpoint (no key needed, ~1-2s for 25 items); 'ai' uses the user's
+   *  configured LLM in parallel batches (slower, needs API key); 'off' skips translation. */
+  translationEngine: TranslationEngine
 }
 
 export interface NewsCacheEntry<T> {
@@ -73,5 +76,5 @@ export const DEFAULT_NEWS_SETTINGS: NewsSettings = {
   interval: 30,
   githubSince: 'daily',
   enabled: { github: true, weibo: true },
-  translateGithub: true,
+  translationEngine: 'bing',
 }

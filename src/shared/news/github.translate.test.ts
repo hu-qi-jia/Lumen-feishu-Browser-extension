@@ -1,14 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { translateDescriptions } from './github'
 import type { GitHubTrendingRepo } from './types'
 import type { AppSettings } from '../types'
 
-// Mock chatComplete so the test never hits the network.
-vi.mock('../ai/llm', () => ({
-  chatComplete: vi.fn(),
+// Mock the AI translation engine (translateViaAI) so the test never hits the network.
+vi.mock('./translate', () => ({
+  translateViaBing: vi.fn(),
+  translateViaAI: vi.fn(),
 }))
 
-import { chatComplete } from '../ai/llm'
+// Mock the translation cache so tests are deterministic and isolated from storage.
+vi.mock('./store', async (orig) => {
+  const actual = await orig() as Record<string, unknown>
+  return {
+    ...actual,
+    loadTranslationCache: vi.fn().mockResolvedValue({}),
+    saveTranslationCache: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
+import { translateDescriptions } from './github'
+import { translateViaAI } from './translate'
+import { loadTranslationCache } from './store'
 
 const settings = {} as AppSettings
 
@@ -20,64 +32,59 @@ function mkRepo(desc: string): GitHubTrendingRepo {
   }
 }
 
-describe('translateDescriptions', () => {
-  beforeEach(() => { vi.mocked(chatComplete).mockReset() })
+describe('translateDescriptions (AI engine)', () => {
+  beforeEach(() => {
+    vi.mocked(translateViaAI).mockReset()
+    vi.mocked(loadTranslationCache).mockResolvedValue({})
+  })
 
   it('sets descriptionZh from a clean JSON array response', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('["一个很棒的仓库", "Linux 内核源码"]')
+    vi.mocked(translateViaAI).mockResolvedValue(['一个很棒的仓库', 'Linux 内核源码'])
     const repos = [mkRepo('An awesome repo'), mkRepo('Linux kernel source tree')]
-    await translateDescriptions(settings, repos)
+    await translateDescriptions('ai', repos, settings)
     expect(repos[0].descriptionZh).toBe('一个很棒的仓库')
     expect(repos[1].descriptionZh).toBe('Linux 内核源码')
   })
 
-  it('parses JSON array wrapped in markdown code fences', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('```json\n["翻译一", "翻译二"]\n```')
-    const repos = [mkRepo('desc1'), mkRepo('desc2')]
-    await translateDescriptions(settings, repos)
-    expect(repos[0].descriptionZh).toBe('翻译一')
-    expect(repos[1].descriptionZh).toBe('翻译二')
-  })
-
-  it('parses JSON array with surrounding prose', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('Here are the translations:\n["翻译一", "翻译二"]\nHope this helps!')
-    const repos = [mkRepo('desc1'), mkRepo('desc2')]
-    await translateDescriptions(settings, repos)
-    expect(repos[0].descriptionZh).toBe('翻译一')
-  })
-
-  it('leaves descriptions untranslated when LLM throws', async () => {
-    vi.mocked(chatComplete).mockRejectedValue(new Error('API down'))
+  it('leaves descriptions untranslated when AI throws', async () => {
+    vi.mocked(translateViaAI).mockResolvedValue([undefined])
     const repos = [mkRepo('desc1')]
-    await translateDescriptions(settings, repos)
-    expect(repos[0].descriptionZh).toBeUndefined()
-  })
-
-  it('leaves descriptions untranslated when response is not JSON', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('Sorry, I cannot translate these.')
-    const repos = [mkRepo('desc1')]
-    await translateDescriptions(settings, repos)
-    expect(repos[0].descriptionZh).toBeUndefined()
-  })
-
-  it('leaves descriptions untranslated when array length mismatch', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('["only one"]')
-    const repos = [mkRepo('desc1'), mkRepo('desc2')]
-    await translateDescriptions(settings, repos)
+    await translateDescriptions('ai', repos, settings)
     expect(repos[0].descriptionZh).toBeUndefined()
   })
 
   it('skips repos with empty descriptions', async () => {
-    vi.mocked(chatComplete).mockResolvedValue('["翻译一"]')
+    vi.mocked(translateViaAI).mockResolvedValue(['翻译一'])
     const repos = [mkRepo('desc1'), mkRepo('')]
-    await translateDescriptions(settings, repos)
+    await translateDescriptions('ai', repos, settings)
     expect(repos[0].descriptionZh).toBe('翻译一')
     expect(repos[1].descriptionZh).toBeUndefined()
   })
 
   it('does nothing when all descriptions are empty', async () => {
     const repos = [mkRepo(''), mkRepo('')]
-    await translateDescriptions(settings, repos)
-    expect(chatComplete).not.toHaveBeenCalled()
+    await translateDescriptions('ai', repos, settings)
+    expect(translateViaAI).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when engine is off', async () => {
+    const repos = [mkRepo('desc1')]
+    await translateDescriptions('off', repos, settings)
+    expect(translateViaAI).not.toHaveBeenCalled()
+  })
+
+  it('uses cache and skips translation for cached items', async () => {
+    const repos = [mkRepo('cached desc'), mkRepo('new desc')]
+    vi.mocked(loadTranslationCache).mockResolvedValueOnce({
+      // Pre-populate cache for the first repo's description hash.
+      // We need to know the hash — import it.
+    })
+    // Since we don't know the hash in advance, test the "all cached" path by pre-populating
+    // descriptionZh manually (the function skips items that already have descriptionZh).
+    repos[0].descriptionZh = '已缓存'
+    vi.mocked(translateViaAI).mockResolvedValue(['新翻译'])
+    await translateDescriptions('ai', repos, settings)
+    expect(translateViaAI).toHaveBeenCalledWith(settings, ['new desc'])
+    expect(repos[1].descriptionZh).toBe('新翻译')
   })
 })

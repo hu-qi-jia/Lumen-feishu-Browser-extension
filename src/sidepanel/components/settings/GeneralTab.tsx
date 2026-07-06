@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
-import { FormSwitch, FormToggle } from '../form'
+import { FormSwitch, FormToggle, FormSelect } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
+import type { TranslationEngine } from '../../../shared/news/types'
 
 interface Props extends SettingsTabProps {
   accent: string
@@ -26,13 +27,14 @@ export default function GeneralTab({
 }: Props) {
   const accentChanged = accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase()
 
-  // News translate toggle — stored in news_settings_v1 (separate from AppSettings), so it's
-  // loaded/saved independently and takes effect immediately (like theme/accent, not form-save).
-  const [translateGithub, setTranslateGithub] = useState(true)
-  useEffect(() => { void loadNewsSettings().then((s) => setTranslateGithub(s.translateGithub)) }, [])
-  const toggleTranslate = (checked: boolean) => {
-    setTranslateGithub(checked)
-    void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translateGithub: checked }))
+  // News translation engine — stored in news_settings_v1 (separate from AppSettings), so
+  // it's loaded/saved independently and takes effect immediately (like theme/accent).
+  const [engine, setEngine] = useState<TranslationEngine>('bing')
+  useEffect(() => { void loadNewsSettings().then((s) => setEngine(s.translationEngine)) }, [])
+  const changeEngine = (value: string) => {
+    const next = value as TranslationEngine
+    setEngine(next)
+    void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translationEngine: next }))
   }
 
   return (
@@ -98,13 +100,20 @@ export default function GeneralTab({
 
       {/* ── 资讯 ── */}
       <SettingsSection title="资讯">
-        <FormSwitch
-          checked={translateGithub}
-          onChange={toggleTranslate}
-          hint="开启后，GitHub Trending 项目描述自动翻译成中文（需在「模型配置」中配置 API 密钥）。翻译失败时回退英文原文。"
-        >
-          GitHub 项目描述中文翻译
-        </FormSwitch>
+        <div className="field-row">
+          <label className="field-label">GitHub 项目描述翻译</label>
+          <FormSelect
+            value={engine}
+            onChange={(e) => changeEngine(e.target.value)}
+          >
+            <option value="off">关闭</option>
+            <option value="bing">Bing 翻译（默认）</option>
+            <option value="ai">AI 翻译（需配置模型密钥）</option>
+          </FormSelect>
+        </div>
+        <p className="field-hint">
+          Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。
+        </p>
       </SettingsSection>
     </>
   )
