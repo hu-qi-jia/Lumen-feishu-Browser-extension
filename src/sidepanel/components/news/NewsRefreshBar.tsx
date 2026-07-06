@@ -116,12 +116,10 @@ export default function NewsRefreshBar({
               disabled={translating}
               aria-label="翻译项目描述"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 5h7" />
-                <path d="M7 4c0 4-1.5 7-4 9" />
-                <path d="M5 8c0 2 2 4 5 4" />
-                <path d="M12 20l4-9 4 9" />
-                <path d="M19.1 18h-6.2" />
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
               </svg>
             </button>
           </Tooltip>

@@ -90,6 +90,36 @@
   border-color: transparent #333 transparent transparent;
 }
 
+/* ── Edge adjustments (prevent overflow) ── */
+.tooltip--edge-left .tooltip-text {
+  left: 0;
+  transform: none;
+}
+.tooltip--edge-left.tooltip--top .tooltip-text::after {
+  left: 20px;
+  margin-left: 0;
+}
+.tooltip--edge-left.tooltip--bottom .tooltip-text::after {
+  left: 20px;
+  margin-left: 0;
+}
+
+.tooltip--edge-right .tooltip-text {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.tooltip--edge-right.tooltip--top .tooltip-text::after {
+  left: auto;
+  right: 20px;
+  margin-left: 0;
+}
+.tooltip--edge-right.tooltip--bottom .tooltip-text::after {
+  left: auto;
+  right: 20px;
+  margin-left: 0;
+}
+
 /* ── Dark theme ── */
 [data-theme="dark"] .tooltip-text {
   background-color: #555;

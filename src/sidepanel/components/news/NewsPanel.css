@@ -18,11 +18,6 @@
 }
 .news-header h2 { font-size: 14px; font-weight: 600; }
 
-/* Thinner active-tab underline in the news panel (2px instead of the default 3px). */
-.news-tabs .settings-tab {
-  border-bottom-width: 2px;
-}
-
 .news-body {
   flex: 1;
   overflow-y: auto;
