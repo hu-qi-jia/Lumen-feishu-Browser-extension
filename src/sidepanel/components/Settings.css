@@ -60,6 +60,71 @@
   line-height: 1.5;
 }
 
+/* ── Engine dropdown (reuses Dropdown component, styled like form-input) ── */
+.engine-dropdown {
+  width: 100%;
+  max-width: 280px;
+}
+.engine-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color .15s ease;
+}
+.engine-trigger:hover,
+.engine-trigger.is-open {
+  border-color: var(--color-primary);
+}
+.engine-trigger.is-open {
+  box-shadow: var(--ring);
+}
+.engine-trigger-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.engine-trigger svg {
+  flex-shrink: 0;
+  opacity: .7;
+  transition: transform .15s ease;
+}
+.engine-trigger.is-open svg {
+  transform: rotate(180deg);
+}
+.engine-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.engine-item:hover { background: var(--color-surface-2); }
+.engine-item.is-active { color: var(--color-primary); }
+.engine-check { color: var(--color-primary); flex-shrink: 0; }
+
 /* ── Accent picker ── */
 .accent-row {
   display: flex;

@@ -39,20 +39,17 @@
   flex-wrap: wrap;
   border-bottom: 1px solid var(--color-border);
 }
-.news-bar-meta {
+.news-bar-actions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  flex: 1;
-  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
-.news-bar-meta .updated { font-variant-numeric: tabular-nums; }
-.news-bar-meta .updated-err { color: var(--color-error); }
 
-/* Icon-only refresh button — bare icon, no background/border */
-.news-refresh-btn {
+/* Icon-only buttons — bare icon, no background/border. Shared by refresh + translate. */
+.news-refresh-btn,
+.news-translate-btn {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -67,14 +64,17 @@
   transition: color .12s ease;
   padding: 0;
 }
-.news-refresh-btn:hover:not(:disabled) {
+.news-refresh-btn:hover:not(:disabled),
+.news-translate-btn:hover:not(:disabled) {
   color: var(--color-text);
 }
-.news-refresh-btn:disabled {
+.news-refresh-btn:disabled,
+.news-translate-btn:disabled {
   cursor: not-allowed;
   opacity: .5;
 }
-.news-refresh-btn.is-refreshing svg {
+.news-refresh-btn.is-refreshing svg,
+.news-translate-btn.is-translating svg {
   animation: news-spin .8s linear infinite;
 }
 @keyframes news-spin {

@@ -99,10 +99,26 @@ export async function fetchGitHubTrending(since: GitHubSince = 'daily'): Promise
 }
 
 /**
+ * Apply cached translations to repos in place. No API call — just a hash lookup. Called
+ * during refresh so previously-translated descriptions show up instantly without waiting
+ * for the user to click the translate button.
+ */
+export async function applyTranslationCache(repos: GitHubTrendingRepo[]): Promise<void> {
+  const cache = await loadTranslationCache()
+  for (const r of repos) {
+    if (r.description && !r.descriptionZh) {
+      const hit = cache[hashDescription(r.description)]
+      if (hit?.zh) r.descriptionZh = hit.zh
+    }
+  }
+}
+
+/**
  * Translate repo descriptions to Chinese using the selected engine, with a hash-based
  * cache so repeat refreshes skip the network for ~90%+ of items. Mutates repos in place,
  * setting `descriptionZh` on each. Non-fatal: on any failure the descriptions are left
- * untranslated and the UI falls back to the original English.
+ * untranslated and the UI falls back to the original English. Called by the SW when the
+ * user clicks the translate button.
  *
  * Engines:
  * - 'bing': free Bing Translator endpoint (~1-2s for 25 items, no key needed)

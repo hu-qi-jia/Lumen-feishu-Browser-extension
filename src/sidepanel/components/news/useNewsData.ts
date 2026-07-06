@@ -14,8 +14,10 @@ export function useNewsData() {
   const [cache, setCache] = useState<NewsCache>({})
   const [settings, setSettings] = useState<NewsSettings>({ ...DEFAULT_NEWS_SETTINGS, enabled: { ...DEFAULT_NEWS_SETTINGS.enabled } })
   const [refreshing, setRefreshing] = useState<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
+  const [translating, setTranslating] = useState(false)
   // In-flight guard (ref, not state) so a double-click doesn't fire two SW messages.
   const inFlightRef = useRef<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
+  const translatingRef = useRef(false)
 
   // Initial load: cache + settings.
   useEffect(() => {
@@ -66,10 +68,24 @@ export function useNewsData() {
     }
   }, [])
 
+  const translate = useCallback(async () => {
+    if (translatingRef.current) return
+    translatingRef.current = true
+    setTranslating(true)
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'NEWS_TRANSLATE' }) as RefreshResp
+      if (resp?.ok && resp.cache) setCache(resp.cache)
+    } catch { /* SW may be mid-startup */ }
+    finally {
+      translatingRef.current = false
+      setTranslating(false)
+    }
+  }, [])
+
   const updateSettings = useCallback(async (next: NewsSettings) => {
     setSettings(next)
     await saveNewsSettings(next)
   }, [])
 
-  return { cache, settings, refreshing, refresh, updateSettings }
+  return { cache, settings, refreshing, translating, refresh, translate, updateSettings }
 }

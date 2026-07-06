@@ -5,13 +5,17 @@ import type { NewsInterval } from '../../../shared/news/types'
 
 interface Props {
   refreshing: boolean
-  /** Epoch ms of the most recent successful refresh, across both sources. */
+  /** Epoch ms of the most recent successful refresh. Shown in the refresh button tooltip. */
   lastUpdated: number | null
-  /** Last error (any source) when the most recent refresh failed. */
+  /** Last error when the most recent refresh failed. Shown in the refresh button tooltip. */
   error?: string
   interval: NewsInterval
   onIntervalChange: (i: NewsInterval) => void
   onRefresh: () => void
+  /** Show the translate button (GitHub tab + translation not disabled). */
+  showTranslate?: boolean
+  translating?: boolean
+  onTranslate?: () => void
 }
 
 function relativeTime(ts: number | null): string {
@@ -32,12 +36,16 @@ const INTERVAL_OPTIONS: { value: NewsInterval; label: string }[] = [
   { value: 60, label: '1 小时' },
 ]
 
-/** Top bar of the news panel: interval dropdown (left) + last-updated stamp (middle) +
- *  icon refresh button (right). Reuses the Dropdown component (the same popup used by
- *  DocSelector in the chat topbar). */
-export default function NewsRefreshBar({ refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh }: Props) {
+/** Top bar of the news panel: interval dropdown (left) + refresh button (right, tooltip
+ *  shows last-updated time) + translate button (right of refresh, GitHub only). Reuses
+ *  the Dropdown component (the same popup used by DocSelector in the chat topbar). */
+export default function NewsRefreshBar({
+  refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh,
+  showTranslate = false, translating = false, onTranslate,
+}: Props) {
   const [open, setOpen] = useState(false)
   const currentLabel = INTERVAL_OPTIONS.find((o) => o.value === interval)?.label ?? `${interval} 分钟`
+  const refreshTip = error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`
 
   return (
     <div className="news-bar">
@@ -83,25 +91,42 @@ export default function NewsRefreshBar({ refreshing, lastUpdated, error, interva
           )
         })}
       </Dropdown>
-      <div className="news-bar-meta">
-        <span className={`updated${error ? ' updated-err' : ''}`}>
-          {error ? `刷新失败：${error}` : `更新于 ${relativeTime(lastUpdated)}`}
-        </span>
+
+      <div className="news-bar-actions">
+        <Tooltip content={refreshTip} position="bottom">
+          <button
+            type="button"
+            className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
+            onClick={onRefresh}
+            disabled={refreshing}
+            aria-label="刷新"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <path d="M21 3v6h-6" />
+            </svg>
+          </button>
+        </Tooltip>
+        {showTranslate && onTranslate && (
+          <Tooltip content={translating ? '翻译中…' : '翻译项目描述'} position="bottom">
+            <button
+              type="button"
+              className={`news-translate-btn${translating ? ' is-translating' : ''}`}
+              onClick={onTranslate}
+              disabled={translating}
+              aria-label="翻译项目描述"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 5h7" />
+                <path d="M7 4c0 4-1.5 7-4 9" />
+                <path d="M5 8c0 2 2 4 5 4" />
+                <path d="M12 20l4-9 4 9" />
+                <path d="M19.1 18h-6.2" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
       </div>
-      <Tooltip content="刷新" position="bottom">
-        <button
-          type="button"
-          className={`news-refresh-btn${refreshing ? ' is-refreshing' : ''}`}
-          onClick={onRefresh}
-          disabled={refreshing}
-          aria-label="刷新"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-            <path d="M21 3v6h-6" />
-          </svg>
-        </button>
-      </Tooltip>
     </div>
   )
 }

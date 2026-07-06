@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
-import { FormSwitch, FormToggle, FormSelect } from '../form'
+import { FormSwitch, FormToggle } from '../form'
+import Dropdown from '../Dropdown'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
@@ -99,22 +100,64 @@ export default function GeneralTab({
       </SettingsSection>
 
       {/* ── 资讯 ── */}
-      <SettingsSection title="资讯">
-        <div className="field-row">
-          <label className="field-label">GitHub 项目描述翻译</label>
-          <FormSelect
-            value={engine}
-            onChange={(e) => changeEngine(e.target.value)}
-          >
-            <option value="off">关闭</option>
-            <option value="bing">Bing 翻译（默认）</option>
-            <option value="ai">AI 翻译（需配置模型密钥）</option>
-          </FormSelect>
-        </div>
+      <SettingsSection title="GitHub 项目描述翻译">
+        <EngineDropdown engine={engine} onChange={changeEngine} />
         <p className="field-hint">
           Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。
         </p>
       </SettingsSection>
     </>
+  )
+}
+
+const ENGINE_OPTIONS: { value: TranslationEngine; label: string }[] = [
+  { value: 'off', label: '关闭' },
+  { value: 'bing', label: 'Bing 翻译（默认）' },
+  { value: 'ai', label: 'AI 翻译（需配置模型密钥）' },
+]
+
+function EngineDropdown({ engine, onChange }: { engine: TranslationEngine; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const currentLabel = ENGINE_OPTIONS.find((o) => o.value === engine)?.label ?? '关闭'
+  return (
+    <Dropdown
+      className="engine-dropdown"
+      open={open}
+      onOpenChange={setOpen}
+      align="left"
+      trigger={
+        <button
+          type="button"
+          className={`engine-trigger${open ? ' is-open' : ''}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className="engine-trigger-label">{currentLabel}</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      }
+    >
+      {ENGINE_OPTIONS.map((o) => {
+        const selected = o.value === engine
+        return (
+          <button
+            key={o.value}
+            type="button"
+            className={`engine-item${selected ? ' is-active' : ''}`}
+            onClick={() => { onChange(o.value); setOpen(false) }}
+          >
+            <span className="engine-item-label">{o.label}</span>
+            {selected && (
+              <svg className="engine-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </button>
+        )
+      })}
+    </Dropdown>
   )
 }

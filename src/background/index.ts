@@ -21,7 +21,7 @@ import { batchUpdateRecords, getWikiNode } from '../shared/feishu/api'
 import { applyInBatches } from '../shared/feishu/compose'
 import { createTask } from '../shared/feishu/task'
 import { fetchGitHubTrending } from '../shared/news/github'
-import { translateDescriptions } from '../shared/news/github'
+import { translateDescriptions, applyTranslationCache } from '../shared/news/github'
 import { fetchWeiboHotSearch } from '../shared/news/weibo'
 import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '../shared/news/store'
 import { NEWS_ALARM_NAME, syncNewsAlarm } from '../shared/news/alarm'
@@ -321,15 +321,10 @@ async function refreshNewsSource(source: NewsSourceId): Promise<void> {
   try {
     if (source === 'github') {
       const items = await fetchGitHubTrending(settings.githubSince)
-      // Save the English list immediately so the panel shows it instantly — translation
-      // shouldn't block the UI. After translation finishes we re-save with descriptionZh
-      // populated; the panel picks up the update via storage.onChanged.
+      // Apply cached translations (instant — no API call) so previously-translated
+      // descriptions show up on refresh. The user clicks the translate button for new ones.
+      await applyTranslationCache(items).catch(() => {})
       await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
-      if (settings.translationEngine !== 'off') {
-        const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
-        await translateDescriptions(settings.translationEngine, items, app ?? undefined).catch(() => {})
-        await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
-      }
     } else {
       const items = await fetchWeiboHotSearch()
       await saveNewsCacheEntry('weibo', { items, fetchedAt: Date.now() })
@@ -379,6 +374,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       await refreshNewsSource(source)
     } else {
       await refreshAllNews()
+    }
+    try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
+  })()
+  return true // async sendResponse
+})
+
+// Manual translate button: translate GitHub descriptions via the selected engine.
+// Unlike NEWS_REFRESH, this calls the translation API (Bing or AI) for descriptions not
+// yet in the cache. The panel shows a loading state on the translate icon while this runs.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== 'NEWS_TRANSLATE') return undefined
+  void (async () => {
+    const settings = await loadNewsSettings()
+    if (settings.translationEngine === 'off') {
+      try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
+      return
+    }
+    const newsCache = await loadNewsCache()
+    const gh = newsCache.github
+    if (gh?.items.length) {
+      const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
+      await translateDescriptions(settings.translationEngine, gh.items, app ?? undefined).catch(() => {})
+      await saveNewsCacheEntry('github', { items: gh.items, fetchedAt: gh.fetchedAt })
     }
     try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
   })()
