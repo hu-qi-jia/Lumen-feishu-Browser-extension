@@ -8,12 +8,8 @@ interface Props {
   onRetry?: () => void
 }
 
-function formatHot(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, '')}万`
-  return String(n)
-}
-
-/** Weibo hot search tab — pure presentational; the parent owns fetch + retry. */
+/** Weibo hot search tab — pure presentational; the parent owns fetch + retry.
+ *  Hides hot values and the "新" label per the design spec; keeps 沸/爆/热 badges. */
 export default function WeiboTab({ items, loading, error, onRetry }: Props) {
   return (
     <NewsList
@@ -28,13 +24,12 @@ export default function WeiboTab({ items, loading, error, onRetry }: Props) {
           <div className="news-card-body">
             <span className="news-card-title">{it.keyword}</span>
             <div className="news-card-meta">
-              {it.labelName && (
+              {it.labelName && it.labelName !== '新' && (
                 <span className={`news-label${['沸', '爆'].includes(it.labelName) ? ' news-label--hot' : ''}`}>
                   {it.labelName}
                 </span>
               )}
               {it.category && <span>{it.category}</span>}
-              {it.hotValue > 0 && <span className="news-meta-hot">{formatHot(it.hotValue)}</span>}
             </div>
           </div>
         </a>

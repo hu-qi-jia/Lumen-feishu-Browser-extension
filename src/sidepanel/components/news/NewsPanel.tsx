@@ -59,19 +59,6 @@ export default function NewsPanel() {
         onRefresh={refresh}
       />
 
-      {activeTab === 'github' && (
-        <div className="news-options">
-          <label>
-            <input
-              type="checkbox"
-              checked={settings.translateGithub}
-              onChange={(e) => updateSettings({ ...settings, translateGithub: e.target.checked })}
-            />
-            中文翻译（需配置模型）
-          </label>
-        </div>
-      )}
-
       <div className="news-body">
         {activeTab === 'github' ? (
           <GitHubTab

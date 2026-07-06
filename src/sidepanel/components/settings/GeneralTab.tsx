@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react'
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
 import { FormSwitch, FormToggle } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
+import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
 
 interface Props extends SettingsTabProps {
   accent: string
@@ -23,6 +25,15 @@ export default function GeneralTab({
   policyLocks,
 }: Props) {
   const accentChanged = accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase()
+
+  // News translate toggle — stored in news_settings_v1 (separate from AppSettings), so it's
+  // loaded/saved independently and takes effect immediately (like theme/accent, not form-save).
+  const [translateGithub, setTranslateGithub] = useState(true)
+  useEffect(() => { void loadNewsSettings().then((s) => setTranslateGithub(s.translateGithub)) }, [])
+  const toggleTranslate = (checked: boolean) => {
+    setTranslateGithub(checked)
+    void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translateGithub: checked }))
+  }
 
   return (
     <>
@@ -82,6 +93,17 @@ export default function GeneralTab({
           hintColor={form.autoConfirm ? '#d4380d' : undefined}
         >
           删除文档内容时自动确认
+        </FormSwitch>
+      </SettingsSection>
+
+      {/* ── 资讯 ── */}
+      <SettingsSection title="资讯">
+        <FormSwitch
+          checked={translateGithub}
+          onChange={toggleTranslate}
+          hint="开启后，GitHub Trending 项目描述自动翻译成中文（需在「模型配置」中配置 API 密钥）。翻译失败时回退英文原文。"
+        >
+          GitHub 项目描述中文翻译
         </FormSwitch>
       </SettingsSection>
     </>
