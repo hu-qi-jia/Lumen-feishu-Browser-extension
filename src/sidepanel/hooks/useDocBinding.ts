@@ -7,7 +7,7 @@ import { useSessions } from '../sessions/useSessions'
 import type { SessionsApi } from '../sessions/useSessions'
 import { wikiToFeishu } from './useWikiResolve'
 
-export type AppTab = 'chat' | 'scenes' | 'clip' | 'settings'
+export type AppTab = 'chat' | 'scenes' | 'clip' | 'news' | 'settings'
 export type DocMode = 'follow' | 'pin'
 export interface PinnedDoc { token: string; title: string; kind: SessionKind }
 

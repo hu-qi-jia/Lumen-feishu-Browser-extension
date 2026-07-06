@@ -15,7 +15,9 @@
     "scripting",
     "contextMenus",
     "commands",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "alarms",
+    "declarativeNetRequestWithHostAccess"
   ],
   "commands": {
     "clip_to_base": {
@@ -27,8 +29,20 @@
     "https://*.feishu.cn/*",
     "https://*.larksuite.com/*",
     "https://open.feishu.cn/*",
-    "https://open.larksuite.com/*"
+    "https://open.larksuite.com/*",
+    "https://github.com/*",
+    "https://weibo.com/*",
+    "https://*.weibo.com/*"
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "news_referer_ruleset",
+        "enabled": true,
+        "path": "rules/news_referer.json"
+      }
+    ]
+  },
   "background": {
     "service_worker": "src/background/index.ts",
     "type": "module"

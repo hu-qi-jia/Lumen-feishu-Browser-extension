@@ -11,6 +11,7 @@ import type { PageContext } from '../shared/types'
 import ChatPanel from './components/ChatPanel'
 import ClipPanel from './components/ClipPanel'
 import Settings from './components/Settings'
+import NewsPanel from './components/news/NewsPanel'
 import NetworkBlocked from './components/NetworkBlocked'
 import ScenarioPanel from './components/ScenarioPanel'
 import DemoPanel from './components/DemoPanel'
@@ -236,7 +237,7 @@ export default function App() {
         <div className="nav-rail-float">
           <NavRail
             aria-label="主导航"
-            activeId={tab === 'chat' || tab === 'scenes' || tab === 'settings' ? tab : undefined}
+            activeId={tab === 'chat' || tab === 'scenes' || tab === 'news' || tab === 'settings' ? tab : undefined}
             onSelect={(id) => setTab(id as AppTab)}
             items={[
               {
@@ -259,6 +260,19 @@ export default function App() {
                     <rect x="14" y="3" width="7" height="7" rx="1.5" />
                     <rect x="14" y="14" width="7" height="7" rx="1.5" />
                     <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  </svg>
+                ),
+              },
+              {
+                id: 'news',
+                label: '资讯',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
+                    <path d="M18 8h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2" />
+                    <line x1="8" y1="8" x2="14" y2="8" />
+                    <line x1="8" y1="12" x2="14" y2="12" />
+                    <line x1="8" y1="16" x2="12" y2="16" />
                   </svg>
                 ),
               },
@@ -323,6 +337,8 @@ export default function App() {
                   disabled={!canOperate}
                   onClose={() => { setClip(null); setClipError(null); setTab('chat') }}
                 />
+              ) : tab === 'news' ? (
+                <NewsPanel />
               ) : onFeishuPage === false && docMode !== 'pin' && !chatStreaming && !hasConversation ? (
                 <div className="not-feishu">
                   <svg className="not-feishu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -20,6 +20,12 @@ import { resolveToken } from '../shared/feishu/auth'
 import { batchUpdateRecords, getWikiNode } from '../shared/feishu/api'
 import { applyInBatches } from '../shared/feishu/compose'
 import { createTask } from '../shared/feishu/task'
+import { fetchGitHubTrending } from '../shared/news/github'
+import { translateDescriptions } from '../shared/news/github'
+import { fetchWeiboHotSearch } from '../shared/news/weibo'
+import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '../shared/news/store'
+import { NEWS_ALARM_NAME, syncNewsAlarm } from '../shared/news/alarm'
+import type { NewsSourceId } from '../shared/news/types'
 
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
 // again reopens it). No per-tab state to get stuck.
@@ -298,6 +304,89 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     chrome.tabs.sendMessage(tabId, { type: 'DATAVIZ_WRITE_RESULT', vizId, rowAction: true, ...result }).catch(() => {})
   })()
   return undefined
+})
+
+// ─── News refresh (GitHub Trending + Weibo hot search) ─────────────────────────
+//
+// The side panel is a pure view of chrome.storage.local['news_cache_v1']; all fetching
+// happens here in the SW (alarms wake a stopped SW, the panel doesn't). The alarm fires
+// on install and on every interval tick; the panel can also request an immediate refresh
+// via NEWS_REFRESH (manual refresh button). GitHub uses plain host_permissions CORS;
+// Weibo needs the declarativeNetRequest Referer rule (see rules/news_referer.json).
+
+async function refreshNewsSource(source: NewsSourceId): Promise<void> {
+  const settings = await loadNewsSettings()
+  if (source === 'github' && !settings.enabled.github) return
+  if (source === 'weibo' && !settings.enabled.weibo) return
+  try {
+    if (source === 'github') {
+      const items = await fetchGitHubTrending(settings.githubSince)
+      // Translate descriptions to Chinese after a successful fetch. Needs an LLM
+      // (AppSettings with an API key); falls back silently to English on any failure.
+      if (settings.translateGithub) {
+        const app = await loadSettingsBg()
+        if (app?.openaiApiKey) {
+          await translateDescriptions(app, items).catch(() => {})
+        }
+      }
+      await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
+    } else {
+      const items = await fetchWeiboHotSearch()
+      await saveNewsCacheEntry('weibo', { items, fetchedAt: Date.now() })
+    }
+  } catch (e) {
+    // Record the error but keep the last successful list (stale) so the UI doesn't go blank.
+    const failed = e instanceof Error ? e.message : String(e)
+    const prev = (await loadNewsCache())[source]
+    await saveNewsCacheEntry(source, {
+      items: prev?.items ?? [],
+      fetchedAt: prev?.fetchedAt ?? Date.now(),
+      error: failed,
+    })
+  }
+}
+
+async function refreshAllNews(): Promise<void> {
+  await Promise.allSettled([refreshNewsSource('github'), refreshNewsSource('weibo')])
+}
+
+// On install / SW startup: re-arm based on stored settings. chrome.runtime.onInstalled
+// fires once per install/update; for a fresh install the default settings (interval 30,
+// both sources on) are used and the first fetch fires after one interval.
+chrome.runtime.onInstalled.addListener(() => {
+  void (async () => {
+    const s = await loadNewsSettings()
+    syncNewsAlarm(s.enabled, s.interval)
+  })()
+})
+
+// Alarm tick → refresh both sources. Use Promise.allSettled so a single source failing
+// (e.g. Weibo 5xx) doesn't block the other from being cached.
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== NEWS_ALARM_NAME) return
+  void refreshAllNews()
+})
+
+// Manual refresh from the side panel (no LLM, no auth — straight fetch). Responds with
+// the freshly-written cache so the panel doesn't have to re-read storage on the round trip.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== 'NEWS_REFRESH') return undefined
+  void (async () => {
+    await refreshAllNews()
+    try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
+  })()
+  return true // async sendResponse
+})
+
+// When the user changes news settings in the panel: re-arm the alarm to match.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.news_settings_v1) return
+  const next = changes.news_settings_v1.newValue as { enabled?: { github?: boolean; weibo?: boolean }; interval?: number } | undefined
+  if (!next) return
+  syncNewsAlarm(
+    { github: !!next.enabled?.github, weibo: !!next.enabled?.weibo },
+    (next.interval ?? 30) as 10 | 30 | 60,
+  )
 })
 
 

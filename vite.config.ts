@@ -103,7 +103,13 @@ export default defineConfig(({ command, mode }) => {
             const action = manifest.action as { default_title?: string } | undefined
             if (action) action.default_title = manifest.name as string
           }
-          manifest.host_permissions = [feishuMatch]
+          // Preserve non-Feishu host_permissions the news feature (and any future
+          // external-data source) declares in manifest.json — the Feishu entries collapse
+          // to one templated match, but external hosts (github.com, weibo.com) must survive
+          // or the news fetchers lose their CORS bypass. Read BEFORE overwriting.
+          const rawHosts = (manifest.host_permissions as string[] | undefined) ?? []
+          const externalHosts = rawHosts.filter((h) => !h.includes('feishu.cn') && !h.includes('larksuite.com'))
+          manifest.host_permissions = externalHosts.length ? [feishuMatch, ...externalHosts] : [feishuMatch]
           const cs = manifest.content_scripts as Array<{ matches: string[] }> | undefined
           if (cs?.[0]) cs[0].matches = [feishuMatch]
           // Merge BOTH keys — must not drop the sandbox CSP by overwriting the object.
