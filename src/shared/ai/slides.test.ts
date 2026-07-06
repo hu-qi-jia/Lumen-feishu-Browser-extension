@@ -151,6 +151,33 @@ describe('runMaterialsToSlides image orchestration', () => {
   })
 })
 
+describe('runMaterialsToSlides parallel download + LLM', () => {
+  it('builds the LLM prompt with provisional ids before download resolves', async () => {
+    // Fetcher deliberately slow-ish: the prompt must still promise doc-1 (provisional pool).
+    const fetcher = vi.fn(async () => ({
+      images: [{ id: 'doc-1', source: 'doc', label: '文档图1', dataUrl: 'data:ok', context: '标题' }],
+      failedTokens: [],
+    }))
+    const materials = [{ kind: 'doc', label: 'D', url: 'u', text: '# 标题\n【图1】正文', imageTokens: [{ token: 't1', context: '标题' }] }]
+    await runMaterialsToSlides({} as never, materials as never, undefined, { imageFetcher: fetcher as never })
+    const { chatCompleteStream } = await import('./llm')
+    const content = (chatCompleteStream as unknown as { mock: { calls: string[][] } }).mock.calls.at(-1)?.[1] as string
+    expect(content).toContain('doc-1')
+    expect(content).toContain('可用图片')
+  })
+
+  it('strips image refs that failed to download (image-split → bullets, cover → title)', async () => {
+    // All downloads failed → no survivors. The model (mocked) still referenced doc-1 because the
+    // provisional pool promised it. stripFailedImageRefs must degrade the slide to text-only.
+    const fetcher = vi.fn(async () => ({ images: [], failedTokens: ['t1'] }))
+    const materials = [{ kind: 'doc', label: 'D', url: 'u', text: '# 标题\n【图1】正文', imageTokens: [{ token: 't1', context: '标题' }] }]
+    const r = await runMaterialsToSlides({} as never, materials as never, undefined, { imageFetcher: fetcher as never })
+    expect(r.images).toEqual([])
+    expect(r.slides[0].layout).toBe('bullets')
+    expect(r.slides[0].image).toBeUndefined()
+  })
+})
+
 describe('adjustDeck prompt includes pool', () => {
   it('lists available images when pool non-empty', async () => {
     await adjustDeck({} as never, {

@@ -1,7 +1,36 @@
-.sl-theme{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border:1.5px solid var(--border,#dee0e3);border-radius:10px;background:var(--bg,#fff);cursor:pointer;transition:border-color .15s,box-shadow .15s}
-.sl-theme:hover{border-color:var(--accent)}
-.sl-theme--active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(51,112,255,.18)}
+/* Theme picker tile — a 16:9 mini slide wireframe (unified cover-page mock) colored by the
+   theme's own palette. Button chrome uses panel tokens; only the preview swatch inherits theme
+   vars, so a dark theme doesn't darken the surrounding name/border. */
+.sl-theme{
+  display:flex;flex-direction:column;gap:0;
+  padding:0;border:1.5px solid var(--color-border);border-radius:10px;
+  background:transparent;cursor:pointer;overflow:hidden;
+  transition:border-color .15s,box-shadow .15s;
+}
+.sl-theme:hover:not(:disabled){border-color:var(--accent)}
+.sl-theme--active{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
 .sl-theme:disabled{opacity:.5;cursor:not-allowed}
-.sl-theme-icon{display:flex;width:44px;height:44px;align-items:center;justify-content:center}
-.sl-theme-icon svg{width:100%;height:100%}
-.sl-theme-name{font-size:12px;color:var(--fg,#1f2329)}
+
+/* 16:9 mini slide preview — same wireframe for every theme, colored by theme vars. */
+.sl-theme-preview{
+  position:relative;display:flex;flex-direction:column;gap:5px;
+  aspect-ratio:16/9;padding:10px 10px 10px 15px;
+  background:var(--bg);border-bottom:1px solid var(--color-border);
+}
+/* left accent rail (the theme's signature color as a structural anchor) */
+.sl-theme-preview::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);
+}
+.sl-tp-eyebrow{width:22px;height:2px;background:var(--accent);border-radius:1px;margin-bottom:1px}
+.sl-tp-title{width:74%;height:7px;background:var(--fg);border-radius:1.5px;opacity:.95}
+.sl-tp-title--sub{width:48%;height:7px;opacity:.7}
+.sl-tp-accent{width:28px;height:2.5px;background:var(--accent);border-radius:1px;margin-top:3px}
+.sl-tp-lines{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.sl-tp-line{height:2px;background:var(--muted);border-radius:1px;opacity:.55}
+.sl-tp-line:nth-child(1){width:82%}
+.sl-tp-line:nth-child(2){width:56%}
+
+.sl-theme-name{
+  font-size:12px;color:var(--color-text);padding:6px 0 7px;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}

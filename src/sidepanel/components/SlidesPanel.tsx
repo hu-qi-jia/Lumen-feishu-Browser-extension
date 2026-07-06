@@ -119,7 +119,7 @@ export default function SlidesPanel({ settings, disabled, onBack }: Props) {
       const docImgTotal = materials
         .filter((m): m is Extract<typeof m, { kind: 'doc' }> => m.kind === 'doc')
         .reduce((n, m) => n + m.imageTokens.length, 0)
-      if (docImgTotal > 0) setStatus(`下载文档图片…（共 ${Math.min(docImgTotal, 8)} 张）`)
+      if (docImgTotal > 0) setStatus(`下载文档图片…（共 ${docImgTotal} 张）`)
       else setStatus('综合资料生成幻灯片…（约需几十秒，请耐心等待）')
       const r = await runMaterialsToSlides(settings, materials, request.trim() || undefined, {
         signal: ac.signal, onProgress: setGenChars, themeHint: getTheme(themeId).promptHint,

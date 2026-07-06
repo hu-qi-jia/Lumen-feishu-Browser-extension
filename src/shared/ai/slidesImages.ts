@@ -87,12 +87,16 @@ import { downloadMedia } from '../feishu/media'
 import { compressImageToDataUrl } from '../attachments'
 
 /** Cap parallel image downloads to avoid hammering the API. */
-const DL_CONCURRENCY = 4
-/** Hard cap images per deck (spec §6.1). */
-export const MAX_DOC_IMAGES = 8
+const DL_CONCURRENCY = 6
+/** Hard cap images per deck — high enough to capture all images in typical docs. */
+export const MAX_DOC_IMAGES = 30
 
 /** Download + compress all doc images in parallel (capped). Failed images are skipped
- *  (returned in failedTokens) — the caller strips their 【图n】 markers from text. */
+ *  (returned in failedTokens) — the caller strips their 【图n】 markers from text.
+ *
+ *  IDs are PROVISIONAL: doc-{i+1} where i is the index in the input list. Survivors keep
+ *  their provisional id (gaps left where downloads failed) so the caller can run the LLM
+ *  generation in parallel against a provisional id pool and reconcile afterwards. */
 export async function harvestDocImages(args: {
   userToken: string
   docImages: Array<{ token: string; context: string }>
@@ -124,10 +128,8 @@ export async function harvestDocImages(args: {
 
   const images: SlideImage[] = []
   const failedTokens: string[] = []
-  // Renumber survivors contiguous (doc-1..doc-K) so ids have no gaps.
-  let k = 0
   for (const r of results) {
-    if (r?.ok) { k++; images.push({ ...r.img, id: `doc-${k}`, label: `文档图${k}` }) }
+    if (r?.ok) images.push(r.img)
     else if (r) failedTokens.push(r.token)
   }
   return { images, failedTokens }

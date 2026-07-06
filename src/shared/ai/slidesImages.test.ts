@@ -99,10 +99,11 @@ describe('harvestDocImages', () => {
     expect(r.images[0].context).toBe('标题A')
     expect(r.failedTokens).toEqual([])
   })
-  it('skips a failed download, returns it in failedTokens', async () => {
+  it('skips a failed download, returns it in failedTokens (provisional id keeps the gap)', async () => {
     ;(downloadMedia as unknown as { mockImplementation: (f: unknown) => void }).mockImplementation(async (t: string) => { if (t === 'a') throw new Error('403'); return new Blob([]) })
     const r = await harvestDocImages({ userToken: 'u', docImages: [{ token: 'a', context: '' }, { token: 'b', context: '' }] })
-    expect(r.images.map((i) => i.id)).toEqual(['doc-1'])
+    // doc-1 (a) failed → only doc-2 (b) survives; ids are provisional, NOT renumbered.
+    expect(r.images.map((i) => i.id)).toEqual(['doc-2'])
     expect(r.failedTokens).toEqual(['a'])
   })
 })

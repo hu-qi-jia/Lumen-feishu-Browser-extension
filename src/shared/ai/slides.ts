@@ -310,8 +310,40 @@ export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
   return rows.map((r) => r.s)
 }
 
+/** Drop slide.image / card.image references that point to images which failed to download
+ *  (or were hallucinated by the model). image-split degrades to bullets (text side survives),
+ *  cover degrades to title, cards just lose the image. Pure mutation of the passed array.
+ *
+ *  Exists because download runs in parallel with generation: the model is given a provisional
+ *  pool (all doc image ids promised), and some ids later turn out to have no dataUrl. */
+function stripFailedImageRefs(slides: Slide[], validIds: Set<string>): Slide[] {
+  const ok = (id?: string): boolean => !id || validIds.has(id)
+  for (const s of slides) {
+    if (s.image && !ok(s.image)) {
+      if (s.layout === 'image-split') {
+        s.layout = 'bullets'
+        delete s.image; delete s.imageSide; delete s.imageCaption
+      } else if (s.layout === 'cover') {
+        s.layout = 'title'
+        delete s.image
+      } else {
+        delete s.image
+      }
+    }
+    if (s.cards) {
+      for (const c of s.cards) if (c.image && !ok(c.image)) delete c.image
+    }
+  }
+  return slides
+}
+
 /** Generate one deck synthesized from N resolved+materials (docs + tables). No embed slides —
- *  embed (saved-board) reuse is a current-table concept that doesn't apply to multi-link input. */
+ *  embed (saved-board) reuse is a current-table concept that doesn't apply to multi-link input.
+ *
+ *  Performance: image download and LLM generation run IN PARALLEL. The model only needs image
+ *  ids + contexts (not dataUrls) for the prompt, so a provisional pool (doc-1..doc-N) is handed
+ *  to the LLM immediately; the real downloads happen concurrently. Afterwards, any image id the
+ *  model referenced that didn't survive download is stripped from the slides. */
 export async function runMaterialsToSlides(
   settings: AppSettings,
   materials: Material[],
@@ -325,77 +357,54 @@ export async function runMaterialsToSlides(
     imageFetcher?: typeof harvestDocImages
   },
 ): Promise<MaterialsSlidesResult> {
-  // 1) 聚合 doc imageTokens，分配全局编号并 remap 正文里的【图n】
+  // 1) 聚合 doc imageTokens，分配全局 provisional 编号并 remap 正文里的【图n】
   const fetch = opts?.imageFetcher ?? harvestDocImages
   const docs = materials.filter((m): m is Extract<Material, { kind: 'doc' }> => m.kind === 'doc')
   const perDoc = docBudgetEach(docs.length)
 
   const globalDocImages: Array<{ token: string; context: string }> = []
-  const remappedTexts = new Map<Material, string>()
   for (const m of docs) {
     const local = m.imageTokens ?? []
-    if (!local.length) { remappedTexts.set(m, m.text); continue }
+    if (!local.length) continue
     const base = globalDocImages.length
-    const map = local.map((_, i) => base + i + 1) // local i (1-based) → global
+    const map = local.map((_, i) => base + i + 1) // local i (1-based) → global provisional
     globalDocImages.push(...local)
     m.text = remapMarkers(m.text, map)
-    remappedTexts.set(m, m.text)
   }
   const capped = globalDocImages.slice(0, MAX_DOC_IMAGES)
-  // 收集被 cap 的失败本地号（超出上限的）以剔除其标记：用其在原文里的全局号
-  const overflowGlobals = globalDocImages.slice(MAX_DOC_IMAGES).map((_, i) => MAX_DOC_IMAGES + i + 1)
 
-  // 2) 下载 + 压缩（并行），失败返回 failedTokens
+  // 2) provisional 池（id + context，不含 dataUrl）给 LLM；真实下载并行进行
+  const provisionalPool: SlideImage[] = capped.map((c, i) => ({
+    id: `doc-${i + 1}`, source: 'doc', label: `文档图${i + 1}`, dataUrl: '', context: c.context,
+  }))
+
+  // 3) 并行：下载图片 + LLM 生成
   //    resolveToken is only needed for the real harvester (network); an injected imageFetcher
   //    is a test seam that ignores the token, so skip the (settings-dependent) resolve in that case.
   const useRealFetcher = fetch === harvestDocImages
   const token = useRealFetcher ? await resolveToken(settings) : ''
-  const harvested = capped.length
-    ? await fetch({ userToken: token, docImages: capped, signal: opts?.signal, onProgress: opts?.onImageProgress })
-    : { images: [], failedTokens: [] }
-
-  // 3) survivors 被 harvestDocImages 重新连续编号为 doc-1..doc-K。
-  //    需把正文里的【图{oldGlobal}】映射到 survivor 的新编号，并剔除失败/溢出的标记。
-  //    建立 oldGlobal → new 的映射：
-  const survivorOldGlobals: number[] = [] // 与 harvested.images 顺序对齐的 oldGlobal
-  let gi = 0
-  for (let i = 0; i < capped.length; i++) {
-    gi++
-    const ok = !harvested.failedTokens.includes(capped[i].token)
-    if (ok) survivorOldGlobals.push(gi)
-  }
-  // oldGlobal → new doc-K
-  const oldToNew = new Map<number, number>()
-  survivorOldGlobals.forEach((og, k) => oldToNew.set(og, k + 1))
-  // 重写正文：把【图{og}】→【图{new}】，再把无 new（失败/溢出）的标记剔除
-  const failedGlobals = capped
-    .map((c, i) => (harvested.failedTokens.includes(c.token) ? i + 1 : -1))
-    .filter((n) => n > 0)
-  const allDropGlobals = new Set([...failedGlobals, ...overflowGlobals])
-  for (const m of docs) {
-    let t = m.text
-    t = t.replace(/【图(\d+)】/g, (mm, d) => {
-      const n = Number(d)
-      return oldToNew.has(n) ? `【图${oldToNew.get(n)}】` : (allDropGlobals.has(n) ? '' : mm)
-    })
-    m.text = t
-  }
-  const pool: SlideImage[] = harvested.images
-
-  // 4) 生成
-  const out = fences(await chatCompleteStream(settings, buildMaterialsPrompt(materials, request, opts?.themeHint, pool), {
+  const downloadP: Promise<{ images: SlideImage[]; failedTokens: string[] }> = capped.length
+    ? fetch({ userToken: token, docImages: capped, signal: opts?.signal, onProgress: opts?.onImageProgress })
+    : Promise.resolve({ images: [], failedTokens: [] })
+  const llmP: Promise<string> = chatCompleteStream(settings, buildMaterialsPrompt(materials, request, opts?.themeHint, provisionalPool), {
     signal: opts?.signal, onChunk: (f) => opts?.onProgress?.(f.length),
-  }))
+  })
+  const [harvested, out] = await Promise.all([downloadP, llmP])
+
   if (!out) throw new Error('模型未返回内容。')
   let parsed: { title?: string; slides?: unknown }
   try { parsed = JSON.parse(out) } catch { throw new Error('幻灯片解析失败，请重试或换一个支持 JSON 输出的模型。') }
-  const slides = placeDocImages(sanitizeSlides(parsed.slides), pool)
+
+  // 4) 剥离指向失败/幻觉图片的引用，再补全未被引用的文档图
+  const survivorIds = new Set(harvested.images.map((i) => i.id))
+  const pool: SlideImage[] = harvested.images
+  const slides = placeDocImages(stripFailedImageRefs(sanitizeSlides(parsed.slides), survivorIds), pool)
   if (!slides.length) throw new Error('没有生成可用的幻灯片内容。')
   return {
     name: String(parsed.title || '综合演示').slice(0, 40),
     slides,
     images: pool,
-    truncated: docs.some((d) => (remappedTexts.get(d) ?? d.text).length > perDoc) || globalDocImages.length > MAX_DOC_IMAGES,
+    truncated: docs.some((d) => d.text.length > perDoc) || globalDocImages.length > MAX_DOC_IMAGES,
     sources: materials.map((m) => ({ kind: m.kind, label: m.label, url: m.url })),
   }
 }

@@ -20,8 +20,8 @@ describe('ThemeThumb', () => {
     await user.click(screen.getByRole('button'))
     expect(fn).toHaveBeenCalledOnce()
   })
-  it('renders an icon element keyed by theme id', () => {
+  it('renders a preview swatch keyed by theme id', () => {
     const { container } = render(<ThemeThumb theme={getTheme('pitch')} selected={false} onSelect={() => {}} />)
-    expect(container.querySelector('.sl-theme-icon[data-theme="pitch"]')).toBeTruthy()
+    expect(container.querySelector('.sl-theme-preview[data-theme="pitch"]')).toBeTruthy()
   })
 })
