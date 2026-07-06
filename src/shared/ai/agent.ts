@@ -1222,6 +1222,56 @@ async function withDocUrl(
   return { ...r, document: { ...r.document, url: `${origin}/docx/${id}` } }
 }
 
+/**
+ * Resolve an insert_image anchor to a 0-based index into the doc's root children.
+ *  - `top`         → 0 (the very beginning; BEFORE any existing top block, including a top image)
+ *  - `end`         → append (rootChildren.length)
+ *  - `heading`/`text` → immediately AFTER the first block whose text contains `value`
+ *  - `section_end` → just before the next same-or-higher-level heading (i.e. end of that section)
+ *
+ * Pure (no I/O) so the index math is unit-testable. The "insert at top lands below the first
+ * text line" bug lived here: with no `top` anchor, the LLM could only express "after the first
+ * matching block", so when a doc started with [image, text, …] the new image dropped to idx+1
+ * of the text. `top` makes the very beginning expressible.
+ */
+export function resolveImageInsertIndex(
+  anchor: { type: string; value?: string },
+  rootChildren: Array<Record<string, unknown>>,
+): number {
+  const t = anchor.type
+  if (t === 'top') return 0
+  if (t === 'end') return rootChildren.length
+  if ((t === 'heading' || t === 'text') && anchor.value) {
+    const needle = anchor.value.toLowerCase()
+    const idx = rootChildren.findIndex((b) => {
+      if (t === 'heading') {
+        const bt = b.block_type as number
+        if (bt !== 3 && bt !== 4 && bt !== 5) return false
+      } else if (b.block_type !== 2) return false
+      const el = (b as Record<string, unknown>)[t === 'heading' ? `heading${(b.block_type as number) - 2}` : 'text'] as { elements?: Array<{ text_run?: { content?: string } }> }
+      const txt = (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase()
+      return txt.includes(needle)
+    })
+    if (idx === -1) throw new Error(`找不到匹配的${t === 'heading' ? '标题' : '段落'}："${anchor.value}"`)
+    return idx + 1
+  }
+  if (t === 'section_end' && anchor.value) {
+    const needle = anchor.value.toLowerCase()
+    const hIdx = rootChildren.findIndex((b) => {
+      const bt = b.block_type as number
+      if (bt !== 3 && bt !== 4 && bt !== 5) return false
+      const hKey = `heading${bt - 2}`
+      const el = (b as Record<string, unknown>)[hKey] as { elements?: Array<{ text_run?: { content?: string } }> }
+      return (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase().includes(needle)
+    })
+    if (hIdx === -1) throw new Error(`找不到匹配的标题："${anchor.value}"`)
+    const hLevel = rootChildren[hIdx].block_type as number
+    const next = rootChildren.findIndex((b, i) => i > hIdx && (b.block_type as number) >= 3 && (b.block_type as number) <= 5 && (b.block_type as number) <= hLevel)
+    return next === -1 ? rootChildren.length : next
+  }
+  throw new Error(`不支持的锚点类型：${t}`)
+}
+
 async function executeDocTool(
   name: string,
   args: Record<string, unknown>,
@@ -1305,38 +1355,7 @@ async function executeDocTool(
         .filter((b) => b.parent_id === doc)
         .sort((a, b) => (a.index as number ?? 0) - (b.index as number ?? 0))
 
-      let insertAt = rootChildren.length // default: append
-      const t = anchor.type
-      if (t === 'end') { /* keep default */ }
-      else if ((t === 'heading' || t === 'text') && anchor.value) {
-        const needle = anchor.value.toLowerCase()
-        const idx = rootChildren.findIndex((b) => {
-          if (t === 'heading') {
-            const bt = b.block_type as number
-            if (bt !== 3 && bt !== 4 && bt !== 5) return false
-          } else if (b.block_type !== 2) return false
-          const el = (b as Record<string, unknown>)[t === 'heading' ? `heading${(b.block_type as number) - 2}` : 'text'] as { elements?: Array<{ text_run?: { content?: string } }> }
-          const txt = (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase()
-          return txt.includes(needle)
-        })
-        if (idx === -1) throw new Error(`找不到匹配的${t === 'heading' ? '标题' : '段落'}："${anchor.value}"`)
-        insertAt = idx + 1
-      } else if (t === 'section_end' && anchor.value) {
-        const needle = anchor.value.toLowerCase()
-        const hIdx = rootChildren.findIndex((b) => {
-          const bt = b.block_type as number
-          if (bt !== 3 && bt !== 4 && bt !== 5) return false
-          const hKey = `heading${bt - 2}`
-          const el = (b as Record<string, unknown>)[hKey] as { elements?: Array<{ text_run?: { content?: string } }> }
-          return (el?.elements ?? []).map((e) => e.text_run?.content ?? '').join('').toLowerCase().includes(needle)
-        })
-        if (hIdx === -1) throw new Error(`找不到匹配的标题："${anchor.value}"`)
-        const hLevel = rootChildren[hIdx].block_type as number
-        const next = rootChildren.findIndex((b, i) => i > hIdx && (b.block_type as number) >= 3 && (b.block_type as number) <= 5 && (b.block_type as number) <= hLevel)
-        insertAt = next === -1 ? rootChildren.length : next
-      } else {
-        throw new Error(`不支持的锚点类型：${t}`)
-      }
+      const insertAt = resolveImageInsertIndex(anchor, rootChildren)
 
       // Official 3-step insert-image flow (per Feishu "如何插入图片" FAQ):
       //   1) create an EMPTY image block at the anchor index → block_id
@@ -1360,7 +1379,10 @@ async function executeDocTool(
 
       // Reload so the user sees the new image in the doc
       void reloadActiveTab()
-      return `已插入到${t === 'end' ? '文档末尾' : `"${anchor.value ?? ''}"${t === 'section_end' ? '节末' : '后面'}`}`
+      const where = anchor.type === 'top' ? '文档顶部'
+        : anchor.type === 'end' ? '文档末尾'
+        : `"${anchor.value ?? ''}"${anchor.type === 'section_end' ? '节末' : '后面'}`
+      return `已插入到${where}`
     }
     case 'copy_document': {
       // Default to the CURRENT page's doc (not args.document_id — this tool's schema exposes
@@ -1584,6 +1606,7 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
 	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
   - **用户上传的图片**会在其消息里以「【附件：图片 <文件名>（attachment_id: <id>）】」形式给出。insert_image / replace_image 的 attachment_id 就填这个 id（原样照抄），不要瞎编。
   - **insert_image / replace_image 只动图片**：调用它们时**只**插入/替换图片块本身，**不要**在同一轮里另外调用 \`add_document_content\` 去加标题、说明、图注、文件名或任何文字（那会留下一段删不掉的多余文字）。用户明确说"加个说明/配文/标题叫XX"时才加文字，否则只插图。
+  - **insert_image 插到顶部用 anchor.type=top**：用户说"插到顶部/最前面/开头/第一张"时，anchor 必须是 \`{type:'top'}\`（插到所有已有内容之前，含已有的顶部图片）。**不要**拿第一段标题/文字当锚点再"插到后面"——那会把图片落到顶部下方第一行文字下面。只有"插在某标题/某段之后/节末/文末"才用 heading/text/section_end/end。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能
 

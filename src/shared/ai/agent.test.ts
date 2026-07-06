@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
-import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext } from './agent'
+import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex } from './agent'
 
 describe('toolsForContext — exposes only the current resource\'s tools (+ core)', () => {
   const names = (kind: string | undefined) => toolsForContext(kind).map((t) => (t as { function: { name: string } }).function.name)
@@ -295,5 +295,59 @@ describe('runAgent — cancellation (H3)', () => {
       runAgent(history, settings, context, callbacks, undefined, ac.signal),
     ).rejects.toThrow(/abort/i)
     expect(chunks).toBe(0) // never reached the model
+  })
+})
+
+describe('resolveImageInsertIndex — insert_image anchor → root-child index', () => {
+  // rootChildren shape mirrors listBlocks: { block_id, parent_id, index, block_type,
+  //   heading1|heading2|heading3 | text : { elements:[{text_run:{content}}] } }
+  const img = (i: number) => ({ block_id: `img${i}`, parent_id: 'doc', index: i, block_type: 27, image: {} })
+  const txt = (i: number, content: string) => ({
+    block_id: `t${i}`, parent_id: 'doc', index: i, block_type: 2,
+    text: { elements: [{ text_run: { content } }] },
+  })
+  // level 1/2/3 → block_type 3/4/5, key heading1/2/3
+  const h = (i: number, level: number, content: string) => ({
+    block_id: `h${i}`, parent_id: 'doc', index: i, block_type: 2 + level,
+    [`heading${level}`]: { elements: [{ text_run: { content } }] },
+  })
+
+  it('top → 0 even when an image already sits at index 0 (the reported regression)', () => {
+    // Before the fix there was no `top` anchor, so the LLM matched the first text ('封面说明')
+    // and inserted AFTER it (index 2) — dropping the new image below the first text line.
+    const kids = [img(0), txt(1, '封面说明'), txt(2, '正文')]
+    expect(resolveImageInsertIndex({ type: 'top' }, kids)).toBe(0)
+  })
+  it('top → 0 on an empty doc', () => {
+    expect(resolveImageInsertIndex({ type: 'top' }, [])).toBe(0)
+  })
+  it('end → append (length)', () => {
+    expect(resolveImageInsertIndex({ type: 'end' }, [txt(0, 'a'), txt(1, 'b')])).toBe(2)
+  })
+  it('heading → immediately AFTER the matched heading', () => {
+    const kids = [h(0, 1, '报告'), img(1), txt(2, '正文')]
+    expect(resolveImageInsertIndex({ type: 'heading', value: '报告' }, kids)).toBe(1)
+  })
+  it('text → immediately AFTER the matched paragraph', () => {
+    const kids = [img(0), txt(1, '封面说明'), txt(2, '正文')]
+    expect(resolveImageInsertIndex({ type: 'text', value: '封面说明' }, kids)).toBe(2)
+  })
+  it('section_end → just before the next same-or-higher-level heading', () => {
+    const kids = [h(0, 1, '一'), h(1, 2, '1.1'), txt(2, 'x'), h(3, 2, '1.2'), txt(4, 'y')]
+    // section "1.1" (level 2) ends right before "1.2" (also level 2) → index 3
+    expect(resolveImageInsertIndex({ type: 'section_end', value: '1.1' }, kids)).toBe(3)
+  })
+  it('section_end → doc end when no later same-or-higher heading follows', () => {
+    const kids = [h(0, 1, '一'), txt(1, 'x'), txt(2, 'y')]
+    expect(resolveImageInsertIndex({ type: 'section_end', value: '一' }, kids)).toBe(3)
+  })
+  it('heading/text match is case-insensitive and substring-based', () => {
+    expect(resolveImageInsertIndex({ type: 'text', value: 'hello' }, [txt(0, 'Hello World')])).toBe(1)
+  })
+  it('throws when the matched heading/text is not found', () => {
+    expect(() => resolveImageInsertIndex({ type: 'heading', value: '不存在' }, [txt(0, 'a')])).toThrow(/找不到/)
+  })
+  it('throws on an unsupported anchor type', () => {
+    expect(() => resolveImageInsertIndex({ type: 'cursor' }, [txt(0, 'a')])).toThrow(/不支持的锚点类型/)
   })
 })
