@@ -65,8 +65,8 @@ describe('Settings — appearance accent', () => {
   })
 })
 
-describe('Settings — cache cleanup (general tab)', () => {
-  // General tab reads/writes chrome.storage.local for the cache feature; mock it so the
+describe('Settings — data cleanup (general tab)', () => {
+  // General tab reads/writes chrome.storage.local for the data-cleanup feature; mock it so the
   // section mounts with real data and the clear button actually invokes storage.remove.
   function mockChromeStorage(seed: Record<string, unknown> = {}) {
     const store: Record<string, unknown> = { ...seed }
@@ -96,32 +96,40 @@ describe('Settings — cache cleanup (general tab)', () => {
   }
   afterEach(() => vi.unstubAllGlobals())
 
-  it('renders the cache section with a clear button on the general tab', () => {
-    mockChromeStorage({ news_cache_v1: { x: 1 } })
+  it('renders the data-cleanup section with a 清除全部数据 button on the general tab', () => {
+    mockChromeStorage({ sessions_index_v1: { x: 1 } })
     const { getByText } = renderSettings()
-    expect(getByText('立即清理缓存')).toBeTruthy()
+    expect(getByText('清除全部数据')).toBeTruthy()
   })
 
-  it('clicking 立即清理缓存 wipes ONLY cache keys — never settings / device seed', async () => {
+  it('clearing requires a two-step confirm, then wipes content but keeps settings/seed/token', async () => {
     const { removed, store } = mockChromeStorage({
+      sessions_index_v1: { sessions: [{ id: 's1' }] },
+      msgs_s1_v1: [{ id: 'm1' }],
+      slides_decks_v1: [{ id: 'd1' }],
       news_cache_v1: { x: 1 },
-      news_translation_cache_v1: { h: '译' },
       settings_v2: { openaiApiKey: 'enc' },
       _device_seed: 'THE-SEED',
-      sessions_v1: [{ id: 'keep' }],
+      _feishu_utoken_v1: 'enc-utoken',
     })
     const { getByText } = renderSettings()
-    fireEvent.click(getByText('立即清理缓存'))
-    // clearCache is async; the success message is the reliable completion signal.
-    await waitFor(() => expect(getByText(/已清理/)).toBeTruthy())
+    // step 1: the danger button reveals an inline confirm (no removal yet)
+    fireEvent.click(getByText('清除全部数据'))
+    expect(getByText('确认清除')).toBeTruthy()
+    // step 2: confirm → actually clears
+    fireEvent.click(getByText('确认清除'))
+    await waitFor(() => expect(getByText(/已清除/)).toBeTruthy())
     const removedKeys = removed.flat()
+    expect(removedKeys).toContain('sessions_index_v1')
+    expect(removedKeys).toContain('msgs_s1_v1')
+    expect(removedKeys).toContain('slides_decks_v1')
     expect(removedKeys).toContain('news_cache_v1')
-    expect(removedKeys).toContain('news_translation_cache_v1')
-    // user data / config / crypto seed must survive
+    // config / crypto seed / Feishu OAuth must survive
     expect(removedKeys).not.toContain('settings_v2')
     expect(removedKeys).not.toContain('_device_seed')
-    expect(removedKeys).not.toContain('sessions_v1')
+    expect(removedKeys).not.toContain('_feishu_utoken_v1')
     expect(store._device_seed).toBe('THE-SEED')
+    expect(store._feishu_utoken_v1).toBe('enc-utoken')
     expect(store.settings_v2).toEqual({ openaiApiKey: 'enc' })
   })
 })

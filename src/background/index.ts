@@ -27,12 +27,12 @@ import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '../shared/n
 import { NEWS_ALARM_NAME, syncNewsAlarm } from '../shared/news/alarm'
 import type { NewsSourceId } from '../shared/news/types'
 import {
-  CACHE_CLEANUP_ALARM,
-  clearCache,
-  loadCacheSettings,
-  saveCacheSettings,
-  syncCacheCleanupAlarm,
-} from '../shared/cacheCleanup'
+  CLEANUP_ALARM,
+  clearAllUserData,
+  loadCleanupSettings,
+  saveCleanupSettings,
+  syncCleanupAlarm,
+} from '../shared/dataCleanup'
 
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
 // again reopens it). No per-tab state to get stuck.
@@ -359,7 +359,7 @@ chrome.runtime.onInstalled.addListener(() => {
   void (async () => {
     const s = await loadNewsSettings()
     syncNewsAlarm(s.enabled, s.interval)
-    syncCacheCleanupAlarm((await loadCacheSettings()).intervalDays)
+    syncCleanupAlarm((await loadCleanupSettings()).intervalDays)
   })()
 })
 
@@ -370,11 +370,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     void refreshAllNews()
     return
   }
-  if (alarm.name === CACHE_CLEANUP_ALARM) {
+  if (alarm.name === CLEANUP_ALARM) {
+    // 定期清理：清掉除配置/凭证外的全部用户数据（会话/PPT/建站/PDF/图片/经验/缓存），不可逆。
     void (async () => {
-      await clearCache()
-      const cs = await loadCacheSettings()
-      await saveCacheSettings({ ...cs, lastCleanedAt: Date.now() })
+      await clearAllUserData()
+      const cs = await loadCleanupSettings()
+      await saveCleanupSettings({ ...cs, lastCleanedAt: Date.now() })
     })()
   }
 })
@@ -432,11 +433,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
       )
     }
   }
-  // Cache auto-cleanup interval changed → re-arm the cleanup alarm to match. lastCleanedAt-only
+  // Data-cleanup interval changed → re-arm the cleanup alarm to match. lastCleanedAt-only
   // writes also land here; re-arming just restarts the countdown (a no-op when interval is 0).
-  if (changes.cache_settings_v1) {
-    const next = changes.cache_settings_v1.newValue as { intervalDays?: number } | undefined
-    syncCacheCleanupAlarm((next?.intervalDays ?? 0) as 0 | 3 | 7 | 30)
+  if (changes.cleanup_settings_v1) {
+    const next = changes.cleanup_settings_v1.newValue as { intervalDays?: number } | undefined
+    syncCleanupAlarm((next?.intervalDays ?? 0) as 0 | 3 | 7 | 30)
   }
 })
 

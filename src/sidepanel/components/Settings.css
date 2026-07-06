@@ -74,6 +74,21 @@
   white-space: nowrap;
 }
 
+/* Inline two-step confirm for the destructive 清除全部数据 button. */
+.cache-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-error) 6%, var(--color-bg));
+}
+.cache-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* ── Engine dropdown (reuses Dropdown component, styled like form-input) ── */
 .engine-dropdown {
   width: 100%;

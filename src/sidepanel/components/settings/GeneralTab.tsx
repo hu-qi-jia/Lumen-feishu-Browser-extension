@@ -9,12 +9,12 @@ import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
 import type { TranslationEngine } from '../../../shared/news/types'
 import {
-  cacheBytes,
-  clearCache,
-  loadCacheSettings,
-  saveCacheSettings,
-  type CacheCleanupDays,
-} from '../../../shared/cacheCleanup'
+  cleanupImpact,
+  clearAllUserData,
+  loadCleanupSettings,
+  saveCleanupSettings,
+  type CleanupIntervalDays,
+} from '../../../shared/dataCleanup'
 
 interface Props extends SettingsTabProps {
   accent: string
@@ -46,40 +46,43 @@ export default function GeneralTab({
     void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translationEngine: next }))
   }
 
-  // 缓存清理：间隔存在 cache_settings_v1（独立于 AppSettings），改了立即生效；后台 onChanged
-  // 监听会重 arm 清理 alarm。当前缓存体积 + 上次清理时间仅用于展示。
-  const [cacheDays, setCacheDays] = useState<CacheCleanupDays>(0)
-  const [cacheBytesVal, setCacheBytesVal] = useState<number | null>(null)
+  // 数据清理：间隔存 cleanup_settings_v1（独立于 AppSettings），改了立即生效；后台 onChanged
+  // 监听会重 arm 清理 alarm。cleanupImpact = 将被清除的体积（非保护键）。手动清除需二次确认。
+  const [cleanupDays, setCleanupDays] = useState<CleanupIntervalDays>(0)
+  const [impactBytes, setImpactBytes] = useState<number | null>(null)
   const [lastCleanedAt, setLastCleanedAt] = useState<number | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
-  const [cacheMsg, setCacheMsg] = useState('')
+  const [cleanupMsg, setCleanupMsg] = useState('')
   useEffect(() => {
     void (async () => {
-      const cs = await loadCacheSettings()
-      setCacheDays(cs.intervalDays)
+      const cs = await loadCleanupSettings()
+      setCleanupDays(cs.intervalDays)
       setLastCleanedAt(cs.lastCleanedAt)
-      setCacheBytesVal((await cacheBytes()).bytes)
+      setImpactBytes((await cleanupImpact()).bytes)
     })()
   }, [])
   const changeInterval = (value: string) => {
-    const next = Number(value) as CacheCleanupDays
-    setCacheDays(next)
-    void loadCacheSettings().then((s) => saveCacheSettings({ ...s, intervalDays: next }))
+    const next = Number(value) as CleanupIntervalDays
+    setCleanupDays(next)
+    void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, intervalDays: next }))
   }
-  const handleClearCache = async () => {
+  const handleClearAll = async () => {
     setClearing(true)
-    setCacheMsg('')
+    setCleanupMsg('')
     try {
-      const { freedBytes } = await clearCache()
+      const { freedBytes } = await clearAllUserData()
       const now = Date.now()
       setLastCleanedAt(now)
-      setCacheBytesVal(0)
-      void loadCacheSettings().then((s) => saveCacheSettings({ ...s, lastCleanedAt: now }))
-      setCacheMsg(`已清理${freedBytes > 0 ? `（约 ${formatBytes(freedBytes)}）` : ''}`)
+      setImpactBytes((await cleanupImpact()).bytes)
+      void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, lastCleanedAt: now }))
+      setCleanupMsg(`已清除${freedBytes > 0 ? `（释放约 ${formatBytes(freedBytes)}）` : ''}，即将刷新生效…`)
+      // 会话/PPT/建站等列表都缓存在 React state 里；清存储后必须刷新面板才能看到空状态。
+      setTimeout(() => { try { location.reload() } catch { /* ignore */ } }, 1200)
     } catch (e) {
-      setCacheMsg('清理失败：' + (e instanceof Error ? e.message : String(e)))
-    } finally {
+      setCleanupMsg('清除失败：' + (e instanceof Error ? e.message : String(e)))
       setClearing(false)
+      setConfirming(false)
     }
   }
 
@@ -157,27 +160,43 @@ export default function GeneralTab({
         </p>
       </SettingsSection>
 
-      {/* ── 缓存 ── */}
-      <SettingsSection title="缓存">
+      {/* ── 数据清理 ── */}
+      <SettingsSection title="数据清理">
         <div className="cache-row">
           <span className="cache-row-label">自动清理</span>
           <SettingsSelect
-            options={CACHE_INTERVAL_OPTIONS}
-            value={String(cacheDays)}
+            options={CLEANUP_INTERVAL_OPTIONS}
+            value={String(cleanupDays)}
             onChange={changeInterval}
-            ariaLabel="缓存自动清理频率"
+            ariaLabel="数据自动清理频率"
           />
         </div>
         <p className="field-hint">
-          定期清除可再生的运行时缓存（资讯、翻译、企业下发的模型 / App ID 等），下次用到会自动重新拉取；
-          <b>不会影响你的配置、会话和已保存的小程序 / PPT / 经验。</b>
-          {cacheBytesVal != null && cacheBytesVal > 0 && <> 当前缓存约 <b>{formatBytes(cacheBytesVal)}</b>。</>}
+          清除<b>全部会话记录、保存的 PPT / 建站 / PDF、图片附件、本地经验</b>等，只保留你的设置（API Key、
+          飞书授权、主题等）。<b>不可恢复。</b>
+          {impactBytes != null && impactBytes > 0 && <> 当前约 <b>{formatBytes(impactBytes)}</b> 可清除。</>}
           {lastCleanedAt && <> 上次清理：{relTime(lastCleanedAt)}。</>}
         </p>
-        <Button variant="secondary" loading={clearing} onClick={() => void handleClearCache()} style={{ alignSelf: 'flex-start' }}>
-          立即清理缓存
-        </Button>
-        {cacheMsg && <p className="field-hint" style={{ marginTop: 6 }}>{cacheMsg}</p>}
+        {confirming ? (
+          <div className="cache-confirm">
+            <p className="field-hint" style={{ color: 'var(--color-error)' }}>
+              确认清除？将删除全部会话、PPT、建站、PDF、图片等，<b>只保留设置，且不可恢复</b>。
+            </p>
+            <div className="cache-confirm-actions">
+              <Button variant="danger" loading={clearing} onClick={() => void handleClearAll()}>
+                确认清除
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={clearing}>
+                取消
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="danger" onClick={() => setConfirming(true)} style={{ alignSelf: 'flex-start' }}>
+            清除全部数据
+          </Button>
+        )}
+        {cleanupMsg && <p className="field-hint" style={{ marginTop: 6 }}>{cleanupMsg}</p>}
       </SettingsSection>
     </>
   )
@@ -189,7 +208,7 @@ const ENGINE_OPTIONS: { value: TranslationEngine; label: string }[] = [
   { value: 'ai', label: 'AI 翻译（需配置模型密钥）' },
 ]
 
-const CACHE_INTERVAL_OPTIONS: { value: string; label: string }[] = [
+const CLEANUP_INTERVAL_OPTIONS: { value: string; label: string }[] = [
   { value: '0', label: '关闭' },
   { value: '3', label: '每 3 天' },
   { value: '7', label: '每 7 天' },
