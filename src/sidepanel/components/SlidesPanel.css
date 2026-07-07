@@ -11,11 +11,12 @@
 .sl-label { font-size: 12px; font-weight: 600; color: var(--color-text); }
 .sl-label-hint { font-weight: 400; color: var(--color-text-secondary); }
 
-/* ── Theme picker grid (2-up of ThemeThumb tiles) ──────────────────────── */
+/* ── Theme picker grid (responsive) ────────────────────────────────────── */
 /* The thumb styling (.sl-theme / .sl-theme--active / .sl-theme:disabled) lives in ThemeThumb.css;
-   this panel only owns the grid layout. 2-up (not 3-up) so each 16:9 swatch + name is large
-   enough to read and tap — 3-up made the tiles cramped and the buttons felt tiny. */
-.sl-themes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+   this panel only owns the grid layout. auto-fit + minmax keeps each tile ≥130px and ADDS columns
+   as the side panel widens (2-up at the default width → 3/4-up when dragged wider) instead of
+   stretching two tiles into an overly wide row. At the default panel width this is still 2-up. */
+.sl-themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 /* Auto-growing textarea: resize:none + overflow:hidden + JS sets height to scrollHeight, so there's
    never an internal scrollbar — the box grows with its content. min-height gives the taller default. */
 .sl-req {
