@@ -27,9 +27,9 @@
 }
 
 .settings-tab--active {
-  color: var(--color-bg);
+  color: #fff;
   font-weight: 600;
-  background: var(--color-text);
+  background: var(--color-primary);
 }
 
 /* ── Dark theme ── */
@@ -38,6 +38,6 @@
 }
 
 [data-theme="dark"] .settings-tab--active {
-  color: var(--color-bg);
-  background: var(--color-text-secondary);
+  color: #fff;
+  background: var(--color-primary);
 }
