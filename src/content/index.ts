@@ -4,6 +4,7 @@ import { rememberTenantOrigin } from '../shared/feishu/tenant'
 import { createDashboardUI } from './feishu-automation'
 import { renderViz, closeViz, writeResult, printViz } from './viz-overlay'
 import { refreshLauncher } from './viz-launcher'
+import './selection-button'
 
 function extractContext(selOverride?: string): PageContext {
   const url = location.href
