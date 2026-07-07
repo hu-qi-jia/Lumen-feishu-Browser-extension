@@ -6,9 +6,32 @@ export interface ToolCallDef {
   function: { name: string; arguments: string }
 }
 
+export interface SelectionAttachmentData {
+  kind: 'doc' | 'wiki'
+  /** Resolved to the underlying doc token (wiki → obj_token) before staging, so list_blocks works. */
+  docToken: string
+  docTitle: string
+  url: string
+  selectedText: string
+  /** Resolved async from list_blocks text-match; undefined until then. */
+  paragraphText?: string
+  headingText?: string
+}
+
+/** Wire payload sent content-script → background → side panel (no resolved context yet). */
+export interface DocSelectionPayload {
+  kind: 'doc' | 'wiki'
+  docToken: string
+  docTitle: string
+  url: string
+  selectedText: string
+}
+
+export type AttachmentType = 'image' | 'file' | 'selection'
+
 export interface Attachment {
   id: string
-  type: 'image' | 'file'
+  type: AttachmentType
   name: string
   mimeType: string
   size: number
@@ -16,6 +39,8 @@ export interface Attachment {
   dataUrl?: string
   /** Text content for file attachments (csv/tsv/txt). */
   content?: string
+  /** type === 'selection' — a doc snippet staged as chat context. */
+  selection?: SelectionAttachmentData
 }
 
 export interface ChatMessage {

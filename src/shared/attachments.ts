@@ -1,4 +1,4 @@
-import type { Attachment } from './types'
+import type { Attachment, DocSelectionPayload } from './types'
 import { fileToClip } from './clip/file'
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -222,4 +222,45 @@ export function attachmentsToContentParts(attachments: Attachment[]): Array<
     }
   }
   return parts
+}
+
+/** Max removable selection chips staged in the input box at once. */
+export const MAX_SELECTION_CHIPS = 5
+
+/** Build a selection Attachment from a wire payload (+optional resolved context). */
+export function selectionToAttachment(
+  payload: DocSelectionPayload,
+  ctx?: { paragraphText?: string; headingText?: string },
+): Attachment {
+  return {
+    id: crypto.randomUUID(),
+    type: 'selection',
+    name: payload.docTitle || '文档片段',
+    mimeType: 'text/x-feishu-selection',
+    size: 0,
+    selection: {
+      kind: payload.kind,
+      docToken: payload.docToken,
+      docTitle: payload.docTitle,
+      url: payload.url,
+      selectedText: payload.selectedText,
+      paragraphText: ctx?.paragraphText,
+      headingText: ctx?.headingText,
+    },
+  }
+}
+
+/** Pure: try to append a selection chip, enforcing the cap + exact-duplicate dedup.
+ *  Returns the new attachment list + whether it was added (and why not). */
+export function tryAddSelectionAttachment(
+  current: Attachment[],
+  payload: DocSelectionPayload,
+): { attachments: Attachment[]; added: boolean; reason?: 'dup' | 'limit' } {
+  const selCount = current.filter((a) => a.type === 'selection').length
+  if (selCount >= MAX_SELECTION_CHIPS) return { attachments: current, added: false, reason: 'limit' }
+  const dup = current.some(
+    (a) => a.type === 'selection' && a.selection?.docToken === payload.docToken && a.selection?.selectedText === payload.selectedText,
+  )
+  if (dup) return { attachments: current, added: false, reason: 'dup' }
+  return { attachments: [...current, selectionToAttachment(payload)], added: true }
 }
