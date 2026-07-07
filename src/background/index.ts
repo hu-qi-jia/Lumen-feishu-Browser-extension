@@ -11,7 +11,7 @@ import { captureClip, captureClipScrolling } from '../shared/clip/capture'
 import { MAX_CLIP_CHARS } from '../shared/clip/types'
 import type { ClipCapture } from '../shared/clip/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
-import type { AppSettings } from '../shared/types'
+import type { AppSettings, DocSelectionPayload } from '../shared/types'
 import { decryptField } from '../shared/crypto'
 import { fetchVizData, fetchDocDatasets, docOf } from '../shared/dataviz/data'
 import { loadVizList } from '../shared/dataviz/store'
@@ -202,6 +202,34 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try { sendResponse(resolved) } catch { /* channel closed */ }
   })()
   return true // async sendResponse
+})
+
+// ─── Selection → side panel: open the panel + stash the payload so the panel can pull it on
+// mount (mirrors the CLIP_REQUEST pattern — covers the open→message race where the panel
+// isn't listening yet). The button click is the user gesture MV3 requires for sidePanel.open.
+let pendingSelection: { payload: DocSelectionPayload; at: number } | null = null
+const SELECTION_TTL_MS = 3000
+
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.type !== 'OPEN_SIDE_PANEL_WITH_SELECTION') return undefined
+  const payload = msg.payload as DocSelectionPayload | undefined
+  if (!payload?.docToken || !payload?.selectedText) return undefined
+  pendingSelection = { payload, at: Date.now() }
+  const tabId = sender.tab?.id
+  if (tabId != null) chrome.sidePanel.open({ tabId }).catch(() => {})
+  // Best-effort push to an already-open panel (no-op if none listening yet — the pull covers it).
+  try { chrome.runtime.sendMessage({ type: 'SELECTION_INCOMING', payload }) } catch { /* panel not open */ }
+  return undefined
+})
+
+// Panel pulls the pending selection on mount (handles the open→message race), one-shot + TTL.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== 'SELECTION_REQUEST') return undefined
+  const s = pendingSelection
+  pendingSelection = null
+  if (s && Date.now() - s.at > SELECTION_TTL_MS) { sendResponse(null); return false } // stale → drop
+  sendResponse(s?.payload ?? null)
+  return false
 })
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
