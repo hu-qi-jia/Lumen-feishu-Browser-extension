@@ -131,6 +131,14 @@ export default function App() {
     }
   }
 
+  // Keep the latest handleSelectionIncoming in a ref so the mount-once runtime-message effect
+  // (dep [applyCtx], which never re-runs since applyCtx is useCallback([stable wikiCacheRef])) can
+  // invoke a FRESH closure every time — otherwise activeDocToken/settings captured at mount go
+  // stale after the user switches the working doc, misfiring the cross-doc dialog. Mirrors the
+  // contextRef / loadBaseCtxRef / hasConversationRef pattern used elsewhere in this file.
+  const handleSelectionIncomingRef = useRef(handleSelectionIncoming)
+  handleSelectionIncomingRef.current = handleSelectionIncoming
+
   // Ensure the pinned work doc is always in the recent list — a pin restored from storage on
   // mount (not via setWorkDoc→recordRecent) wouldn't be recorded otherwise, so it'd be missing
   // from the dropdown even though it's the active work doc.
@@ -208,7 +216,7 @@ export default function App() {
       // A page selection landed (content-script button → background relay). Resolve wiki →
       // compare to the working doc → stage a chip or pop the cross-doc switch dialog.
       if (msg.type === 'SELECTION_INCOMING') {
-        void handleSelectionIncoming(msg.payload as DocSelectionPayload)
+        void handleSelectionIncomingRef.current(msg.payload as DocSelectionPayload)
         return
       }
       // Trust context updates only from our own content scripts, and ignore pushes from a
@@ -234,7 +242,7 @@ export default function App() {
     // 3s TTL — see background/index.ts).
     chrome.runtime.sendMessage({ type: 'SELECTION_REQUEST' }).then((resp) => {
       const p = resp as DocSelectionPayload | null
-      if (p) void handleSelectionIncoming(p)
+      if (p) void handleSelectionIncomingRef.current(p)
     }).catch(() => { /* no background / no pending selection */ })
     return () => { chrome.runtime.onMessage.removeListener(onMsg) }
   }, [applyCtx])
