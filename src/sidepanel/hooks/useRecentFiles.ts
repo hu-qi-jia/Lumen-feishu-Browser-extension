@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { PageContext, SessionKind } from '../../shared/types'
-import { cleanDocTitle } from '../../shared/feishu/pageUrl'
-import { upsertRecent, removeRecent, loadRecent, saveRecent, type RecentFile } from '../recentFiles'
+import { upsertRecent, removeRecent, loadRecent, saveRecent, cleanRecentTitle, type RecentFile } from '../recentFiles'
 
 export interface RecentFilesApi {
   recentFiles: RecentFile[]
@@ -35,7 +34,9 @@ export function useRecentFiles(
 
   const recordRecent = useCallback((token: string, title: string, kind: SessionKind) => {
     setRecentFiles((prev) => {
-      const next = upsertRecent(prev, { token, title, kind })
+      // Clean centrally so NO caller (focused-tab recorder, pinned-doc recorder, pin picker) can
+      // leak a raw placeholder title like "飞书云文档" into storage.
+      const next = upsertRecent(prev, { token, title: cleanRecentTitle(title, kind), kind })
       if (next === prev) return prev // no-op — top entry unchanged
       void saveRecent(next)
       return next
@@ -61,9 +62,7 @@ export function useRecentFiles(
     const token = f.wikiToken ?? f.appToken ?? f.spreadsheetToken ?? f.documentId
     if (!token) return
     const pinKind: SessionKind = f.wikiToken ? 'wiki' : f.kind
-    const t = cleanDocTitle(title)
-      || (pinKind === 'sheet' ? '未命名表格' : pinKind === 'base' ? '未命名多维表格' : '未命名文档')
-    recordRecent(token, t, pinKind)
+    recordRecent(token, title, pinKind)
   }, [feishu, title, recentReady, recordRecent])
 
   return { recentFiles, ready: recentReady, recordRecent, removeFromRecent }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { upsertRecent, removeRecent, MAX_RECENT } from './recentFiles'
+import { upsertRecent, removeRecent, MAX_RECENT, cleanRecentTitle, displayName } from './recentFiles'
 import type { RecentFile } from './recentFiles'
 
 const f = (token: string, title: string, kind: RecentFile['kind'], seen: number): RecentFile =>
@@ -54,5 +54,24 @@ describe('removeRecent', () => {
   it('is a no-op (same ref) when the token is absent', () => {
     const files = [f('a', 'A', 'doc', 1)]
     expect(removeRecent(files, 'zzz')).toBe(files)
+  })
+})
+
+describe('cleanRecentTitle / displayName', () => {
+  it('strips the Feishu brand suffix from a real title', () => {
+    expect(cleanRecentTitle('季度复盘 - 飞书云文档', 'doc')).toBe('季度复盘')
+  })
+
+  it('never returns the raw placeholder "飞书云文档" — falls back per kind', () => {
+    // The bug: a loading Feishu page is titled "飞书云文档"; the dropdown must not show that.
+    expect(cleanRecentTitle('飞书云文档', 'doc')).toBe('未命名文档')
+    expect(cleanRecentTitle('飞书云文档', 'sheet')).toBe('未命名表格')
+    expect(cleanRecentTitle('飞书云文档', 'base')).toBe('未命名多维表格')
+    expect(cleanRecentTitle('', 'doc')).toBe('未命名文档')
+  })
+
+  it('displayName reads the row title + kind', () => {
+    expect(displayName(f('a', '飞书云文档', 'base', 1))).toBe('未命名多维表格')
+    expect(displayName(f('a', '销售表 — 飞书表格', 'sheet', 1))).toBe('销售表')
   })
 })

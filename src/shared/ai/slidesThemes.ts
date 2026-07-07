@@ -27,6 +27,9 @@ export interface SlideThemePalette {
 export interface SlideTheme {
   id: string
   name: string
+  /** One-line tooltip shown on the picker tile — a brief "what this look is for" cue (NOT the
+   *  LLM hint; that's `promptHint`). Keep it short so the hover tip stays scannable. */
+  desc?: string
   mode: 'light' | 'dark'
   palette: SlideThemePalette
   /** Absolute px on the 1920×1080 design canvas. */
@@ -50,6 +53,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'business',
     name: '商务',
+    desc: '稳重商务，适合数据汇报',
     mode: 'light',
     palette: { bg: '#ffffff', fg: '#1f2329', accent: '#3370ff', muted: '#646a73', card: '#f5f6f8', border: '#dee0e3' },
     typeScale: { hero: 104, heading: 58, body: 34, caption: 24 },
@@ -75,6 +79,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-bullets li::before{border-radius:3px;width:12px;height:12px;top:24px}' +
       '.s-chart{border:1px solid var(--border);border-radius:10px;background:var(--card);padding:16px}' +
       '.s-photo,.s-split-img,.s-card-img{border-radius:8px;box-shadow:0 3px 14px rgba(0,0,0,.08)}' +
+      '.s-step::before{background:var(--accent);opacity:.22}.s-step-node{font-weight:800}.s-step-title{font-weight:800}' +
       '.s-footer{font-weight:600}',
     promptHint:
       '商务风格。版式规则：连续2页不得同一layout，整份≥5种不同版式。' +
@@ -84,6 +89,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'editorial',
     name: '编辑',
+    desc: '杂志专栏，文字叙事为主',
     mode: 'light',
     palette: { bg: '#f7f4ee', fg: '#20242b', accent: '#b6532c', muted: '#7c766c', card: '#efeae0', border: '#e2dccf' },
     typeScale: { hero: 132, heading: 64, body: 38, caption: 26 },
@@ -119,7 +125,8 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-stat .s-num{font-family:var(--font-display);font-weight:900}' +
       '.s-photo,.s-split-img{border-radius:0;box-shadow:0 1px 0 var(--border)}' +
       '.s-card-img{border-radius:0;box-shadow:none;margin-bottom:20px;height:200px}' +
-      '.s-chart{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:24px 0}',
+      '.s-chart{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:24px 0}' +
+      '.s-step-node{font-family:var(--font-display);font-style:italic;font-weight:900;background:transparent;color:var(--accent);border:2px solid var(--accent)}.s-step-title{font-family:var(--font-display);font-weight:900}.s-step::before{background:var(--border)}',
     promptHint:
       '编辑杂志风。版式规则：section 章节分隔≥2页，quote≥2页（引言+收尾），two-col≥1页，bullets 叙事≤3条/页。' +
       '不用 chart/stats——以文字叙事为主，图片作插图点缀。' +
@@ -128,6 +135,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'night',
     name: '暗夜',
+    desc: '科技深色，图表突出',
     mode: 'dark',
     palette: { bg: '#0f1322', fg: '#e8ecf8', accent: '#7aa2ff', muted: '#8a93ad', card: '#161b2e', border: '#262d45' },
     typeScale: { hero: 112, heading: 60, body: 36, caption: 24 },
@@ -154,6 +162,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-bullets li::before{box-shadow:0 0 16px rgba(122,162,255,.5);border-radius:50%;width:12px;height:12px;top:24px}' +
       '.s-chart{border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.02);padding:16px}' +
       '.s-photo,.s-split-img,.s-card-img{border-radius:12px;box-shadow:0 0 32px rgba(122,162,255,.12);border:1px solid rgba(255,255,255,.07)}' +
+      '.s-step-node{font-family:' + MONO + ';box-shadow:0 0 0 6px var(--bg),0 0 22px rgba(122,162,255,.45)}.s-step::before{background:linear-gradient(90deg,transparent,rgba(122,162,255,.4),transparent)}.s-step-title{font-weight:700}' +
       '.s-footer{border-top-color:rgba(255,255,255,.08);font-family:' + MONO + '}',
     promptHint:
       '科技暗夜风。版式规则：chart+stats 占40%——数据可视化为主体，用深色系图表配色。' +
@@ -163,6 +172,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'minimal',
     name: '极简',
+    desc: '极简留白，纯文字排版',
     mode: 'light',
     palette: { bg: '#ffffff', fg: '#111111', accent: '#111111', muted: '#888888', card: '#fafafa', border: '#e8e8e8' },
     typeScale: { hero: 120, heading: 60, body: 32, caption: 22 },
@@ -196,6 +206,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-quote{font-weight:200;letter-spacing:-.02em}' +
       '.s-chart{border:none;padding:0}' +
       '.s-photo,.s-split-img,.s-card-img{border-radius:0;box-shadow:none}' +
+      '.s-step-node{background:transparent;color:var(--fg);border:1px solid var(--fg);font-weight:300}.s-step-title{font-weight:400;letter-spacing:-.01em}.s-step::before{background:var(--border)}' +
       '.s-footer{border-top:none;padding-top:0;font-weight:300;letter-spacing:.3em;text-transform:uppercase}',
     promptHint:
       '瑞士极简风。版式规则：bullets 为主（单列要点≤5条/页），two-col 用于对比（各≤3条），quote 用于点睛。' +
@@ -205,6 +216,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'vibrant',
     name: '活力',
+    desc: '活泼渐变，图文卡片',
     mode: 'light',
     palette: { bg: '#ffffff', fg: '#1a1a2e', accent: '#7c3aed', muted: '#6b7280', card: '#f5f3ff', border: '#ede9fe' },
     typeScale: { hero: 116, heading: 60, body: 34, caption: 24 },
@@ -228,6 +240,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-bullets li::before{background:linear-gradient(135deg,var(--accent),#ec4899);border-radius:5px;box-shadow:0 0 10px rgba(124,58,237,.28);width:13px;height:13px;top:24px}' +
       '.s-chart{border-radius:18px;background:linear-gradient(135deg,var(--card),#fdf2f8);padding:18px}' +
       '.s-photo,.s-split-img{border-radius:18px;box-shadow:0 8px 28px rgba(124,58,237,.14)}' +
+      '.s-step-node{background:linear-gradient(135deg,var(--accent),#ec4899);box-shadow:0 0 0 6px var(--bg),0 6px 18px rgba(124,58,237,.3)}.s-step::before{background:linear-gradient(90deg,transparent,var(--accent),#ec4899,var(--accent),transparent);opacity:.5}.s-step-title{font-weight:800}' +
       '.s-footer{border-top:none;font-weight:600}',
     promptHint:
       '活力品牌风。版式规则：cards 占30%（产品/特性卡片尽量带 image），image-split 占20%+，stats 占15%，cover 开场+bullets 叙事。' +
@@ -236,6 +249,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
   {
     id: 'pitch',
     name: '路演',
+    desc: '路演暗底，大数字冲击',
     mode: 'dark',
     palette: { bg: '#0a0a0a', fg: '#f5f5f5', accent: '#fbbf24', muted: '#9ca3af', card: '#171717', border: '#262626' },
     typeScale: { hero: 140, heading: 64, body: 34, caption: 24 },
@@ -261,6 +275,7 @@ export const BUILT_IN_THEMES: SlideTheme[] = [
       '.s-two{gap:80px}' +
       '.s-chart{border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.02);padding:16px}' +
       '.s-photo,.s-split-img,.s-card-img{border-radius:4px;box-shadow:0 4px 22px rgba(0,0,0,.5)}' +
+      '.s-step-node{background:var(--accent);color:#0a0a0a;font-weight:900;box-shadow:0 0 0 6px var(--bg),0 0 30px rgba(251,191,36,.42)}.s-step-title{font-weight:800}.s-step::before{background:var(--border)}' +
       '.s-footer{border-top-color:var(--border);font-weight:600}',
     promptHint:
       '融资路演风。版式规则：stats 占30%（每页一个巨号数字+一行说明），cover 开场冲击力强，bullets≤3条/页，cards 用于团队/优势。' +

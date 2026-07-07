@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import type { AppSettings, PageContext } from '../../shared/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { AppSettings, PageContext, SessionKind } from '../../shared/types'
 import { runMaterialsToSlides, adjustDeck, type Slide } from '../../shared/ai/slides'
 import type { SlideImage } from '../../shared/ai/slidesImages'
 import { loadDecks, saveDeck, deleteDeck, type SavedDeck, type SourceRef } from '../../shared/ai/slidesStore'
@@ -28,6 +28,9 @@ interface Props {
   onBack: () => void
   recentFiles: RecentFile[]
   onRemoveRecent?: (token: string) => void
+  /** Resolve a wiki-wrapped resource to its real kind so the source-dropdown icon is right
+   *  (a wiki-Base shows the base icon). Optional. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
 }
 
 const errText = (e: unknown) => isTokenExpiredError(e)
@@ -47,7 +50,7 @@ async function openDeck(deck: Deck, themeId: string, print = false, images: Slid
   await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/deckViewer.html') })
 }
 
-export default function SlidesPanel({ settings, disabled, onBack, recentFiles, onRemoveRecent }: Props) {
+export default function SlidesPanel({ settings, disabled, onBack, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [linkInput, setLinkInput] = useState('')
   const [sources, setSources] = useState<ResolvedSource[]>([])
   const [resolving, setResolving] = useState(false)
@@ -66,12 +69,17 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const [images, setImages] = useState<SlideImage[]>([])
   const [imgProg, setImgProg] = useState<{ done: number; total: number } | null>(null)
   const [imgFailed, setImgFailed] = useState(0)
+  const [imgFailedDetail, setImgFailedDetail] = useState('')
   const last = useRef<Deck | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const reqRef = useRef<HTMLTextAreaElement>(null)
   const adjRef = useRef<HTMLTextAreaElement>(null)
   const slideCount = last.current?.slides.length ?? 0
   const deckName = last.current?.name ?? ''
+
+  // Stable filtered list so the source dropdown's wiki-icon resolution effect doesn't re-run on
+  // every keystroke (an inline .filter() would mint a new array ref each render).
+  const sourceRecentFiles = useMemo(() => recentFiles.filter((f) => f.kind !== 'ppt'), [recentFiles])
 
   useEffect(() => { loadDecks().then(setDecks) }, [])
 
@@ -128,7 +136,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   async function generate() {
     if (busy || sources.length === 0) return
     const ac = new AbortController(); abortRef.current = ac
-    setBusy(true); setErrMsg(''); setStatus(''); setGenChars(0); setImgProg(null); setImgFailed(0)
+    setBusy(true); setErrMsg(''); setStatus(''); setGenChars(0); setImgProg(null); setImgFailed(0); setImgFailedDetail('')
     try {
       setStatus(`读取 ${sources.length} 份资料…`)
       const materials = []
@@ -148,6 +156,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
       last.current = deck
       setImages(pool)
       setImgFailed(r.imgFailed)
+      setImgFailedDetail(r.imgFailedDetail ?? '')
       setHasGen(true)
 
       // Auto-save so the deck is in history immediately (no manual 保存 step).
@@ -173,7 +182,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
     last.current = null
     setActiveDeckId('')
     setHasGen(false); setRequest(''); setStatus(''); setErrMsg(''); setGenChars(0); setAdjReq(''); setThemeId(DEFAULT_THEME_ID)
-    setImages([]); setImgProg(null); setImgFailed(0)
+    setImages([]); setImgProg(null); setImgFailed(0); setImgFailedDetail('')
   }
 
   /** 重新生成 — ONE button, dual meaning (no separate 调整):
@@ -229,7 +238,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
     const tid = d.themeId ?? DEFAULT_THEME_ID
     const imgs = d.images ?? []
     last.current = deck; setHasGen(true); setActiveDeckId(d.id); setAdjReq(''); setThemeId(tid); setImages(imgs)
-    setStatus(''); setErrMsg(''); setImgFailed(0)
+    setStatus(''); setErrMsg(''); setImgFailed(0); setImgFailedDetail('')
     try { await openDeck(deck, tid, false, imgs) }
     catch (e) { setErrMsg(errText(e)) }
   }
@@ -277,10 +286,11 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
                   <DocLinkField
                     value={linkInput}
                     onValueChange={setLinkInput}
-                    recentFiles={recentFiles.filter((f) => f.kind !== 'ppt')}
+                    recentFiles={sourceRecentFiles}
                     onPickRecent={(f) => void addRecent(f)}
                     onRemoveRecent={onRemoveRecent}
                     onSubmit={addLink}
+                    resolveWikiKind={resolveWikiKind}
                     placeholder="粘贴飞书文档 / 表格 / 多维表格链接"
                     disabled={busy || resolving}
                   />
@@ -373,7 +383,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
                 why fewer images than the doc contains may show (download failures / >60 cap). */}
             <div className="sl-field">
               <label className="sl-label">
-                图片（共 {images.length} 张{imgFailed > 0 ? ` · ${imgFailed} 张下载失败` : ''}）
+                图片（共 {images.length} 张{imgFailed > 0 ? ` · ${imgFailed} 张下载失败${imgFailedDetail ? `（${imgFailedDetail}）` : ''}` : ''}）
               </label>
               <ImagePicker
                 images={images}

@@ -20,7 +20,7 @@ import { resolveToken } from '../feishu/auth'
 /** One slide. `layout` picks how the sandbox renders it; fields are content the model fills. */
 export interface Slide {
   layout?: 'title' | 'section' | 'bullets' | 'two-col' | 'quote' | 'stats' | 'chart' | 'embed'
-    | 'cover' | 'cards' | 'image-split'
+    | 'cover' | 'cards' | 'image-split' | 'timeline'
   title?: string
   subtitle?: string
   eyebrow?: string
@@ -39,6 +39,8 @@ export interface Slide {
   image?: string
   imageSide?: 'left' | 'right'
   imageCaption?: string
+  /** layout:'timeline' — an ordered sequence of steps/milestones rendered on a connecting rail. */
+  steps?: Array<{ title?: string; body?: string }>
 }
 
 const arr = (v: unknown): string[] =>
@@ -51,7 +53,7 @@ export function sanitizeSlides(raw: unknown): Slide[] {
   for (const r0 of raw) {
     if (!r0 || typeof r0 !== 'object') continue
     const r = r0 as Record<string, unknown>
-    const layout = (['title', 'section', 'bullets', 'two-col', 'quote', 'stats', 'chart', 'embed', 'cover', 'cards', 'image-split'] as const)
+    const layout = (['title', 'section', 'bullets', 'two-col', 'quote', 'stats', 'chart', 'embed', 'cover', 'cards', 'image-split', 'timeline'] as const)
       .find((l) => l === r.layout) ?? 'bullets'
     const s: Slide = { layout }
     if (typeof r.title === 'string') s.title = r.title.slice(0, 120)
@@ -89,6 +91,15 @@ export function sanitizeSlides(raw: unknown): Slide[] {
         return card
       })
     }
+    if (Array.isArray(r.steps)) {
+      s.steps = (r.steps as unknown[]).slice(0, 6).map((c) => {
+        const o = (c ?? {}) as Record<string, unknown>
+        const step: NonNullable<Slide['steps']>[number] = {}
+        if (typeof o.title === 'string') step.title = o.title.slice(0, 60)
+        if (typeof o.body === 'string') step.body = o.body.slice(0, 140)
+        return step
+      }).filter((st) => st.title || st.body)
+    }
     // A chart slide carries a self-contained ECharts option object (data inside).
     if (layout === 'chart' && r.chart && typeof r.chart === 'object') s.chart = r.chart as Record<string, unknown>
     // An embed slide carries a saved 看板's render code, OR (no-remote-code / Plan B) a declarative
@@ -97,7 +108,7 @@ export function sanitizeSlides(raw: unknown): Slide[] {
     if (layout === 'embed' && typeof r.code === 'string') s.code = r.code
     if (layout === 'embed' && r.spec && typeof r.spec === 'object') s.spec = r.spec as Slide['spec']
     // Drop empty/no-content slides (nothing to show).
-    if (s.title || s.subtitle || s.quote || s.bullets?.length || s.bullets2?.length || s.stats?.length || s.cards?.length || s.chart || s.code || s.spec || s.image) out.push(s)
+    if (s.title || s.subtitle || s.quote || s.bullets?.length || s.bullets2?.length || s.stats?.length || s.cards?.length || s.steps?.length || s.chart || s.code || s.spec || s.image) out.push(s)
   }
   return out.slice(0, 24)
 }
@@ -134,15 +145,15 @@ export async function adjustDeck(
   const pool = input.images ?? []
   const numbered = input.slides.map((s, i) => `${i + 1}. ${JSON.stringify(s)}`).join('\n')
   const layoutLine = pool.length
-    ? `可选 layout：title / section / bullets / two-col / quote / stats / chart / cover / cards / image-split`
-    : `可选 layout：title / section / bullets / two-col / quote / stats / chart（无可用图片，禁止 cover 背景图 / image-split）`
+    ? `可选 layout：title / section / bullets / two-col / quote / stats / chart / cover / cards / image-split / timeline`
+    : `可选 layout：title / section / bullets / two-col / quote / stats / chart / timeline（无可用图片，禁止 cover 背景图 / image-split）`
   const imageLine = pool.length
     ? `\n【可用图片】\n${pool.map((im) => `- ${im.id}（${im.label}）`).join('\n')}\n把图片放到指定页时：把该页 image 改为此 id，layout 改为 image-split（或 cover/cards），可用 imageSide 控制左右。\n`
     : ``
   const content =
     `下面是一套完整的演示幻灯片（JSON 数组，共 ${input.slides.length} 页，已标注页码）。请按【修改要求】修改其中需要改的页，**没有明确提到的页必须原样保留**。\n` +
     `修改要求里可能用自然语言指代页码或范围（如"第3页"、"封面"、"第5-7页"、"每页"、"全部"），由你判断该改哪些页；也可能指代某张图片（按其 label）。\n` +
-    `${layoutLine}；字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats、chart、cards[]、image、imageSide、imageCaption。\n` +
+    `${layoutLine}；字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats、chart、cards[]、steps[]、image、imageSide、imageCaption。\n` +
     `可以改 layout、文字、要点，或把某页改成 chart / image-split。文字精炼（标题≤20 字、要点≤30 字）。\n` +
     `只输出修改后的【完整 slides JSON 数组】（必须包含所有页、顺序不变，包括没改的），不要解释、不要代码围栏。\n` +
     `【当前幻灯片】\n${numbered}\n${imageLine}【修改要求】${input.instruction}`
@@ -169,6 +180,7 @@ function buildDataSlidesPrompt(schema: VizField[], sampleRows: Record<string, st
     `  · {"layout":"bullets","title":"小标题","bullets":["要点",...]} —— 概览 / 维度说明 / 发现，每页 3–6 条\n` +
     `  · {"layout":"two-col","title":"小标题","bullets":[...],"bullets2":[...]} —— 对比 / 分组\n` +
     `  · {"layout":"stats","title":"小标题","stats":[{"num":"123","label":"说明"},...]} —— 关键数字\n` +
+    `  · {"layout":"timeline","title":"小标题","steps":[{"title":"阶段一","body":"一句话说明"},...]} —— 流程 / 路线图 / 阶段演进（3–6 步）\n` +
     `  · {"layout":"chart","title":"小标题","chart":{完整 ECharts 配置对象}} —— **数据维度优先用图表展示**（分布/占比→饼或柱、趋势→折线、排名→条形），这样才像真正的 PPT。chart 必须是自包含 ECharts option：把从【样本数据】里数出来 / 算出来的数字直接写进 series.data，类目写进 xAxis.data 或 pie 的 name；类型只用 bar / line / pie / scatter；不设 backgroundColor。\n` +
     `  · {"layout":"quote","quote":"结论","by":"可选"} —— 重点结论 / 建议收尾\n` +
     `【内容建议】封面 → 这张表在跟踪什么（字段含义）→ **用 1–3 张 chart 展示主要分布 / 占比 / 排名 / 趋势** → 值得注意的模式 → 结论 / 建议。\n` +
@@ -220,11 +232,11 @@ function buildMaterialsPrompt(materials: Material[], request?: string, themeHint
   })
   const layoutLine =
     pool.length
-      ? `可选 layout：title / section / bullets / two-col / quote / stats / chart / **cover / cards / image-split**（cover/image-split 需配图）`
-      : `可选 layout：title / section / bullets / two-col / quote / stats / chart（本次没有可用图片，**禁止使用 cover 背景图 / image-split 等需要图片的版式**）`
+      ? `可选 layout：title / section / bullets / two-col / quote / stats / chart / **cover / cards / image-split**（cover/image-split 需配图）/ timeline`
+      : `可选 layout：title / section / bullets / two-col / quote / stats / chart / timeline（本次没有可用图片，**禁止使用 cover 背景图 / image-split 等需要图片的版式**）`
   const fieldsLine = pool.length
-    ? `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart、cards[{title,body,num,image}]、image(图片id)、imageSide(left|right)、imageCaption。`
-    : `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart。`
+    ? `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart、cards[{title,body,num,image}]、steps[{title,body}]、image(图片id)、imageSide(left|right)、imageCaption。`
+    : `字段：title、subtitle、eyebrow、bullets[]、bullets2[]、quote、by、stats[{num,label}]、chart、steps[{title,body}]。`
   const imageLine = pool.length
     ? `\n【可用图片（image 字段填这些 id 之一）】\n${pool.map((im) => `- ${im.id}（${im.source === 'doc' ? '文档图' : '用户上传'}·${im.label}${im.context ? `·上下文:${im.context}` : ''}）`).join('\n')}\n**文档图必须按上下文落到对应页**：正文里的【图n】就是该图在原文的位置——讲到那段内容的那一页要用 image-split（image 填该图 id），让图与讲解同页。不要把多张图堆在同一页，**也不要漏掉任何一张文档图（每张文档图至少出现一次）**。上传图只在用户明确要求放到某页时使用。图片说明从其上下文推断，不要编造。\n`
     : ``
@@ -237,12 +249,13 @@ function buildMaterialsPrompt(materials: Material[], request?: string, themeHint
     `  · {"layout":"two-col","title":"小标题","bullets":[...],"bullets2":[...]} —— 对比 / 分组\n` +
     `  · {"layout":"stats","title":"小标题","stats":[{"num":"123","label":"说明"},...]} —— 关键数字\n` +
     `  · {"layout":"cards","title":"小标题","cards":[{"title":"","body":"","num":"","image":""},...]} —— 卡片网格\n` +
+    `  · {"layout":"timeline","title":"小标题","steps":[{"title":"阶段一","body":"一句话说明"},...]} —— 流程 / 路线图 / 里程碑 / 演进时间线（3–6 步，按顺序）\n` +
     `  · {"layout":"image-split","title":"","image":"图片id","imageSide":"left|right","bullets":[...]} —— 图文左右\n` +
     `  · {"layout":"chart","title":"小标题","chart":{完整 ECharts 配置对象}} —— **数据维度优先用图表展示**（分布/占比→饼或柱、趋势→折线、排名→条形）。chart 必须是自包含 ECharts option：把【样本数据】里数出来的数字直接写进 series.data，类目写进 xAxis.data 或 pie 的 name；类型只用 bar / line / pie / scatter；不设 backgroundColor。\n` +
     `  · {"layout":"quote","quote":"结论","by":"可选"} —— 重点结论 / 收尾\n` +
     `${fieldsLine}\n` +
     `【诚实硬规则】**只用上面资料里能直接读到 / 数出来的数字**；表格样本可能不是全部行，凡涉及数量请措辞为「样本中…」，**绝不编造精确总数或比例**；只用真实存在的字段名；不确定的用定性要点而非假数字。\n` +
-    `【要求】约 8–16 张（视内容长短，最多 24 张；每页一个主题）；第 1 张必须是 title 或 cover 封面；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
+    `【要求】约 8–16 张（视内容长短，最多 24 张；每页一个主题）；第 1 张必须是 **title 封面**，且**封面页（第 1 页）禁止任何图片**——不要用 cover 背景图、不要把 image-split 放在第 1 页，所有图片从第 2 页起再用；文字精炼（标题≤20 字、要点≤30 字）；用中文。\n` +
     `【视觉风格】${themeHint || '商务克制：结论先行、要点精炼、避免装饰。'}\n` +
     `【内容预算】画布固定 1920×1080 且不滚动：每页只承载一个主题。\n` +
     (request?.trim() ? `【用户额外要求】${request.trim()}\n` : '') +
@@ -260,6 +273,21 @@ export interface MaterialsSlidesResult {
   /** Doc images that were attempted but failed to download — surfaced so the UI can explain why
    *  fewer images than the doc contains appear in the pool/tray. */
   imgFailed: number
+  /** Human-readable breakdown of why images failed (e.g. "2 网络错误·1 解码失败"). Empty when
+   *  nothing failed or when the reason is unclassified. */
+  imgFailedDetail?: string
+}
+
+/** Turn classified image failures into a compact Chinese summary for the UI. Pure. Tolerates a
+ *  missing list (the test seam / future alt fetchers may return only {images, failedTokens}). */
+export function summarizeImageFailures(failures: Array<{ reason: string }> | undefined): string {
+  if (!failures?.length) return ''
+  const labels: Record<string, string> = { http: '网络/接口', decode: '解码', other: '其他' }
+  const counts: Record<string, number> = {}
+  for (const f of failures) counts[f.reason] = (counts[f.reason] ?? 0) + 1
+  return Object.entries(counts)
+    .map(([k, v]) => `${v} ${labels[k] ?? k}`)
+    .join('·')
 }
 
 /** Guarantee EVERY doc image appears in the deck. Two passes:
@@ -290,12 +318,14 @@ export function placeDocImages(slides: Slide[], images: SlideImage[]): Slide[] {
   }
   const rows = slides.map((s) => ({ s, toks: toks(textOf(s)) }))
 
-  // Pass 1 — best textual match onto a bullets/two-col page.
+  // Pass 1 — best textual match onto a bullets/two-col page. The cover (slide 0) is never a
+  // placement target — see stripFirstPageImage; the first page must stay image-free.
   for (const img of docImgs) {
     if (placed.has(img.id)) continue
     const imgTok = toks(`${img.context ?? ''} ${img.label}`)
     let best = -1, bestScore = -1
     for (let i = 0; i < rows.length; i++) {
+      if (i === 0) continue                                // never place on the cover
       if (rows[i].s.image) continue                        // already carries an image
       if (!PLACEABLE.has(rows[i].s.layout ?? 'bullets')) continue
       let score = 0
@@ -363,6 +393,31 @@ function stripFailedImageRefs(slides: Slide[], validIds: Set<string>): Slide[] {
   return slides
 }
 
+/** The cover/title page (slide 0) must carry NO image. The model is told to make page 1 a plain
+ *  `title` cover, but it sometimes returns `cover` with a background image or even an `image-split`
+ *  at index 0. This strips any image there so the rule holds regardless of model behaviour:
+ *  image-split → bullets (its text side survives), cover → title, cards → each card loses its
+ *  image, anything else just drops `image`. Run BEFORE placeDocImages so a doc image that lived only
+ *  on the cover gets re-placed onto a content page (or the gallery) instead of being lost.
+ *  Pure mutation of the passed array. */
+export function stripFirstPageImage(slides: Slide[]): Slide[] {
+  if (!slides.length) return slides
+  const s = slides[0]
+  if (s.image) {
+    if (s.layout === 'image-split') {
+      s.layout = 'bullets'
+      delete s.image; delete s.imageSide; delete s.imageCaption
+    } else if (s.layout === 'cover') {
+      s.layout = 'title'
+      delete s.image
+    } else {
+      delete s.image
+    }
+  }
+  if (s.cards) for (const c of s.cards) delete c.image
+  return slides
+}
+
 /** Generate one deck synthesized from N resolved+materials (docs + tables). No embed slides —
  *  embed (saved-board) reuse is a current-table concept that doesn't apply to multi-link input.
  *
@@ -409,9 +464,9 @@ export async function runMaterialsToSlides(
   //    is a test seam that ignores the token, so skip the (settings-dependent) resolve in that case.
   const useRealFetcher = fetch === harvestDocImages
   const token = useRealFetcher ? await resolveToken(settings) : ''
-  const downloadP: Promise<{ images: SlideImage[]; failedTokens: string[] }> = capped.length
+  const downloadP: Promise<{ images: SlideImage[]; failedTokens: string[]; failures: Array<{ reason: string; detail: string }> }> = capped.length
     ? fetch({ userToken: token, docImages: capped, signal: opts?.signal, onProgress: opts?.onImageProgress })
-    : Promise.resolve({ images: [], failedTokens: [] })
+    : Promise.resolve({ images: [], failedTokens: [], failures: [] })
   const llmP: Promise<string> = chatCompleteStream(settings, buildMaterialsPrompt(materials, request, opts?.themeHint, provisionalPool), {
     signal: opts?.signal, onChunk: (f) => opts?.onProgress?.(f.length),
   })
@@ -421,10 +476,10 @@ export async function runMaterialsToSlides(
   let parsed: { title?: string; slides?: unknown }
   try { parsed = JSON.parse(out) } catch { throw new Error('幻灯片解析失败，请重试或换一个支持 JSON 输出的模型。') }
 
-  // 4) 剥离指向失败/幻觉图片的引用，再补全未被引用的文档图
+  // 4) 剥离指向失败/幻觉图片的引用 → 清空封面页图片 → 补全未被引用的文档图
   const survivorIds = new Set(harvested.images.map((i) => i.id))
   const pool: SlideImage[] = harvested.images
-  const slides = placeDocImages(stripFailedImageRefs(sanitizeSlides(parsed.slides), survivorIds), pool)
+  const slides = placeDocImages(stripFirstPageImage(stripFailedImageRefs(sanitizeSlides(parsed.slides), survivorIds)), pool)
   if (!slides.length) throw new Error('没有生成可用的幻灯片内容。')
   return {
     name: String(parsed.title || '综合演示').slice(0, 40),
@@ -433,5 +488,6 @@ export async function runMaterialsToSlides(
     truncated: docs.some((d) => d.text.length > perDoc) || globalDocImages.length > MAX_DOC_IMAGES,
     sources: materials.map((m) => ({ kind: m.kind, label: m.label, url: m.url })),
     imgFailed: harvested.failedTokens.length,
+    imgFailedDetail: summarizeImageFailures(harvested.failures),
   }
 }

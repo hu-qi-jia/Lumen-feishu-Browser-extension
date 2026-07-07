@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import type { AppSettings, PageContext } from '../../shared/types'
+import type { AppSettings, PageContext, SessionKind } from '../../shared/types'
 import type { ScenarioTemplate, ProgressStep, CreationResult } from '../../shared/templates/types'
 import { BUILTIN_TEMPLATES } from '../../shared/templates/builtin'
 import { executeTemplate } from '../../shared/templates/engine'
@@ -34,6 +34,9 @@ interface Props {
   /** Recent docs/sheets surfaced to sub-panels (e.g. PDF 转写's target-document combobox). */
   recentFiles: RecentFile[]
   onRemoveRecent?: (token: string) => void
+  /** Resolve a wiki-wrapped resource to its real kind, forwarded to SlidesPanel's source dropdown
+   *  so wiki-Base/Sheet rows show the right type icon. Optional. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
 }
 
 type View =
@@ -68,7 +71,7 @@ const HUB_ICONS: Record<string, React.ReactNode> = {
   file: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></>),
 }
 
-export default function ScenarioPanel({ settings, context, disabled, onBusyChange, recentFiles, onRemoveRecent }: Props) {
+export default function ScenarioPanel({ settings, context, disabled, onBusyChange, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [view, setView] = useState<View>({ mode: 'hub' })
   const [templates, setTemplates] = useState<ScenarioTemplate[]>(BUILTIN_TEMPLATES)
   const [search, setSearch] = useState('')
@@ -221,7 +224,7 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
   }
 
   if (view.mode === 'slides') {
-    return <SlidesPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
+    return <SlidesPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} resolveWikiKind={resolveWikiKind} />
   }
 
   if (view.mode === 'pdfTranscribe') {

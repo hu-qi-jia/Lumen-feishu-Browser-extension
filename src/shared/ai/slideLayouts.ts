@@ -63,8 +63,15 @@ const imageSplit: Fn = (s, ctx) => {
   return `<div class="s-split s-split--${s.imageSide ?? 'right'}">${s.imageSide === 'left' ? img + text : text + img}</div>`
 }
 
+const timeline: Fn = (s) => {
+  const steps = (s.steps ?? []).map((st, i) =>
+    `<div class="s-step"><div class="s-step-node">${i + 1}</div>${st.title ? `<div class="s-step-title">${esc(st.title)}</div>` : ''}${st.body ? `<div class="s-step-body">${esc(st.body)}</div>` : ''}</div>`,
+  ).join('')
+  return `${eyebrow(s)}${head(s)}<div class="s-timeline">${steps}</div>`
+}
+
 const LAYOUTS: Record<string, Fn> = {
-  title, section, quote, twocol: twoCol, bullets, stats, chart, embed, cover, cards,
+  title, section, quote, twocol: twoCol, bullets, stats, chart, embed, cover, cards, timeline,
   'image-split': imageSplit, 'two-col': twoCol,
 }
 

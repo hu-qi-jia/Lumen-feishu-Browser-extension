@@ -11,7 +11,7 @@ vi.mock('./llm', () => ({ chatCompleteStream: vi.fn(async (_s: unknown, content:
   if (/可用图片/.test(content)) return JSON.stringify({ title: 'T', slides: [{ layout: 'image-split', title: 'x', image: 'doc-1' }] })
   return JSON.stringify({ title: 'T', slides: [{ layout: 'bullets', title: '无图', bullets: ['a'] }] })
 }) }))
-import { sanitizeSlides, runMaterialsToSlides, adjustDeck, placeDocImages } from './slides'
+import { sanitizeSlides, runMaterialsToSlides, adjustDeck, placeDocImages, stripFirstPageImage, summarizeImageFailures } from './slides'
 
 describe('sanitizeSlides — coerce model output into safe, well-formed slides', () => {
   it('returns [] for non-array input', () => {
@@ -125,6 +125,17 @@ describe('sanitizeSlides — new layouts & fields', () => {
     expect(out.cards![0].body!.length).toBeLessThanOrEqual(160)
   })
 
+  it('accepts timeline layout with steps (capped at 6, body truncated, blanks dropped)', () => {
+    const steps = Array.from({ length: 9 }, (_, i) => ({ title: `s${i}`, body: 'b'.repeat(200) }))
+    const out = sanitizeSlides([{ layout: 'timeline', title: '路线', steps }])[0]
+    expect(out.layout).toBe('timeline')
+    expect(out.steps?.length).toBe(6)
+    expect(out.steps![0].body!.length).toBeLessThanOrEqual(140)
+    // blank steps are filtered out
+    const out2 = sanitizeSlides([{ layout: 'timeline', steps: [{ title: 'a' }, { body: '' }, {}] }])[0]
+    expect(out2.steps?.length).toBe(1)
+  })
+
   it('keeps new fields optional (old decks load unchanged)', () => {
     const out = sanitizeSlides([{ layout: 'bullets', title: '老页', bullets: ['a'] }])[0]
     expect(out.eyebrow).toBeUndefined()
@@ -200,17 +211,20 @@ describe('placeDocImages — guarantee every doc image appears', () => {
     expect(placeDocImages(slides as never, [docImg('doc-1', 'x')])).toEqual(slides)
   })
 
-  it('injects an unreferenced doc image onto the best-matching text slide as image-split', () => {
+  it('injects an unreferenced doc image onto the best-matching text slide as image-split (never the cover)', () => {
     const slides = [
+      { layout: 'title', title: '封面' },
       { layout: 'bullets', title: '产品架构', bullets: ['模块一', '模块二'] },
       { layout: 'bullets', title: '团队介绍', bullets: ['成员'] },
     ]
-    // doc-2 was never referenced; its context '架构' overlaps slide 0, not slide 1.
+    // doc-2 was never referenced; its context '架构' overlaps slide 1 (NOT the cover at slide 0).
     const out = placeDocImages(slides as never, [docImg('doc-2', '产品架构｜系统组成')])
-    expect(out[0].layout).toBe('image-split')
-    expect(out[0].image).toBe('doc-2')
-    expect(out[0].bullets).toEqual(['模块一', '模块二']) // original bullets preserved on the text side
-    expect(out[1].layout).toBe('bullets') // untouched
+    expect(out[0].layout).toBe('title')            // cover untouched — page 1 stays image-free
+    expect(out[0].image).toBeUndefined()
+    expect(out[1].layout).toBe('image-split')
+    expect(out[1].image).toBe('doc-2')
+    expect(out[1].bullets).toEqual(['模块一', '模块二']) // original bullets preserved on the text side
+    expect(out[2].layout).toBe('bullets') // untouched
   })
 
   it('appends an orphan with no text match to a cards gallery page (still guarantees placement)', () => {
@@ -266,5 +280,46 @@ describe('placeDocImages — guarantee every doc image appears', () => {
       s.cards?.forEach((c) => { if (c.image) referenced.add(c.image) })
     }
     expect(referenced).toEqual(new Set(['doc-1', 'doc-2', 'doc-3']))
+  })
+})
+
+describe('stripFirstPageImage — page 1 never carries an image', () => {
+  it('drops a cover background image (cover → title)', () => {
+    const out = stripFirstPageImage([{ layout: 'cover', title: '封面', image: 'doc-1' }, { layout: 'bullets', title: 'a', bullets: ['x'] }])
+    expect(out[0].layout).toBe('title')
+    expect(out[0].image).toBeUndefined()
+    expect(out[1].layout).toBe('bullets') // other slides untouched
+  })
+
+  it('degrades an image-split cover to bullets, preserving the text side', () => {
+    const out = stripFirstPageImage([{ layout: 'image-split', title: '封面', image: 'doc-1', imageSide: 'right', bullets: ['a'] }])
+    expect(out[0].layout).toBe('bullets')
+    expect(out[0].image).toBeUndefined()
+    expect(out[0].imageSide).toBeUndefined()
+    expect(out[0].bullets).toEqual(['a'])
+  })
+
+  it('strips images from cards on the cover', () => {
+    const out = stripFirstPageImage([{ layout: 'cards', title: '封面', cards: [{ image: 'doc-1', title: 'x' }, { image: 'doc-2' }] }])
+    expect(out[0].cards?.[0].image).toBeUndefined()
+    expect(out[0].cards?.[1].image).toBeUndefined()
+  })
+
+  it('leaves a clean title cover and an empty deck unchanged', () => {
+    expect(stripFirstPageImage([{ layout: 'title', title: '封面' }])).toEqual([{ layout: 'title', title: '封面' }])
+    expect(stripFirstPageImage([])).toEqual([])
+  })
+})
+
+describe('summarizeImageFailures', () => {
+  it('returns empty string for no failures', () => {
+    expect(summarizeImageFailures([])).toBe('')
+  })
+  it('groups by reason in Chinese', () => {
+    const failures = [{ reason: 'http' }, { reason: 'http' }, { reason: 'decode' }, { reason: 'other' }]
+    const s = summarizeImageFailures(failures)
+    expect(s).toContain('2 网络/接口')
+    expect(s).toContain('1 解码')
+    expect(s).toContain('1 其他')
   })
 })

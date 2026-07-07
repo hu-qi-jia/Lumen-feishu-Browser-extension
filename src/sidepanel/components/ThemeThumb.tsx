@@ -68,7 +68,8 @@ export function ThemeThumb({ theme, selected, disabled, onSelect }: Props) {
       <span className="sl-theme-name">{theme.name}</span>
     </button>
   )
-  return theme.promptHint
-    ? <Tooltip content={theme.promptHint} position="top">{button}</Tooltip>
-    : button
+  // Prefer the short `desc` for the hover tip (promptHint is a long LLM-tone hint that's too
+  // verbose for a tooltip). Fall back to promptHint only if a theme has no desc.
+  const tip = theme.desc ?? theme.promptHint
+  return tip ? <Tooltip content={tip} position="top">{button}</Tooltip> : button
 }

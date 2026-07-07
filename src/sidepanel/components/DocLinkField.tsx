@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { RecentFile } from '../recentFiles'
+import type { SessionKind } from '../../shared/types'
+import { displayName, type RecentFile } from '../recentFiles'
 import { KindIcon, IconX } from './icons'
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
   disabled?: boolean
   /** Fire on Enter (optional) — e.g. SlidesPanel submits the typed link as a source. */
   onSubmit?: () => void
+  /** Resolve a wiki-wrapped resource to its real kind so its icon is right (a wiki-Base shows the
+   *  base icon). Optional — when absent, wiki entries fall back to the doc icon. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
 }
 
 /**
@@ -28,8 +32,11 @@ interface Props {
  * The `.dc-*` class names + testids are shared with the old monolithic DocCombobox so its test
  * keeps passing and the two panels read as the same control.
  */
-export default function DocLinkField({ value, onValueChange, recentFiles, onPickRecent, onRemoveRecent, placeholder, disabled, onSubmit }: Props) {
+export default function DocLinkField({ value, onValueChange, recentFiles, onPickRecent, onRemoveRecent, placeholder, disabled, onSubmit, resolveWikiKind }: Props) {
   const [open, setOpen] = useState(false)
+  // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows the base
+  // icon). The pick still uses the stored 'wiki' kind so resolveSource re-resolves it on add.
+  const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
   const rootRef = useRef<HTMLDivElement>(null)
 
   // Close on outside click. Kept here (not in a caller) so every consumer gets it for free.
@@ -41,6 +48,28 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
+
+  // Resolve wiki display kinds when the dropdown opens (bounded by the wiki-typed recent count,
+  // usually 0–2). Mirrors DocSelector so a knowledge-base-wrapped Base/Sheet shows the right icon.
+  useEffect(() => {
+    if (!open) return
+    const wikiTokens = recentFiles.filter((d) => d.kind === 'wiki').map((d) => d.token)
+    if (!wikiTokens.length || !resolveWikiKind) return
+    let cancelled = false
+    void Promise.all(wikiTokens.map(async (tok) => {
+      const real = await resolveWikiKind(tok)
+      return real && real !== 'wiki' ? ([tok, real] as const) : null
+    })).then((entries) => {
+      if (cancelled) return
+      const m: Record<string, SessionKind> = {}
+      for (const e of entries) if (e) m[e[0]] = e[1]
+      setWikiKinds(m)
+    }).catch(() => { /* leave wiki icons as the doc fallback */ })
+    return () => { cancelled = true }
+  }, [open, recentFiles, resolveWikiKind])
+
+  const displayKind = (f: RecentFile): SessionKind =>
+    f.kind === 'wiki' ? (wikiKinds[f.token] ?? 'doc') : f.kind
 
   const q = value.trim().toLowerCase()
   const filtered = q
@@ -66,10 +95,12 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
       )}
       {open && filtered.length > 0 && (
         <div className="dc-dropdown" data-testid="dc-dropdown">
-          {filtered.map((f) => (
+          {filtered.map((f) => {
+            const k = displayKind(f)
+            return (
             <div key={f.token} className="dc-row" onClick={() => { onPickRecent(f); setOpen(false) }}>
-              <span className="dc-row-icon"><KindIcon kind={f.kind} /></span>
-              <span className="dc-row-title">{f.title}</span>
+              <span className={`dc-row-icon dc-row-icon--${k}`}><KindIcon kind={k} /></span>
+              <span className="dc-row-title">{displayName(f)}</span>
               {onRemoveRecent && (
                 <button type="button" className="dc-row-x" aria-label="移除"
                   onClick={(e) => { e.stopPropagation(); onRemoveRecent(f.token) }}>
@@ -77,7 +108,8 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
                 </button>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -55,4 +55,15 @@ describe('slideInnerHtml', () => {
     const noCap = slideInnerHtml({ layout: 'image-split', title: 't', image: 'doc-1' }, ctx)
     expect(noCap).toContain('alt="文档图1"')
   })
+  it('timeline renders numbered nodes in order with step titles + bodies', () => {
+    const html = slideInnerHtml({ layout: 'timeline', title: '路线图', eyebrow: '规划', steps: [
+      { title: '阶段一', body: '立项调研' }, { title: '阶段二', body: '开发上线' },
+    ] }, ctx)
+    expect(html).toContain('s-timeline')
+    expect(html.match(/s-step-node/g)?.length).toBe(2)
+    expect(html).toMatch(/s-step-node.*>1<.*s-step-node.*>2</s) // numbered 1 then 2
+    expect(html).toContain('阶段一')
+    expect(html).toContain('开发上线')
+    expect(html).toContain('s-footer') // footer still appended
+  })
 })

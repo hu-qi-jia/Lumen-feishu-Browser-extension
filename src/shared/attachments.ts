@@ -45,26 +45,62 @@ export function computeTargetSize(width: number, height: number, longEdge: numbe
   return { width: Math.round(width * ratio), height: Math.round(height * ratio) }
 }
 
+type Drawable = ImageBitmap | HTMLImageElement
+
+/** Decode an image Blob into something a canvas can draw, robustly. `createImageBitmap` is the
+ *  preferred path: it sniffs the image format natively and decodes blobs whose Content-Type is
+ *  empty or generic (Feishu's medias download often returns images with no precise MIME), where a
+ *  data-URL + `new Image()` round-trip silently fails to decode. Falls back to `<img>` for the rare
+ *  environment without `createImageBitmap`, inferring a real MIME from magic bytes so the data URL
+ *  is decodable instead of `data:;base64,…` (which `<img>` frequently refuses). */
+async function blobToDrawable(blob: Blob): Promise<Drawable> {
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(blob) } catch { /* fall through to <img> */ }
+  }
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const mime = blob.type && blob.type.startsWith('image/') ? blob.type : inferImageMimeFromBytes(bytes)
+  return loadImage(`data:${mime};base64,${bytesToBase64(bytes)}`)
+}
+
+function inferImageMimeFromBytes(b: Uint8Array): string {
+  if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg'
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png'
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif'
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45) return 'image/webp'
+  if (b[0] === 0x42 && b[1] === 0x4d) return 'image/bmp'
+  return 'image/png' // best-effort default
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = ''
+  const CHUNK = 0x8000 // avoid call-stack limits on large images
+  for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  return btoa(bin)
+}
+
 /** Compress any Blob (image) to a dataUrl, clamped to longEdge px. Reused by chat attachments
- *  AND slides images. Defaults: longEdge 1280 (chat). Slides passes 1024. */
+ *  AND slides images. Defaults: longEdge 1280 (chat). Slides passes 1024.
+ *
+ *  Output format is decided from the actual pixels (not the source MIME): PNG only if the image
+ *  really has transparency, else JPEG — so a transparency-free PNG or a Feishu image with a missing
+ *  Content-Type still compresses to a small JPEG instead of being kept as PNG by a wrong MIME hint. */
 export async function compressImageToDataUrl(
   blob: Blob,
   opts: { longEdge?: number; quality?: number } = {},
 ): Promise<string> {
   const longEdge = opts.longEdge ?? MAX_IMAGE_LONG_EDGE
   const quality = opts.quality ?? MAX_IMAGE_QUALITY
-  const dataUrl = await readFileAsDataURL(blob as File)
-  const img = await loadImage(dataUrl)
-  const { width, height } = computeTargetSize(img.width, img.height, longEdge)
+  const drawable = await blobToDrawable(blob)
+  const { width, height } = computeTargetSize(drawable.width, drawable.height, longEdge)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('无法创建 canvas 上下文')
-  ctx.drawImage(img, 0, 0, width, height)
-  const useJpeg = blob.type !== 'image/png' || !hasTransparency(canvas, width, height)
-  const mime = useJpeg ? 'image/jpeg' : 'image/png'
-  return canvas.toDataURL(mime, useJpeg ? quality : undefined)
+  ctx.drawImage(drawable, 0, 0, width, height)
+  if ('close' in drawable && typeof drawable.close === 'function') drawable.close() // free the ImageBitmap
+  const transparent = hasTransparency(canvas, width, height)
+  return canvas.toDataURL(transparent ? 'image/png' : 'image/jpeg', transparent ? undefined : quality)
 }
 
 /** Decode a base64 data: URL ("data:image/png;base64,...") straight to a Blob WITHOUT a

@@ -140,13 +140,24 @@ html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--fon
 .s-card-num{font-family:var(--font-display);font-size:38px;color:var(--accent);margin-bottom:12px}
 .s-card-title{font-family:var(--font-display);font-size:34px;font-weight:700;color:var(--fg);margin-bottom:12px}
 .s-card-body{font-size:22px;color:var(--muted);line-height:1.6}
+/* timeline (process / roadmap / milestones) — a horizontal rail of numbered nodes. The node's
+   bg-colored ring (box-shadow) masks the rail where it passes behind, so the line reads as
+   threading through the nodes. Falls back to a vertical stack on narrow viewports. */
+.s-timeline{display:flex;gap:0;align-items:stretch;flex:1;position:relative;margin-top:32px}
+.s-step{flex:1;position:relative;padding:0 18px;text-align:center;display:flex;flex-direction:column;align-items:center;min-width:0}
+.s-step::before{content:"";position:absolute;top:24px;left:0;right:0;height:2px;background:var(--border)}
+.s-step:first-child::before{left:50%}
+.s-step:last-child::before{right:50%}
+.s-step-node{position:relative;z-index:1;width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:24px;flex-shrink:0;box-shadow:0 0 0 6px var(--bg)}
+.s-step-title{margin-top:24px;font-family:var(--font-display);font-weight:700;font-size:30px;color:var(--fg);line-height:1.2}
+.s-step-body{margin-top:10px;font-size:22px;color:var(--muted);line-height:1.5}
 /* cover */
 .s-cover{align-items:center;justify-content:center;position:relative}
 .s-cover--hasimg .s-cover-bg{position:absolute;inset:0;border-radius:0;box-shadow:none}
 .s-cover--hasimg .s-cover-bg img{opacity:.45}
 .s-cover-inner{position:relative;z-index:1;text-align:center;max-width:1500px}
 .s-cover--hasimg~.s-footer,.s-cover .s-footer{color:var(--fg)}
-@media (max-width:900px){.s-cards{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:900px){.s-cards{grid-template-columns:repeat(2,1fr)}.s-timeline{flex-direction:column;gap:8px}.s-step::before{display:none}.s-step{flex-direction:row;text-align:left;gap:18px}}
 @media print{
   .s-cards{grid-template-columns:repeat(3,1fr)}
   .s-split-img,.s-photo,.s-card-img{height:auto}

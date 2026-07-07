@@ -92,21 +92,33 @@ const DL_CONCURRENCY = 10
 export const MAX_DOC_IMAGES = 60
 
 /** Download + compress all doc images in parallel (capped). Failed images are skipped
- *  (returned in failedTokens) — the caller strips their 【图n】 markers from text.
+ *  (returned in failedTokens + failures) — the caller strips their 【图n】 markers from text.
  *
  *  IDs are PROVISIONAL: doc-{i+1} where i is the index in the input list. Survivors keep
  *  their provisional id (gaps left where downloads failed) so the caller can run the LLM
- *  generation in parallel against a provisional id pool and reconcile afterwards. */
+ *  generation in parallel against a provisional id pool and reconcile afterwards.
+ *
+ *  Each failure is classified (`http` / `decode` / `other`) and warned to the console, so a
+ *  recurring download problem can actually be diagnosed. The previous `catch {}` swallowed the
+ *  error entirely — which is why "some images fail" stayed unfixable. */
+export type ImageFailReason = 'http' | 'decode' | 'other'
+
 export async function harvestDocImages(args: {
   userToken: string
   docImages: Array<{ token: string; context: string }>
   signal?: AbortSignal
   onProgress?: (done: number, total: number) => void
-}): Promise<{ images: SlideImage[]; failedTokens: string[] }> {
+}): Promise<{ images: SlideImage[]; failedTokens: string[]; failures: Array<{ reason: ImageFailReason; detail: string }> }> {
   const list = args.docImages.slice(0, MAX_DOC_IMAGES)
   const total = list.length
-  const results: Array<{ ok: true; img: SlideImage } | { ok: false; token: string }> = []
+  const results: Array<{ ok: true; img: SlideImage } | { ok: false; token: string; reason: ImageFailReason; detail: string }> = []
   let cursor = 0, done = 0
+
+  function classifyFailure(detail: string): ImageFailReason {
+    if (/图片下载失败|网络|请求|fetch|timeout|超时|\b4\d{2}\b|\b5\d{2}\b/i.test(detail)) return 'http'
+    if (/图片加载失败|加载|decode|解码|canvas|toDataURL|无法创建/i.test(detail)) return 'decode'
+    return 'other'
+  }
 
   async function worker(): Promise<void> {
     while (cursor < list.length) {
@@ -117,8 +129,11 @@ export async function harvestDocImages(args: {
         const blob = await downloadMedia(token, args.userToken)
         const dataUrl = await compressImageToDataUrl(blob, { longEdge: 1024, quality: 0.8 })
         results[my] = { ok: true, img: { id: `doc-${my + 1}`, source: 'doc', label: `文档图${my + 1}`, dataUrl, context } }
-      } catch {
-        results[my] = { ok: false, token }
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e)
+        const reason = classifyFailure(detail)
+        results[my] = { ok: false, token, reason, detail }
+        console.warn(`[slides] 文档图${my + 1} 下载失败 [${reason}]: ${detail} (token …${token.slice(-6)})`)
       }
       done++
       args.onProgress?.(done, total)
@@ -128,9 +143,10 @@ export async function harvestDocImages(args: {
 
   const images: SlideImage[] = []
   const failedTokens: string[] = []
+  const failures: Array<{ reason: ImageFailReason; detail: string }> = []
   for (const r of results) {
     if (r?.ok) images.push(r.img)
-    else if (r) failedTokens.push(r.token)
+    else if (r) { failedTokens.push(r.token); failures.push({ reason: r.reason, detail: r.detail }) }
   }
-  return { images, failedTokens }
+  return { images, failedTokens, failures }
 }

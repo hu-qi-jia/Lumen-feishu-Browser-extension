@@ -8,6 +8,7 @@
  * icon is resolved separately at display time (DocSelector → resolveWikiKind).
  */
 import type { SessionKind } from '../shared/types'
+import { cleanDocTitle } from '../shared/feishu/pageUrl'
 
 const KEY = 'recentFiles_v1'
 
@@ -21,6 +22,21 @@ export interface RecentFile {
   kind: SessionKind
   /** Last time this resource was focused / pinned — drives ordering (newest first). */
   seen: number
+}
+
+/** The display name for a stored title: the cleaned real title, or a kind-based placeholder when
+ *  the title is a placeholder/empty. Feishu's SPA briefly titles a loading page "飞书云文档" — that
+ *  raw brand string must never reach the dropdown, so any title that doesn't survive cleaning
+ *  falls back to a sensible "未命名…" per kind. Pure → unit-testable; the single place this rule
+ *  lives, used both when RECORDING (so storage is always clean) and when DISPLAYING (so legacy
+ *  raw entries render correctly without a migration). */
+export function cleanRecentTitle(title: string, kind: SessionKind): string {
+  return cleanDocTitle(title) || (kind === 'sheet' ? '未命名表格' : kind === 'base' ? '未命名多维表格' : '未命名文档')
+}
+
+/** Convenience: the display name of a whole recent-file row. */
+export function displayName(r: RecentFile): string {
+  return cleanRecentTitle(r.title, r.kind)
 }
 
 /**

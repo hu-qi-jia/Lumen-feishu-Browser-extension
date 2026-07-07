@@ -106,4 +106,17 @@ describe('harvestDocImages', () => {
     expect(r.images.map((i) => i.id)).toEqual(['doc-2'])
     expect(r.failedTokens).toEqual(['a'])
   })
+
+  it('classifies an HTTP download error as reason "http"', async () => {
+    ;(downloadMedia as unknown as { mockImplementation: (f: unknown) => void }).mockImplementation(async () => { throw new Error('图片下载失败 (429)') })
+    const r = await harvestDocImages({ userToken: 'u', docImages: [{ token: 'a', context: '' }] })
+    expect(r.failures).toEqual([{ reason: 'http', detail: '图片下载失败 (429)' }])
+  })
+
+  it('classifies a decode/compress error as reason "decode"', async () => {
+    ;(downloadMedia as unknown as { mockImplementation: (f: unknown) => void }).mockImplementation(async () => new Blob([new Uint8Array([1])]))
+    ;(compressImageToDataUrl as unknown as { mockImplementation: (f: unknown) => void }).mockImplementation(async () => { throw new Error('图片加载失败') })
+    const r = await harvestDocImages({ userToken: 'u', docImages: [{ token: 'a', context: '' }] })
+    expect(r.failures).toEqual([{ reason: 'decode', detail: '图片加载失败' }])
+  })
 })
