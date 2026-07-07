@@ -57,12 +57,11 @@ function onClick() {
   const f = parseFeishuContext(location.href)
   const docToken = (f?.kind === 'wiki' ? f.wikiToken : f?.documentId) ?? ''
   if (!docToken) { hide(); return }
-  try {
-    chrome.runtime.sendMessage({
-      type: 'OPEN_SIDE_PANEL_WITH_SELECTION',
-      payload: { kind, docToken, docTitle: document.title || '', url: location.href, selectedText: sel.text },
-    })
-  } catch { /* runtime unavailable */ }
+  const payload = {
+    type: 'OPEN_SIDE_PANEL_WITH_SELECTION',
+    payload: { kind, docToken, docTitle: document.title || '', url: location.href, selectedText: sel.text },
+  }
+  chrome.runtime.sendMessage(payload).catch(() => { /* receiving end unavailable */ })
   hide()
 }
 
@@ -80,8 +79,10 @@ function show(rect: DOMRect) { ensureButton(); position(rect); if (host) host.st
 function hide() { if (host) host.style.display = 'none' }
 
 function refresh() {
-  if (!docKind() || !currentSelection()) { hide(); return }
-  show(currentSelection()!.rect)
+  if (!docKind()) { hide(); return }
+  const sel = currentSelection()
+  if (!sel) { hide(); return }
+  show(sel.rect)
 }
 
 // selectionchange covers both mouse-drag and keyboard selection; debounce (fires often mid-drag).

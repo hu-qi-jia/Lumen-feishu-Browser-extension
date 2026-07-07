@@ -197,7 +197,10 @@ export function resolveSelectionContext(
   return {}
 }
 
-/** 异步包装：拉取文档块后跑 resolveSelectionContext。paragraphText/headingText 回填到 chip。 */
+/**
+ * 异步包装：拉取文档块后跑 resolveSelectionContext。paragraphText/headingText 回填到 chip。
+ * （v1：未在主链路调用——agent 用自己的 list_blocks 按需定位；保留作后续 chip 上下文回填入口。）
+ */
 export async function fetchSelectionContext(
   token: string,
   documentId: string,
