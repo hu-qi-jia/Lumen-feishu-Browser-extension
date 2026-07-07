@@ -27,13 +27,17 @@
 }
 
 .settings-tab--active {
-  color: var(--color-text);
+  color: var(--color-bg);
   font-weight: 600;
-  background: var(--color-surface-2);
+  background: var(--color-text);
 }
 
 /* ── Dark theme ── */
-[data-theme="dark"] .settings-tab:hover,
-[data-theme="dark"] .settings-tab--active {
+[data-theme="dark"] .settings-tab:hover {
   background: rgba(255, 255, 255, .08);
+}
+
+[data-theme="dark"] .settings-tab--active {
+  color: var(--color-bg);
+  background: var(--color-text-secondary);
 }
