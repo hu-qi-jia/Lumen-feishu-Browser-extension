@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PageContext, SessionKind, SessionMeta } from '../../shared/types'
+import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from '../../shared/types'
 import { cleanDocTitle } from '../../shared/feishu/pageUrl'
 import { resolveToken } from '../../shared/feishu/auth'
 import * as API from '../../shared/feishu/api'
@@ -10,6 +10,14 @@ import { wikiToFeishu } from './useWikiResolve'
 export type AppTab = 'chat' | 'scenes' | 'clip' | 'news' | 'settings'
 export type DocMode = 'follow' | 'pin'
 export interface PinnedDoc { token: string; title: string; kind: SessionKind }
+
+/** A doc selection that arrived while the work doc differs — drives the selection-variant
+ *  SwitchDocDialog. docToken is already wiki-resolved (→ underlying doc). */
+export interface SelectionSwitch {
+  docToken: string
+  docTitle: string
+  payload: DocSelectionPayload
+}
 
 /** Build a Feishu resource context for a pinned doc (the agent operates on it by token via
  *  the API even when its tab isn't the focused one). */
@@ -42,6 +50,11 @@ export interface DocBindingApi {
   pendingSwitch: { to: string } | null
   pendingSessionSwitch: SessionMeta | null
   setPendingSessionSwitch: React.Dispatch<React.SetStateAction<SessionMeta | null>>
+  pendingSelectionSwitch: SelectionSwitch | null
+  triggerSwitchForSelection: (s: SelectionSwitch) => void
+  handleSelectionSwitchNew: () => void
+  handleSelectionSwitchStay: () => void
+  handleSelectionSwitchCancel: () => void
   handleNewSession: () => void
   handleFollowTabs: () => void
   setWorkDoc: (token: string, title: string, kind: SessionKind) => void
@@ -71,6 +84,7 @@ export function useDocBinding(a: Args): DocBindingApi {
   const [heldResource, setHeldResource] = useState<string | null>(null)
   const [pendingSwitch, setPendingSwitch] = useState<{ to: string } | null>(null)
   const [pendingSessionSwitch, setPendingSessionSwitch] = useState<SessionMeta | null>(null)
+  const [pendingSelectionSwitch, setPendingSelectionSwitch] = useState<SelectionSwitch | null>(null)
   // A pinned wiki-wrapped doc's real type isn't readable from /wiki/{token} — resolve it once
   // so pin mode shows the right context bar + presets. null while resolving / not a wiki.
   const [pinnedResolved, setPinnedResolved] = useState<NonNullable<PageContext['feishu']> | null>(null)
@@ -210,6 +224,23 @@ export function useDocBinding(a: Args): DocBindingApi {
     if (to && sid) sessions.rebindSession(sid, to, title)
   }
 
+  // Selection-driven cross-doc switch (selection-variant SwitchDocDialog). 「新建会话」opens a
+  // fresh session for the selection's doc; 「在当前会话继续」re-binds the active session to it.
+  // App stages the selection chip AFTER whichever runs (the chip is input-local, session-agnostic).
+  function triggerSwitchForSelection(s: SelectionSwitch) { setPendingSelectionSwitch(s) }
+  function handleSelectionSwitchNew() {
+    const s = pendingSelectionSwitch
+    setPendingSelectionSwitch(null)
+    if (s) sessions.createSession({ appToken: s.docToken, title: s.docTitle, kind: 'doc' })
+  }
+  function handleSelectionSwitchStay() {
+    const s = pendingSelectionSwitch
+    setPendingSelectionSwitch(null)
+    const sid = sessions.activeSession?.id
+    if (s && sid) sessions.rebindSession(sid, s.docToken, s.docTitle)
+  }
+  function handleSelectionSwitchCancel() { setPendingSelectionSwitch(null) }
+
   // History-drawer session pick.
   const switchSession = sessions.switchTo
   const handlePickSession = useCallback((session: SessionMeta): boolean => {
@@ -246,6 +277,8 @@ export function useDocBinding(a: Args): DocBindingApi {
   return {
     docMode, pinned, sessions, chatContext,
     pendingSwitch, pendingSessionSwitch, setPendingSessionSwitch,
+    pendingSelectionSwitch, triggerSwitchForSelection,
+    handleSelectionSwitchNew, handleSelectionSwitchStay, handleSelectionSwitchCancel,
     handleNewSession, handleFollowTabs, setWorkDoc, handleSwitchNew, handleSwitchStay,
     handlePickSession, confirmSessionSwitch,
   }
