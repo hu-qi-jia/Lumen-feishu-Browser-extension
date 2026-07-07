@@ -3,11 +3,11 @@ import type { ClipCapture } from '../shared/clip/types'
 import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS, CLIP_ENABLED } from '../shared/config'
 import { checkNetworkAccess } from '../shared/network'
 import { usingManagedLlm } from '../shared/ai/llmConfig'
-import { isFeishuConfigured } from '../shared/feishu/auth'
+import { isFeishuConfigured, resolveToken } from '../shared/feishu/auth'
 import { rememberTenantOrigin } from '../shared/feishu/tenant'
 import { cleanDocTitle } from '../shared/feishu/pageUrl'
 import { autoRestoreOnceOnEmpty } from './cloudRestore'
-import type { PageContext } from '../shared/types'
+import type { PageContext, DocSelectionPayload } from '../shared/types'
 import ChatPanel from './components/ChatPanel'
 import ClipPanel from './components/ClipPanel'
 import Settings from './components/Settings'
@@ -18,10 +18,11 @@ import SessionDrawer from './components/SessionDrawer'
 import SwitchDocDialog from './components/SwitchDocDialog'
 import SwitchSessionDialog from './components/SwitchSessionDialog'
 import NavRail from './components/NavRail'
+import { getWikiNode } from '../shared/feishu/api'
 import { useThemeAccent } from './hooks/useThemeAccent'
 import { useAppSettings } from './hooks/useAppSettings'
 import { usePageContext } from './hooks/usePageContext'
-import { useWikiResolve } from './hooks/useWikiResolve'
+import { useWikiResolve, wikiToFeishu } from './hooks/useWikiResolve'
 import { useRecentFiles } from './hooks/useRecentFiles'
 import { useDocBinding, type AppTab } from './hooks/useDocBinding'
 import { decideAutoDefault } from './autoDefault'
@@ -86,6 +87,49 @@ export default function App() {
   const docSessionCount = activeDocToken
     ? sessions.index.sessions.filter((s) => s.appToken === activeDocToken).length
     : 0
+
+  // A doc selection staged from the page (SELECTION_INCOMING) — consumed once by InputBar
+  // (via ChatPanel) on the next send.
+  const [stagedSelection, setStagedSelection] = useState<DocSelectionPayload | null>(null)
+
+  // Working doc token, with wiki resolved to its underlying doc token first — so a wiki-wrapped
+  // doc and the same doc opened directly don't get misjudged as "different docs" (which would
+  // pop the cross-doc switch dialog for the same content).
+  function workDocResolvedToken(): string | null {
+    const t = activeDocToken
+    if (!t) return null
+    return wikiCacheRef.current.get(t)?.documentId ?? t
+  }
+
+  // wiki node → underlying doc token (mirrors useDocBinding's pinned-wiki resolution: shared
+  // cache first, then getWikiNode + wikiToFeishu). Undefined when unresolvable.
+  async function resolveWikiToDoc(wikiToken: string): Promise<string | undefined> {
+    const cached = wikiCacheRef.current.get(wikiToken)
+    if (cached?.documentId) return cached.documentId
+    try {
+      const token = await resolveToken(settings)
+      const res = (await getWikiNode(token, wikiToken)) as { node?: { obj_type: string; obj_token: string } }
+      const f = wikiToFeishu(res.node?.obj_type ?? '', res.node?.obj_token ?? '')
+      return f?.documentId
+    } catch { return undefined }
+  }
+
+  // A page selection arrived: resolve wiki → compare to the working doc → stage a chip directly,
+  // or (different doc) trigger the selection-variant cross-doc switch dialog.
+  async function handleSelectionIncoming(payload: DocSelectionPayload) {
+    let docToken = payload.docToken
+    let kind = payload.kind
+    if (kind === 'wiki') {
+      const real = await resolveWikiToDoc(payload.docToken)
+      if (real) { docToken = real; kind = 'doc' }
+    }
+    const resolved: DocSelectionPayload = { ...payload, kind, docToken }
+    if (docToken === workDocResolvedToken()) {
+      setStagedSelection(resolved)
+    } else {
+      doc.triggerSwitchForSelection({ docToken, docTitle: payload.docTitle, payload: resolved })
+    }
+  }
 
   // Ensure the pinned work doc is always in the recent list — a pin restored from storage on
   // mount (not via setWorkDoc→recordRecent) wouldn't be recorded otherwise, so it'd be missing
@@ -161,6 +205,12 @@ export default function App() {
       if (sender.id !== chrome.runtime.id) return
       if (msg.type === 'CLIP_CAPTURE') { setClipError(null); setClip(msg.payload as ClipCapture); setTab('clip'); return }
       if (msg.type === 'CLIP_ERROR') { setClip(null); setClipError(msg.message ?? '剪藏失败'); setTab('clip'); return }
+      // A page selection landed (content-script button → background relay). Resolve wiki →
+      // compare to the working doc → stage a chip or pop the cross-doc switch dialog.
+      if (msg.type === 'SELECTION_INCOMING') {
+        void handleSelectionIncoming(msg.payload as DocSelectionPayload)
+        return
+      }
       // Trust context updates only from our own content scripts, and ignore pushes from a
       // CONFIRMED-inactive (background) tab — those would scramble the conversation when
       // multiple Feishu tabs are open.
@@ -179,6 +229,13 @@ export default function App() {
         else if (r.error) { setClip(null); setClipError(r.error); setTab('clip') }
       }).catch(() => { /* no background / no pending clip */ })
     }
+    // The selection button opens the panel async, so the SELECTION_INCOMING push can arrive
+    // before this listener exists. Pull any pending selection the background stashed (one-shot,
+    // 3s TTL — see background/index.ts).
+    chrome.runtime.sendMessage({ type: 'SELECTION_REQUEST' }).then((resp) => {
+      const p = resp as DocSelectionPayload | null
+      if (p) void handleSelectionIncoming(p)
+    }).catch(() => { /* no background / no pending selection */ })
     return () => { chrome.runtime.onMessage.removeListener(onMsg) }
   }, [applyCtx])
 
@@ -346,6 +403,8 @@ export default function App() {
                   resolveWikiKind={resolveWikiKind}
                   recentFiles={recentFiles}
                   onRemoveRecent={removeFromRecent}
+                  stagedSelection={stagedSelection}
+                  onStagedConsumed={() => setStagedSelection(null)}
                 />
               ) : (
                 <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} />
@@ -366,13 +425,22 @@ export default function App() {
         />
       )}
 
-      {/* Mutex: the cross-doc session-switch dialog takes precedence over the follow-mode
-          tab-switch dialog — both can't be resolved at once and stacking them is confusing. */}
+      {/* Mutex: session-switch > selection-switch > follow-mode tab-switch — never stack them.
+          In the selection branch, the handlers clear pendingSelectionSwitch internally, so the
+          payload is captured into a local BEFORE calling them and then staged for InputBar. */}
       {doc.pendingSessionSwitch ? (
         <SwitchSessionDialog
           docTitle={doc.pendingSessionSwitch.title}
           onConfirm={() => { void doc.confirmSessionSwitch().then(() => setDrawerOpen(false)) }}
           onCancel={() => doc.setPendingSessionSwitch(null)}
+        />
+      ) : doc.pendingSelectionSwitch ? (
+        <SwitchDocDialog
+          variant="selection"
+          toTitle={doc.pendingSelectionSwitch.docTitle || '当前文档'}
+          onNew={() => { const p = doc.pendingSelectionSwitch?.payload ?? null; doc.handleSelectionSwitchNew(); setStagedSelection(p) }}
+          onStay={() => { const p = doc.pendingSelectionSwitch?.payload ?? null; doc.handleSelectionSwitchStay(); setStagedSelection(p) }}
+          onCancel={doc.handleSelectionSwitchCancel}
         />
       ) : doc.pendingSwitch && !chatStreaming ? (
         <SwitchDocDialog

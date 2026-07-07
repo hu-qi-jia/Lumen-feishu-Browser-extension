@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppSettings, Attachment, ChatMessage, PageContext, SessionKind } from '../../shared/types'
+import type { AppSettings, Attachment, ChatMessage, DocSelectionPayload, PageContext, SessionKind } from '../../shared/types'
 import type { BaseCtx } from '../../shared/feishu/context'
 import { fetchBaseCtx } from '../../shared/feishu/context'
 import { resolveToken } from '../../shared/feishu/auth'
@@ -29,6 +29,9 @@ interface Props {
   settings: AppSettings
   context: PageContext
   disabled: boolean
+  /** A doc selection staged from the page (SELECTION_INCOMING) — consumed once by InputBar. */
+  stagedSelection?: DocSelectionPayload | null
+  onStagedConsumed?: () => void
   /** Active session's messages + setter (lifted to App for persistence/switching). */
   messages: ChatMessage[]
   setMessages: (u: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void
@@ -64,7 +67,7 @@ interface Props {
 }
 
 export default function ChatPanel({
-  settings, context, disabled,
+  settings, context, disabled, stagedSelection, onStagedConsumed,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
   docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
@@ -419,6 +422,8 @@ export default function ChatPanel({
         onStop={handleStop}
         selection={context.selectedText}
         resourceKind={context.feishu?.kind ?? 'general'}
+        stagedSelection={stagedSelection}
+        onStagedConsumed={onStagedConsumed}
       />
 
       {pendingConfirm && (
