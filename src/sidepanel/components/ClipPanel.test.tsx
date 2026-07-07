@@ -20,7 +20,8 @@ describe('ClipPanel', () => {
   it('previews the captured content and source BEFORE any action (informed consent)', () => {
     render(<ClipPanel settings={DEFAULT_SETTINGS} clip={clip} disabled={false} onClose={() => {}} />)
     expect(screen.getByText(/被剪藏的正文内容/)).toBeTruthy()
-    expect(screen.getByText('https://news.example.com/article/42')).toBeTruthy()
+    // The URL appears both in the source-url row and in the Tooltip portal — assert at least one is shown.
+    expect(screen.getAllByText('https://news.example.com/article/42').length).toBeGreaterThan(0)
     // Nothing about a target Base is requested yet — preview is purely local.
     expect(screen.queryByPlaceholderText(/base\//)).toBeNull()
   })

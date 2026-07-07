@@ -17,6 +17,7 @@ import PdfTranscribePanel from './PdfTranscribePanel'
 import type { RecentFile } from '../recentFiles'
 import TopBar from './TopBar'
 import Button from './Button'
+import Tooltip from './Tooltip'
 import './ScenarioPanel.css'
 
 // Baked in at build time via VITE_DEFAULT_REGISTRY_URL env var.
@@ -474,13 +475,14 @@ function TemplateCard({
           {(t.preview.dashboards ?? 0) > 0 && ` · ${t.preview.dashboards} 个仪表盘`}
         </div>
       </div>
-      <button
-        className="sc-card-btn"
-        onClick={(e) => { e.stopPropagation(); onClick() }}
-        title="查看并创建"
-      >
-        查看
-      </button>
+      <Tooltip content="查看并创建" position="top">
+        <button
+          className="sc-card-btn"
+          onClick={(e) => { e.stopPropagation(); onClick() }}
+        >
+          查看
+        </button>
+      </Tooltip>
     </div>
   )
 }

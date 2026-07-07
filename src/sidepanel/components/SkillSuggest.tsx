@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { preloadSkills, type Skill } from '../../shared/ai/skills'
+import Tooltip from './Tooltip'
 
 /**
  * 主动推送：进入某类资源（base/sheet/doc）的新会话时，预加载社区「高分做法」，做成可点 chip。
@@ -34,22 +35,30 @@ export default function SkillSuggest({
 
   return (
     <div className="skill-suggest" role="group" aria-label="社区常用做法">
-      <span className="skill-suggest-lead" title="很多人这样做成功了，点一下填入输入框，按你的真实数据改改再发">
-        大家常用
-      </span>
+      <Tooltip content="很多人这样做成功了，点一下填入输入框，按你的真实数据改改再发" position="bottom">
+        <span className="skill-suggest-lead">
+          大家常用
+        </span>
+      </Tooltip>
       <div className="skill-suggest-chips">
         {skills.slice(0, 4).map((s) => (
-          <button
+          <Tooltip
             key={s.skillId}
-            className={`skill-chip${s.level === 'playbook' ? ' skill-chip--playbook' : ''}`}
-            onClick={() => onPick(s.lesson || s.intent)}
-            title={`${s.lesson || s.intent}${s.toolSequence?.length ? `（参考：${s.toolSequence.join(' → ')}）` : ''}`}
+            content={`${s.lesson || s.intent}${s.toolSequence?.length ? `（参考：${s.toolSequence.join(' → ')}）` : ''}`}
+            position="bottom"
           >
-            {s.intent}
-          </button>
+            <button
+              className={`skill-chip${s.level === 'playbook' ? ' skill-chip--playbook' : ''}`}
+              onClick={() => onPick(s.lesson || s.intent)}
+            >
+              {s.intent}
+            </button>
+          </Tooltip>
         ))}
       </div>
-      <button className="skill-suggest-x" onClick={() => setDismissed(true)} title="不再提示">×</button>
+      <Tooltip content="不再提示" position="bottom">
+        <button className="skill-suggest-x" onClick={() => setDismissed(true)} aria-label="不再提示">×</button>
+      </Tooltip>
     </div>
   )
 }

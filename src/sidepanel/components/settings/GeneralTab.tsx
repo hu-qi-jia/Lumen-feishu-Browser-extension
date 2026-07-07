@@ -4,6 +4,7 @@ import type { AppSettings } from '../../../shared/types'
 import { FormSwitch, FormToggle } from '../form'
 import Button from '../Button'
 import Dropdown from '../Dropdown'
+import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
@@ -92,22 +93,24 @@ export default function GeneralTab({
       <SettingsSection title="主题色">
         <div className="accent-row">
           {ACCENT_PRESETS.map((p) => (
-            <button
-              key={p.hex}
-              className={`accent-swatch ${accent.toLowerCase() === p.hex.toLowerCase() ? 'accent-swatch--active' : ''}`}
-              style={{ background: p.hex }}
-              title={p.name}
-              aria-label={p.name}
-              onClick={() => onAccentChange(p.hex)}
-            />
+            <Tooltip key={p.hex} content={p.name} position="bottom">
+              <button
+                className={`accent-swatch ${accent.toLowerCase() === p.hex.toLowerCase() ? 'accent-swatch--active' : ''}`}
+                style={{ background: p.hex }}
+                aria-label={p.name}
+                onClick={() => onAccentChange(p.hex)}
+              />
+            </Tooltip>
           ))}
-          <label className="accent-custom" title="自定义颜色" aria-label="自定义颜色">
-            <input
-              type="color"
-              value={accent}
-              onChange={(e) => onAccentChange(e.target.value)}
-            />
-          </label>
+          <Tooltip content="自定义颜色" position="bottom">
+            <label className="accent-custom" aria-label="自定义颜色">
+              <input
+                type="color"
+                value={accent}
+                onChange={(e) => onAccentChange(e.target.value)}
+              />
+            </label>
+          </Tooltip>
         </div>
         {accentChanged && (
           <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>

@@ -7,6 +7,7 @@ import FeishuTab from './settings/FeishuTab'
 import BackupTab from './settings/BackupTab'
 import SettingsTabs from './SettingsTabs'
 import Button from './Button'
+import Tooltip from './Tooltip'
 import type { SettingsTabId } from './settings/types'
 import './Settings.css'
 
@@ -105,15 +106,14 @@ export default function Settings({
       </div>
 
       <div className="settings-footer">
-        <span
-          className="settings-version"
-          title="当前运行的扩展版本（用于确认是否已加载新构建）"
-        >
-          v
-          {typeof chrome !== 'undefined' && chrome.runtime?.getManifest
-            ? chrome.runtime.getManifest().version
-            : 'dev'}
-        </span>
+        <Tooltip content="当前运行的扩展版本（用于确认是否已加载新构建）" position="top">
+          <span className="settings-version">
+            v
+            {typeof chrome !== 'undefined' && chrome.runtime?.getManifest
+              ? chrome.runtime.getManifest().version
+              : 'dev'}
+          </span>
+        </Tooltip>
         <Button variant="secondary" onClick={onCancel}>
           取消
         </Button>

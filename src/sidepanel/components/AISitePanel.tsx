@@ -14,6 +14,7 @@ import { resolveToken, isTokenExpiredError } from '../../shared/feishu/auth'
 import { listMyChats, sendText, type ChatBrief } from '../../shared/feishu/im'
 import TopBar from './TopBar'
 import Button from './Button'
+import Tooltip from './Tooltip'
 import './AISitePanel.css'
 
 interface Props { settings: AppSettings; context: PageContext; disabled: boolean; onBack: () => void }
@@ -340,8 +341,12 @@ export default function AISitePanel({ settings, context, disabled, onBack }: Pro
             <div className="as-list">
               {visible.map((v) => (
                 <div key={v.id} className="as-item">
-                  <button className="as-item-open" onClick={() => open(v)} disabled={busy} title="用最新数据重新渲染">{v.name}</button>
-                  <button className="as-item-del" onClick={() => remove(v)} title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                  <Tooltip content="用最新数据重新渲染" position="top">
+                    <button className="as-item-open" onClick={() => open(v)} disabled={busy}>{v.name}</button>
+                  </Tooltip>
+                  <Tooltip content="删除" position="top">
+                    <button className="as-item-del" onClick={() => remove(v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

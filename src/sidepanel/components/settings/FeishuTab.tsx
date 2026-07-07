@@ -18,6 +18,7 @@ import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '../../../shar
 import { getUserAppId, hasUserAppCreds, saveUserAppCreds } from '../../../shared/feishu/userAppCreds'
 import { FormField, FormInput } from '../form'
 import SettingsSection from './SettingsSection'
+import Tooltip from '../Tooltip'
 import type { SettingsTabProps } from './types'
 
 /** 飞书 tab：内置凭据 / 自建应用 / 加密解锁 / user_token / open_id / 授权 / 测试连接。 */
@@ -232,14 +233,15 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                   }}
                   placeholder="粘贴解锁密码"
                 />
-                <button
-                  className="btn-secondary unlock-btn"
-                  type="button"
-                  onClick={() => setShowUnlockPwd((v) => !v)}
-                  title={showUnlockPwd ? '隐藏' : '显示，核对粘贴是否完整'}
-                >
-                  {showUnlockPwd ? '隐藏' : '显示'}
-                </button>
+                <Tooltip content={showUnlockPwd ? '隐藏' : '显示，核对粘贴是否完整'} position="top">
+                  <button
+                    className="btn-secondary unlock-btn"
+                    type="button"
+                    onClick={() => setShowUnlockPwd((v) => !v)}
+                  >
+                    {showUnlockPwd ? '隐藏' : '显示'}
+                  </button>
+                </Tooltip>
                 <button
                   className="btn-primary unlock-btn"
                   disabled={!unlockPwd}
@@ -320,18 +322,22 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
               {authing ? '授权中…' : '用飞书账号授权'}
             </button>
           )}
-          <button
-            className="btn-test"
-            onClick={fillOpenIdFromToken}
-            disabled={authing || !form.feishuAccessToken.trim()}
-            title={
+          <Tooltip
+            content={
               form.feishuAccessToken.trim()
                 ? '用上方 token 换取 open_id'
                 : '请先在上方填入 user_access_token'
             }
+            position="top"
           >
-            {authing ? '获取中…' : '用 token 取 open_id'}
-          </button>
+            <button
+              className="btn-test"
+              onClick={fillOpenIdFromToken}
+              disabled={authing || !form.feishuAccessToken.trim()}
+            >
+              {authing ? '获取中…' : '用 token 取 open_id'}
+            </button>
+          </Tooltip>
           {authResult && (
             <span
               className={`test-result ${authResult.ok ? 'test-result--ok' : 'test-result--err'}`}

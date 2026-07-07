@@ -29,6 +29,8 @@
   border-bottom: 1px solid var(--color-border);
 }
 .clip-source-title { font-size: 13px; font-weight: 600; flex-basis: 100%; }
+/* Tooltip wrapper around .clip-source-title must take full width so the title stays on its own line. */
+.clip-source > .tooltip { flex-basis: 100%; }
 .clip-source-url {
   font-size: 11px;
   color: var(--color-text-secondary, #888);

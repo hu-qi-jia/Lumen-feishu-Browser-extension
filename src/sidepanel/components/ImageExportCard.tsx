@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import JSZip from 'jszip'
+import Tooltip from './Tooltip'
 import './ImageExportCard.css'
 
 interface ImageExportCardProps {
@@ -58,10 +59,12 @@ export default function ImageExportCard({ images, docTitle, onClose }: ImageExpo
       </div>
       <div className="image-export-gallery">
         {valid.map((im, i) => (
-          <button key={i} className="image-export-item" onClick={() => downloadOne(im)} type="button" title={im.context || im.name}>
-            <img src={im.dataUrl} alt={im.context || im.name} loading="lazy" />
-            {im.context && <span className="image-export-context">{im.context}</span>}
-          </button>
+          <Tooltip key={i} content={im.context || im.name} position="top">
+            <button className="image-export-item" onClick={() => downloadOne(im)} type="button">
+              <img src={im.dataUrl} alt={im.context || im.name} loading="lazy" />
+              {im.context && <span className="image-export-context">{im.context}</span>}
+            </button>
+          </Tooltip>
         ))}
         {valid.length < images.length && (
           <p className="image-export-failed">{images.length - valid.length} 张下载失败</p>

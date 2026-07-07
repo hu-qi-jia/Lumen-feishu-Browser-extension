@@ -1,4 +1,5 @@
 import type { SlideTheme } from '../../shared/ai/slidesThemes'
+import Tooltip from './Tooltip'
 import './ThemeThumb.css'
 
 interface Props {
@@ -17,13 +18,12 @@ const SYS_SANS = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft Y
  *  inherits theme vars (a dark theme doesn't darken the surrounding name/border). */
 export function ThemeThumb({ theme, selected, disabled, onSelect }: Props) {
   const p = theme.palette
-  return (
+  const button = (
     <button
       type="button"
       className={`sl-theme${selected ? ' sl-theme--active' : ''}`}
       onClick={onSelect}
       disabled={disabled}
-      title={theme.promptHint}
       aria-pressed={selected}
       style={{ ['--accent' as any]: p.accent }}
     >
@@ -68,4 +68,7 @@ export function ThemeThumb({ theme, selected, disabled, onSelect }: Props) {
       <span className="sl-theme-name">{theme.name}</span>
     </button>
   )
+  return theme.promptHint
+    ? <Tooltip content={theme.promptHint} position="top">{button}</Tooltip>
+    : button
 }

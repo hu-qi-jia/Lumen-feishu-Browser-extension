@@ -11,6 +11,7 @@ import { parseFeishuContext } from '../../shared/feishu/pageUrl'
 import { openUrlInNewTab } from '../../shared/url'
 import { runAgent } from '../../shared/ai/agent'
 import { imageToMarkdown } from '../../shared/ai/vision'
+import Tooltip from './Tooltip'
 import './ClipPanel.css'
 
 interface Props {
@@ -354,7 +355,9 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
     <div className="clip-panel">
       <header className="clip-head">
         <span className="clip-title">剪藏到飞书</span>
-        <button className="clip-x" onClick={() => { abortRef.current?.abort(); onClose() }} title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <Tooltip content="关闭" position="bottom">
+          <button className="clip-x" onClick={() => { abortRef.current?.abort(); onClose() }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </Tooltip>
       </header>
 
       {phase === 'failed' && (
@@ -368,7 +371,9 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
         <>
           {/* Preview — the user sees EXACTLY what will be sent, before any network call. */}
           <div className="clip-source">
-            <div className="clip-source-title" title={clip.url}>{clip.title || clip.url}</div>
+            <Tooltip content={clip.url} position="bottom">
+              <div className="clip-source-title">{clip.title || clip.url}</div>
+            </Tooltip>
             <div className="clip-source-url">{clip.url}</div>
             {clip.imageDataUrl
               ? <span className="clip-tag">截图识别</span>
@@ -422,17 +427,21 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
                   <label className="clip-label">最近用过的（点一下直接用）</label>
                   <div className="clip-recent-list">
                     {recent.map((r) => (
-                      <button
+                      <Tooltip
                         key={r.token}
-                        type="button"
-                        className="clip-recent-chip"
-                        disabled={loadingCtx}
-                        onClick={() => loadRecent(r)}
-                        title={`${kindLabel(r.kind)} · ${r.name}`}
+                        content={`${kindLabel(r.kind)} · ${r.name}`}
+                        position="bottom"
                       >
-                        <span className="clip-recent-kind">{kindLabel(r.kind)}</span>
-                        <span className="clip-recent-name">{r.name}</span>
-                      </button>
+                        <button
+                          type="button"
+                          className="clip-recent-chip"
+                          disabled={loadingCtx}
+                          onClick={() => loadRecent(r)}
+                        >
+                          <span className="clip-recent-kind">{kindLabel(r.kind)}</span>
+                          <span className="clip-recent-name">{r.name}</span>
+                        </button>
+                      </Tooltip>
                     ))}
                   </div>
                 </>
@@ -454,15 +463,21 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
               </div>
               <div className="clip-divider"><span>或新建一个</span></div>
               <div className="clip-new-grid">
-                <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewBase} title="据内容新建多维表格并写入">
-                  <span className="clip-new-ic"></span><span>多维表格</span>
-                </button>
-                <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewSheet} title="据内容新建电子表格并写入">
-                  <span className="clip-new-ic"></span><span>电子表格</span>
-                </button>
-                <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewDoc} title="据内容新建文档并写入">
-                  <span className="clip-new-ic"></span><span>文档</span>
-                </button>
+                <Tooltip content="据内容新建多维表格并写入" position="bottom">
+                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewBase}>
+                    <span className="clip-new-ic"></span><span>多维表格</span>
+                  </button>
+                </Tooltip>
+                <Tooltip content="据内容新建电子表格并写入" position="bottom">
+                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewSheet}>
+                    <span className="clip-new-ic"></span><span>电子表格</span>
+                  </button>
+                </Tooltip>
+                <Tooltip content="据内容新建文档并写入" position="bottom">
+                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewDoc}>
+                    <span className="clip-new-ic"></span><span>文档</span>
+                  </button>
+                </Tooltip>
               </div>
 
               {baseCtx && (

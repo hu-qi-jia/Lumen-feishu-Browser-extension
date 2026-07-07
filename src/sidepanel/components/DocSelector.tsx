@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { SessionKind } from '../../shared/types'
 import type { RecentFile } from '../recentFiles'
 import Dropdown from './Dropdown'
+import Tooltip from './Tooltip'
 import { KindIcon } from './icons'
 import './DocSelector.css'
 
@@ -69,25 +70,26 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
       onOpenChange={setOpen}
       menuClassName="doc-selector-menu"
       trigger={
-        <button
-          className={`doc-selector-trigger${open ? ' doc-selector-trigger--open' : ''}`}
-          onClick={() => setOpen((v) => !v)}
-          type="button"
-          title={currentTitle}
-        >
-          <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
-            {mode === 'pin' ? '固定' : '跟随'}
-          </span>
-          <span className="doc-selector-title-wrap">
-            <span className="doc-selector-title">{currentTitle}</span>
-            {sessionCount != null && sessionCount > 0 && (
-              <span className="doc-selector-count" aria-label={`${sessionCount} 个会话`}>{sessionCount}</span>
-            )}
-          </span>
-          <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
+        <Tooltip content={currentTitle} position="bottom">
+          <button
+            className={`doc-selector-trigger${open ? ' doc-selector-trigger--open' : ''}`}
+            onClick={() => setOpen((v) => !v)}
+            type="button"
+          >
+            <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
+              {mode === 'pin' ? '固定' : '跟随'}
+            </span>
+            <span className="doc-selector-title-wrap">
+              <span className="doc-selector-title">{currentTitle}</span>
+              {sessionCount != null && sessionCount > 0 && (
+                <span className="doc-selector-count" aria-label={`${sessionCount} 个会话`}>{sessionCount}</span>
+              )}
+            </span>
+            <svg className={`doc-selector-chev${open ? ' doc-selector-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </Tooltip>
       }
     >
       <button
@@ -117,7 +119,6 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
               <div
                 key={d.token}
                 className={`doc-selector-item doc-selector-item--row${selected ? ' doc-selector-item--active' : ''}`}
-                title={d.title}
               >
                 <button
                   className="doc-selector-item-main"
@@ -128,22 +129,25 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
                     <KindIcon kind={displayKind(d)} />
                   </span>
                   <span className="doc-selector-item-text">
-                    <span className="doc-selector-item-title">{d.title}</span>
+                    <Tooltip content={d.title} position="right">
+                      <span className="doc-selector-item-title">{d.title}</span>
+                    </Tooltip>
                   </span>
                 </button>
                 {onRemoveRecent && (
-                  <button
-                    className="doc-selector-item-remove"
-                    onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
-                    type="button"
-                    aria-label={`从最近打开中移除 ${d.title}`}
-                    title="从最近打开中移除"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
+                  <Tooltip content="从最近打开中移除" position="left">
+                    <button
+                      className="doc-selector-item-remove"
+                      onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
+                      type="button"
+                      aria-label={`从最近打开中移除 ${d.title}`}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             )

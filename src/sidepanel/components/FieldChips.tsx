@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { FieldCtx } from '../../shared/feishu/context'
+import Tooltip from './Tooltip'
 import './FieldChips.css'
 
 interface Props {
@@ -45,17 +46,21 @@ export default function FieldChips({ fields, onPick }: Props) {
   if (!fields.length) return null
 
   return (
-    <div className="field-chips" ref={ref} title="点击字段插入到输入框，再描述要做的修改">
+    <div className="field-chips" ref={ref} aria-label="点击字段插入到输入框，再描述要做的修改">
       {fields.map((f) => (
-        <button
+        <Tooltip
           key={f.fieldId}
-          className="field-chip"
-          onClick={() => onPick(`${f.fieldName} (id:${f.fieldId})`)}
-          title={`${f.fieldName}（${f.typeName}）· ${f.fieldId}`}
-          type="button"
+          content={`${f.fieldName}（${f.typeName}）· ${f.fieldId}`}
+          position="bottom"
         >
-          {f.fieldName}
-        </button>
+          <button
+            className="field-chip"
+            onClick={() => onPick(`${f.fieldName} (id:${f.fieldId})`)}
+            type="button"
+          >
+            {f.fieldName}
+          </button>
+        </Tooltip>
       ))}
     </div>
   )

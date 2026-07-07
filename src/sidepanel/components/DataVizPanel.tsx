@@ -11,6 +11,7 @@ import type { SavedViz, VizSource } from '../../shared/dataviz/types'
 import type { VizSpec } from '../../shared/dataviz/spec'
 import TopBar from './TopBar'
 import Button from './Button'
+import Tooltip from './Tooltip'
 import './DataVizPanel.css'
 
 /** Map an error to a user-facing string — expired sessions get a clear re-login hint. */
@@ -234,10 +235,14 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
             <div className="dv-list">
               {visible.map((v) => (
                 <div key={v.id} className="dv-item">
-                  <button className="dv-item-open" onClick={() => open(v)} disabled={busy} title="用最新数据重新渲染">
-                    {v.name}
-                  </button>
-                  <button className="dv-item-del" onClick={() => remove(v)} title="删除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                  <Tooltip content="用最新数据重新渲染" position="top">
+                    <button className="dv-item-open" onClick={() => open(v)} disabled={busy}>
+                      {v.name}
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="删除" position="top">
+                    <button className="dv-item-del" onClick={() => remove(v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

@@ -3,6 +3,7 @@ import type { AppSettings } from '../../shared/types'
 import { loadDeleteUndo, clearDeleteUndo, restoreDeleteUndo, type UndoView } from '../../shared/feishu/undo'
 import { resolveToken } from '../../shared/feishu/auth'
 import { reloadActiveTab } from '../tabReload'
+import Tooltip from './Tooltip'
 
 /**
  * A slim "↩ 撤销删除" bar shown after the assistant deletes records. It reads the undo entry the
@@ -54,7 +55,9 @@ export default function UndoBar({ settings }: { settings: AppSettings }) {
         <div style={bar}>
           <span style={{ flex: 1 }}>{undo.label} · 误删了？可一键恢复</span>
           <button style={btn} disabled={busy} onClick={() => void restore()}>{busy ? '恢复中…' : '↩ 撤销'}</button>
-          <button style={x} onClick={() => void dismiss()} title="不撤销，关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <Tooltip content="不撤销，关闭" position="top">
+            <button style={x} onClick={() => void dismiss()} aria-label="不撤销，关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </Tooltip>
         </div>
       )}
       {/* Show success / failure even while the undo bar is still up — otherwise a failed restore

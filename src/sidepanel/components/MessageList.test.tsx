@@ -108,7 +108,8 @@ describe('MessageList — tool call indicator hides sensitive args', () => {
       tool_calls: [{ id: 't1', type: 'function', function: { name: 'create_table', arguments: '{"app_token":"secretXYZ"}' } }],
     })]} />)
     expect(screen.getByText('新建数据表')).toBeTruthy()
-    expect(screen.getByTitle('create_table')).toBeTruthy()
+    // The raw tool name is surfaced via the Tooltip (role="tooltip") instead of a native title attribute.
+    expect(screen.getByRole('tooltip', { name: 'create_table' })).toBeTruthy()
     expect(screen.queryByText(/secretXYZ/)).toBeNull()
   })
 

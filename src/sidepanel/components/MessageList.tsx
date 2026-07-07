@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '../../shared/types'
 import Markdown from './Markdown'
+import Tooltip from './Tooltip'
 import './MessageList.css'
 
 type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
@@ -188,20 +189,24 @@ function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?
       </div>
       <div className="welcome-examples">
         {g.examples.map((ex) => (
-          <button
+          <Tooltip
             key={ex}
-            type="button"
-            className="example-chip"
-            onClick={() => onExample?.(ex)}
-            disabled={!onExample}
-            title={onExample ? '点击发送' : '请先在设置中完成配置'}
+            content={onExample ? '点击发送' : '请先在设置中完成配置'}
+            position="top"
           >
-            <span className="example-text">{ex}</span>
-            <svg className="example-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14" />
-              <path d="M12 5l7 7-7 7" />
-            </svg>
-          </button>
+            <button
+              type="button"
+              className="example-chip"
+              onClick={() => onExample?.(ex)}
+              disabled={!onExample}
+            >
+              <span className="example-text">{ex}</span>
+              <svg className="example-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </Tooltip>
         ))}
       </div>
     </div>
@@ -268,7 +273,9 @@ function ToolCallIndicator({ msg }: { msg: ChatMessage }) {
         <path d="M21 12a9 9 0 1 1-6.219-8.56" />
       </svg>
       <span className="tool-call-label">调用中</span>
-      <span className="tool-call-name" title={tc.function.name}>{toolLabel(tc.function.name)}</span>
+      <Tooltip content={tc.function.name} position="top">
+        <span className="tool-call-name">{toolLabel(tc.function.name)}</span>
+      </Tooltip>
     </div>
   )
 }
@@ -300,7 +307,13 @@ function ToolResult({ msg }: { msg: ChatMessage }) {
             </svg>
           )}
         </span>
-        <span className="tool-result-name" title={rawName || undefined}>{label}</span>
+        {rawName ? (
+          <Tooltip content={rawName} position="top">
+            <span className="tool-result-name">{label}</span>
+          </Tooltip>
+        ) : (
+          <span className="tool-result-name">{label}</span>
+        )}
         <svg className={`tool-result-chev${expanded ? ' tool-result-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="6 9 12 15 18 9" />
         </svg>
