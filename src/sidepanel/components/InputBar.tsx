@@ -42,7 +42,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const textRef = useRef('')
   textRef.current = text
   const lastInsertedRef = useRef('')
-  const suppressSelectionFillRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const skillsWrapRef = useRef<HTMLDivElement>(null)
 
@@ -77,7 +76,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   useEffect(() => {
     const sel = (selection ?? '').trim()
     if (!sel) return
-    if (suppressSelectionFillRef.current) { suppressSelectionFillRef.current = false; return }
     const filled = sel + ' '
     if (textRef.current === '' || textRef.current === lastInsertedRef.current) {
       lastInsertedRef.current = filled
@@ -94,15 +92,19 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   }
 
   function addSelection(payload: DocSelectionPayload): boolean {
-    let added = false
-    setAttachments((prev) => {
-      const r = tryAddSelectionAttachment(prev, payload)
-      added = r.added
-      return r.attachments
-    })
-    suppressSelectionFillRef.current = true // 抑制当次页面选区文本自动填充，避免选区既进 chip 又填进 textarea
+    const r = tryAddSelectionAttachment(attachments, payload)
+    if (!r.added) return false
+    setAttachments(r.attachments)
+    // The page-selection auto-fill effect (below) may already have written this same selected
+    // text into the textarea on the mouseup that preceded the button click. Undo that so the
+    // selection isn't both chipped AND sitting as raw text. lastInsertedRef records exactly what
+    // the auto-fill last wrote.
+    if (textRef.current === lastInsertedRef.current && lastInsertedRef.current.trim() === payload.selectedText) {
+      setText('')
+      lastInsertedRef.current = ''
+    }
     textareaRef.current?.focus()
-    return added
+    return true
   }
 
   // Parent-driven insert (field picker) + selection staging (App)
@@ -113,7 +115,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     if (!stagedSelection) return
     addSelection(stagedSelection)
     onStagedConsumed?.()
-  }, [stagedSelection])  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stagedSelection])
 
   function submit() {
     const t = text.trim()
