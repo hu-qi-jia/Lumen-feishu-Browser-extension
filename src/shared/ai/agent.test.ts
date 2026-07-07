@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
-import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex } from './agent'
+import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex, attachmentToMetaData } from './agent'
 
 describe('toolsForContext — exposes only the current resource\'s tools (+ core)', () => {
   const names = (kind: string | undefined) => toolsForContext(kind).map((t) => (t as { function: { name: string } }).function.name)
@@ -349,5 +349,33 @@ describe('resolveImageInsertIndex — insert_image anchor → root-child index',
   })
   it('throws on an unsupported anchor type', () => {
     expect(() => resolveImageInsertIndex({ type: 'cursor' }, [txt(0, 'a')])).toThrow(/不支持的锚点类型/)
+  })
+})
+
+describe('attachmentToMetaData — 附件 → 文本元数据（喂给 LLM）', () => {
+  it('image：原样输出图片占位串', () => {
+    const a = { id: 'att1', type: 'image', name: 'a.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,xxx' }
+    expect(attachmentToMetaData(a as any)).toBe(`【附件：图片 a.png（attachment_id: att1）】`)
+  })
+  it('file：原样输出文件占位串（含前导换行）', () => {
+    const a = { id: 'f1', type: 'file', name: 'd.csv', mimeType: 'text/csv', size: 3, content: 'x,y\n1,2' }
+    expect(attachmentToMetaData(a as any)).toBe(`\n\n【附件：d.csv】\nx,y\n1,2`)
+  })
+  it('selection（带标题+段落）：输出引用文档片段块', () => {
+    const a = { id: 's1', type: 'selection', name: '我的文档', mimeType: 'text/x-feishu-selection', size: 0,
+      selection: { kind: 'doc', docToken: 'D1', docTitle: '我的文档', url: 'u', selectedText: '选中内容', paragraphText: '整段文字', headingText: '标题A' } }
+    expect(attachmentToMetaData(a as any)).toBe(
+      `【引用文档片段｜文档：我的文档｜标题：标题A】\n所在段落：整段文字\n选中的内容：\n选中内容`,
+    )
+  })
+  it('selection（无标题/段落）：省略对应字段', () => {
+    const a = { id: 's2', type: 'selection', name: '文档片段', mimeType: 'text/x-feishu-selection', size: 0,
+      selection: { kind: 'doc', docToken: 'D1', docTitle: '', url: 'u', selectedText: '选中内容' } }
+    expect(attachmentToMetaData(a as any)).toBe(
+      `【引用文档片段｜文档：当前文档】\n选中的内容：\n选中内容`,
+    )
+  })
+  it('未知/缺数据 → null', () => {
+    expect(attachmentToMetaData({ id: 'x', type: 'image', name: 'a', mimeType: '', size: 0 } as any)).toBe(null) // 无 dataUrl
   })
 })
