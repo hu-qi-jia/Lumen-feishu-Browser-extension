@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { markdownToBlocks, buildBlock, buildTableDescendants, splitSheetToken, markdownToSegments, hasMarkdownTable } from './docx'
+import { markdownToBlocks, buildBlock, buildTableDescendants, splitSheetToken, markdownToSegments, hasMarkdownTable, resolveSelectionContext } from './docx'
 
 describe('markdownToSegments — tables become real table segments, not raw text', () => {
   it('splits text + table + text in order', () => {
@@ -119,5 +119,32 @@ describe('splitSheetToken', () => {
     expect(splitSheetToken('nounderscore')).toBeNull()
     expect(splitSheetToken('_leading')).toBeNull()
     expect(splitSheetToken('trailing_')).toBeNull()
+  })
+})
+
+describe('resolveSelectionContext — 选中文本 → 所在段落 + 最近标题', () => {
+  // block 文本结构与 listBlocks 一致：text→block.text.elements[].text_run.content；
+  // heading(3/4/5)→block.heading{1,2,3}.elements[].text_run.content
+  const txt = (id: string, content: string) => ({ block_id: id, block_type: 2, text: { elements: [{ text_run: { content } }] } })
+  const h = (id: string, level: number, content: string) => ({ block_id: id, block_type: 2 + level, [`heading${level}`]: { elements: [{ text_run: { content } }] } })
+
+  it('返回选区所在段落 + 其上方最近的标题', () => {
+    const blocks = [h('h1', 1, '报告'), txt('t1', '封面说明'), h('h2', 2, '数据'), txt('t2', '本月销售额为 100 万')]
+    expect(resolveSelectionContext(blocks, '销售额为 100')).toEqual({ paragraphText: '本月销售额为 100 万', headingText: '数据' })
+  })
+  it('选区落在标题本身 → paragraphText 与 headingText 都是该标题文本', () => {
+    const blocks = [txt('t0', '前言'), h('h1', 1, '重要章节'), txt('t1', '内容')]
+    expect(resolveSelectionContext(blocks, '重要章节')).toEqual({ paragraphText: '重要章节', headingText: '重要章节' })
+  })
+  it('选区上方无标题 → headingText 为 undefined', () => {
+    const blocks = [txt('t1', '开头第一段内容')]
+    expect(resolveSelectionContext(blocks, '第一段')).toEqual({ paragraphText: '开头第一段内容', headingText: undefined })
+  })
+  it('无任何块包含选区 → 返回空对象', () => {
+    const blocks = [txt('t1', '无关内容')]
+    expect(resolveSelectionContext(blocks, '不存在的片段')).toEqual({})
+  })
+  it('空选区 → 返回空对象', () => {
+    expect(resolveSelectionContext([txt('t1', 'x')], '   ')).toEqual({})
   })
 })

@@ -161,6 +161,52 @@ export async function listBlocks(token: string, documentId: string, cap = 2000) 
   return { items: items.slice(0, cap), has_more: truncated, truncated }
 }
 
+/** 文本块/标题块的文本 key（飞书 docx）：text→'text'，heading(3/4/5)→'heading1'/'heading2'/'heading3'。 */
+function blockTextKey(blockType: number): string | null {
+  if (blockType === 2) return 'text'
+  if (blockType >= 3 && blockType <= 5) return `heading${blockType - 2}`
+  return null
+}
+/** 读取一个块的纯文本（text/heading 块），其余块类型返回 ''。 */
+function readBlockText(block: Record<string, unknown>): string {
+  const key = blockTextKey(block.block_type as number)
+  if (!key) return ''
+  const el = block[key] as { elements?: Array<{ text_run?: { content?: string } }> } | undefined
+  return (el?.elements ?? []).map((e) => e?.text_run?.content ?? '').join('')
+}
+
+/** 纯：在扁平块列表里，按 selectedText 文本匹配定位「所在完整段落 + 最近上方标题」。
+ *  无 DOM 依赖（block_id 始终走 API 的既定原则）；list_blocks 已是扁平有序列表。 */
+export function resolveSelectionContext(
+  blocks: unknown[],
+  selectedText: string,
+): { paragraphText?: string; headingText?: string } {
+  const needle = (selectedText ?? '').trim()
+  if (!needle) return {}
+  const list = blocks as Record<string, unknown>[]
+  let lastHeading: string | undefined
+  for (const b of list) {
+    const bt = b.block_type as number
+    const isHeading = bt >= 3 && bt <= 5
+    const text = readBlockText(b)
+    if (isHeading && text) lastHeading = text
+    if (text && text.includes(needle)) {
+      return { paragraphText: text, headingText: isHeading ? text : lastHeading }
+    }
+  }
+  return {}
+}
+
+/** 异步包装：拉取文档块后跑 resolveSelectionContext。paragraphText/headingText 回填到 chip。 */
+export async function fetchSelectionContext(
+  token: string,
+  documentId: string,
+  selectedText: string,
+): Promise<{ paragraphText?: string; headingText?: string }> {
+  const { items } = await listBlocks(token, documentId)
+  return resolveSelectionContext(items, selectedText)
+}
+
 /** Insert built blocks under a parent (default: document root) at `index`. Feishu caps the
  *  children array at 50 per call, so we CHUNK — inserting each chunk at the running offset.
  *  Without this, a wide report/audit/summary left a blank doc + a confusing API error. */
