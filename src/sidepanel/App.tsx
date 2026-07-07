@@ -94,12 +94,14 @@ export default function App() {
 
   // Working doc token, with wiki resolved to its underlying doc token first — so a wiki-wrapped
   // doc and the same doc opened directly don't get misjudged as "different docs" (which would
-  // pop the cross-doc switch dialog for the same content).
+  // pop the cross-doc switch dialog for the same content). Also the gate InputBar uses to scope
+  // selection chips to the current doc.
   function workDocResolvedToken(): string | null {
     const t = activeDocToken
     if (!t) return null
     return wikiCacheRef.current.get(t)?.documentId ?? t
   }
+  const workDocToken = workDocResolvedToken()
 
   // wiki node → underlying doc token (mirrors useDocBinding's pinned-wiki resolution: shared
   // cache first, then getWikiNode + wikiToFeishu). Undefined when unresolvable.
@@ -413,6 +415,7 @@ export default function App() {
                   onRemoveRecent={removeFromRecent}
                   stagedSelection={stagedSelection}
                   onStagedConsumed={() => setStagedSelection(null)}
+                  workDocToken={workDocToken}
                 />
               ) : (
                 <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} />
@@ -443,11 +446,11 @@ export default function App() {
           onCancel={() => doc.setPendingSessionSwitch(null)}
         />
       ) : doc.pendingSelectionSwitch ? (
-        <SwitchDocDialog
-          variant="selection"
-          toTitle={doc.pendingSelectionSwitch.docTitle || '当前文档'}
-          onNew={() => { const p = doc.pendingSelectionSwitch?.payload ?? null; doc.handleSelectionSwitchNew(); setStagedSelection(p) }}
-          onStay={() => { const p = doc.pendingSelectionSwitch?.payload ?? null; doc.handleSelectionSwitchStay(); setStagedSelection(p) }}
+        <SwitchSessionDialog
+          docTitle={doc.pendingSelectionSwitch.docTitle || '当前文档'}
+          message={<>选区来自「<b>{doc.pendingSelectionSwitch.docTitle || '当前文档'}</b>」，与当前工作文档不同。</>}
+          confirmLabel="切换工作文档"
+          onConfirm={() => { const p = doc.pendingSelectionSwitch?.payload ?? null; doc.handleSelectionSwitchConfirm(); setStagedSelection(p) }}
           onCancel={doc.handleSelectionSwitchCancel}
         />
       ) : doc.pendingSwitch && !chatStreaming ? (

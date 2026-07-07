@@ -52,8 +52,8 @@ export interface DocBindingApi {
   setPendingSessionSwitch: React.Dispatch<React.SetStateAction<SessionMeta | null>>
   pendingSelectionSwitch: SelectionSwitch | null
   triggerSwitchForSelection: (s: SelectionSwitch) => void
-  handleSelectionSwitchNew: () => void
-  handleSelectionSwitchStay: () => void
+  /** 「切换工作文档」— pin the work doc to the selection's doc (not a new session). */
+  handleSelectionSwitchConfirm: () => void
   handleSelectionSwitchCancel: () => void
   handleNewSession: () => void
   handleFollowTabs: () => void
@@ -224,20 +224,15 @@ export function useDocBinding(a: Args): DocBindingApi {
     if (to && sid) sessions.rebindSession(sid, to, title)
   }
 
-  // Selection-driven cross-doc switch (selection-variant SwitchDocDialog). 「新建会话」opens a
-  // fresh session for the selection's doc; 「在当前会话继续」re-binds the active session to it.
-  // App stages the selection chip AFTER whichever runs (the chip is input-local, session-agnostic).
+  // Selection-driven cross-doc switch (SwitchSessionDialog). 「切换工作文档」pins the work doc
+  // to the selection's doc — NOT a new session: if a session for that doc exists useSessions
+  // activates it, otherwise it gets a fresh one. App stages the selection chip AFTER this runs
+  // (the chip is input-local, session-agnostic).
   function triggerSwitchForSelection(s: SelectionSwitch) { setPendingSelectionSwitch(s) }
-  function handleSelectionSwitchNew() {
+  function handleSelectionSwitchConfirm() {
     const s = pendingSelectionSwitch
     setPendingSelectionSwitch(null)
-    if (s) sessions.createSession({ appToken: s.docToken, title: s.docTitle, kind: 'doc' })
-  }
-  function handleSelectionSwitchStay() {
-    const s = pendingSelectionSwitch
-    setPendingSelectionSwitch(null)
-    const sid = sessions.activeSession?.id
-    if (s && sid) sessions.rebindSession(sid, s.docToken, s.docTitle)
+    if (s) setWorkDoc(s.docToken, s.docTitle, 'doc')
   }
   function handleSelectionSwitchCancel() { setPendingSelectionSwitch(null) }
 
@@ -278,7 +273,7 @@ export function useDocBinding(a: Args): DocBindingApi {
     docMode, pinned, sessions, chatContext,
     pendingSwitch, pendingSessionSwitch, setPendingSessionSwitch,
     pendingSelectionSwitch, triggerSwitchForSelection,
-    handleSelectionSwitchNew, handleSelectionSwitchStay, handleSelectionSwitchCancel,
+    handleSelectionSwitchConfirm, handleSelectionSwitchCancel,
     handleNewSession, handleFollowTabs, setWorkDoc, handleSwitchNew, handleSwitchStay,
     handlePickSession, confirmSessionSwitch,
   }

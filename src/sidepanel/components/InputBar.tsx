@@ -1,9 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardEvent, DragEvent, ChangeEvent } from 'react'
 import type { Attachment, DocSelectionPayload } from '../../shared/types'
-import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment } from '../../shared/attachments'
+import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText } from '../../shared/attachments'
 import { preloadSkills, type Skill } from '../../shared/ai/skills'
 import Tooltip from './Tooltip'
 import './InputBar.css'
+
+/** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
+ *  that state isolated rather than shared with every doc — mirrors how selection chips are keyed
+ *  by the resolved doc token. */
+const DRAFT_NO_DOC = '__no_doc__'
 
 /** Imperative handle so parents (e.g. a field picker) can drop text into the box. */
 export interface InputBarHandle {
@@ -28,13 +33,26 @@ interface Props {
   stagedSelection?: DocSelectionPayload | null
   /** Fired after stagedSelection is consumed (added or rejected) so App can clear it. */
   onStagedConsumed?: () => void
+  /** Wiki-resolved token of the current working doc. Selection chips whose source doc differs
+   *  are hidden AND excluded from sends — a reference staged from doc A is only relevant while
+   *  the work doc is A; it reappears when the user switches back. Images/files are doc-agnostic. */
+  workDocToken?: string | null
 }
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed },
+  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken },
   ref,
 ) {
-  const [text, setText] = useState('')
+  // Per-doc draft: typed text is scoped to the working doc, mirroring how selection chips are
+  // filtered by docToken. Switching the working doc swaps the draft (and switching back restores
+  // it), so instructions typed for doc A can never be sent against doc B. Keyed by the
+  // wiki-resolved token; the DRAFT_NO_DOC sentinel covers the no-doc case so that text is still
+  // isolated rather than shared across every doc.
+  const draftKey = workDocToken ?? DRAFT_NO_DOC
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const text = drafts[draftKey] ?? ''
+  const setText = (t: string) =>
+    setDrafts((prev) => (prev[draftKey] === t ? prev : { ...prev, [draftKey]: t }))
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
   const [skillsOpen, setSkillsOpen] = useState(false)
@@ -52,6 +70,14 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   }, [resourceKind])
 
   const blocked = disabled || !!busy
+
+  // Selection chips are scoped to the working doc: a reference staged from doc A is hidden (and
+  // not sent) while the work doc is B, then reappears when the user switches back to A. Images
+  // and uploaded files are doc-agnostic, so they always show. Send + the send-enabled check both
+  // use this filtered list — otherwise a hidden doc-A chip could leak into a doc-B send.
+  const visibleAttachments = attachments.filter(
+    (a) => a.type !== 'selection' || (workDocToken != null && a.selection?.docToken === workDocToken),
+  )
 
   const placeholder = disabled
     ? '请先在设置中完成配置'
@@ -72,22 +98,27 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   }
   useEffect(() => { resize() }, [text])
 
-  // Auto-fill the user's page selection into the box
+  // Auto-fill the page selection into the box — but ONLY for base/sheet, where fields/cells are
+  // clicked (getSelection stays empty, so the content script reports the clicked label) and there
+  // is no "添加到会话" button. On doc/wiki the button is the entry point; auto-filling there made
+  // the selection dump straight into the box, then flicker away when the button staged a chip.
   useEffect(() => {
     const sel = (selection ?? '').trim()
     if (!sel) return
+    if (resourceKind === 'doc' || resourceKind === 'wiki') return
     const filled = sel + ' '
     if (textRef.current === '' || textRef.current === lastInsertedRef.current) {
       lastInsertedRef.current = filled
       setText(filled)
       textareaRef.current?.focus()
     }
-  }, [selection])
+  }, [selection, resourceKind])
 
   function insert(t: string) {
     const s = t.trim()
     if (!s) return
-    setText((cur) => (cur.trim() ? cur.trimEnd() + ' ' + s + ' ' : s + ' '))
+    const cur = textRef.current
+    setText(cur.trim() ? cur.trimEnd() + ' ' + s + ' ' : s + ' ')
     textareaRef.current?.focus()
   }
 
@@ -95,14 +126,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     const r = tryAddSelectionAttachment(attachments, payload)
     if (!r.added) return false
     setAttachments(r.attachments)
-    // The page-selection auto-fill effect (below) may already have written this same selected
-    // text into the textarea on the mouseup that preceded the button click. Undo that so the
-    // selection isn't both chipped AND sitting as raw text. lastInsertedRef records exactly what
-    // the auto-fill last wrote.
-    if (textRef.current === lastInsertedRef.current && lastInsertedRef.current.trim() === payload.selectedText) {
-      setText('')
-      lastInsertedRef.current = ''
-    }
     textareaRef.current?.focus()
     return true
   }
@@ -119,10 +142,16 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
 
   function submit() {
     const t = text.trim()
-    if ((!t && attachments.length === 0) || blocked) return
-    onSend(t, attachments.length ? attachments : undefined)
+    if ((!t && visibleAttachments.length === 0) || blocked) return
+    onSend(t, visibleAttachments.length ? visibleAttachments : undefined)
     setText('')
-    setAttachments([])
+    // Drop what we just sent (current-doc chips + images/files). KEEP selection chips staged for
+    // OTHER docs so they reappear when the user switches back to them.
+    setAttachments((prev) =>
+      prev.filter(
+        (a) => a.type === 'selection' && !(workDocToken != null && a.selection?.docToken === workDocToken),
+      ),
+    )
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -201,16 +230,16 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   return (
     <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
       <div className="input-bar-inner">
-        {attachments.length > 0 && (
+        {visibleAttachments.length > 0 && (
           <div className="attachment-list">
-            {attachments.map((a) => (
+            {visibleAttachments.map((a) => (
               <div key={a.id} className="attachment-chip">
                 {a.type === 'image' && a.dataUrl ? (
                   <img className="attachment-thumb" src={a.dataUrl} alt={a.name} />
                 ) : a.type === 'selection' && a.selection ? (
                   <span className="attachment-sel" title={a.selection.selectedText}>
                     <span className="attachment-sel-doc">{a.selection.docTitle || '文档片段'}</span>
-                    <span className="attachment-sel-text">{a.selection.selectedText}</span>
+                    <span className="attachment-sel-text">{previewSelectionText(a.selection.selectedText)}</span>
                   </span>
                 ) : (
                   <span className="attachment-name">{a.name}</span>

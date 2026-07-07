@@ -32,6 +32,8 @@ interface Props {
   /** A doc selection staged from the page (SELECTION_INCOMING) — consumed once by InputBar. */
   stagedSelection?: DocSelectionPayload | null
   onStagedConsumed?: () => void
+  /** Wiki-resolved working-doc token — gates which selection chips InputBar shows/sends. */
+  workDocToken?: string | null
   /** Active session's messages + setter (lifted to App for persistence/switching). */
   messages: ChatMessage[]
   setMessages: (u: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void
@@ -67,7 +69,7 @@ interface Props {
 }
 
 export default function ChatPanel({
-  settings, context, disabled, stagedSelection, onStagedConsumed,
+  settings, context, disabled, stagedSelection, onStagedConsumed, workDocToken,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
   docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
@@ -424,6 +426,7 @@ export default function ChatPanel({
         resourceKind={context.feishu?.kind ?? 'general'}
         stagedSelection={stagedSelection}
         onStagedConsumed={onStagedConsumed}
+        workDocToken={workDocToken}
       />
 
       {pendingConfirm && (

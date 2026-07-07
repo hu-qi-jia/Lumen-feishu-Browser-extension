@@ -88,10 +88,11 @@
 .attachment-sel-text {
   font-size: 11px;
   color: var(--color-text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* previewSelectionText already bounds long text to head+…+tail; render its newlines and
+     let it wrap to a few lines instead of clamping mid-preview. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 5em;
   overflow: hidden;
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeTargetSize, selectionToAttachment, tryAddSelectionAttachment, MAX_SELECTION_CHIPS } from './attachments'
+import { computeTargetSize, selectionToAttachment, tryAddSelectionAttachment, previewSelectionText, MAX_SELECTION_CHIPS } from './attachments'
 import type { DocSelectionPayload } from './types'
 
 describe('computeTargetSize', () => {
@@ -55,5 +55,26 @@ describe('tryAddSelectionAttachment', () => {
     const r = tryAddSelectionAttachment(atts, payload({ selectedText: '多出来的' }))
     expect(r.added).toBe(false)
     expect(r.reason).toBe('limit')
+  })
+})
+
+describe('previewSelectionText', () => {
+  it('returns short text unchanged', () => {
+    expect(previewSelectionText('选中片段')).toBe('选中片段')
+  })
+  it('returns empty for blank input', () => {
+    expect(previewSelectionText('   ')).toBe('')
+  })
+  it('keeps exactly-50-char text without ellipsis', () => {
+    expect(previewSelectionText('B'.repeat(50))).toBe('B'.repeat(50))
+  })
+  it('truncates to first 50 chars + .... for long text', () => {
+    expect(previewSelectionText('A'.repeat(300))).toBe('A'.repeat(50) + '....')
+  })
+  it('truncates at a char boundary regardless of newlines', () => {
+    const out = previewSelectionText('第0行\n第1行\n第2行' + 'X'.repeat(200))
+    expect(out.startsWith('第0行')).toBe(true)
+    expect(out.endsWith('....')).toBe(true)
+    expect(out.length).toBe(50 + 4)
   })
 })

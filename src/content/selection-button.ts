@@ -38,11 +38,11 @@ function ensureButton(): HTMLButtonElement {
   btn.type = 'button'
   btn.textContent = '添加到会话'
   btn.style.cssText =
-    'display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:8px;' +
+    'display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border:none;border-radius:9px;' +
     'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 4px 14px rgba(79,107,255,.4);' +
-    "font:12px/1 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;"
+    "font:13px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;"
   const icon = document.createElement('span')
-  icon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
+  icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
   btn.prepend(icon.firstChild as Node)
   btn.onclick = onClick
   shadow.appendChild(btn)
@@ -50,17 +50,22 @@ function ensureButton(): HTMLButtonElement {
   return btn
 }
 
+// The live selection is captured the moment the button is shown. Clicking the button later
+// collapses it (mousedown on a focusable element clears the document selection), so onClick
+// must reuse this snapshot instead of re-reading window.getSelection() — which would be empty
+// by then and silently bail. Standard selection-popover pattern (Medium / Notion / Slate).
+let snapshot: {
+  kind: 'doc' | 'wiki'
+  docToken: string
+  docTitle: string
+  url: string
+  selectedText: string
+} | null = null
+
 function onClick() {
-  const kind = docKind()
-  const sel = currentSelection()
-  if (!kind || !sel) { hide(); return }
-  const f = parseFeishuContext(location.href)
-  const docToken = (f?.kind === 'wiki' ? f.wikiToken : f?.documentId) ?? ''
-  if (!docToken) { hide(); return }
-  const payload = {
-    type: 'OPEN_SIDE_PANEL_WITH_SELECTION',
-    payload: { kind, docToken, docTitle: document.title || '', url: location.href, selectedText: sel.text },
-  }
+  if (!snapshot) { hide(); return }
+  const payload = { type: 'OPEN_SIDE_PANEL_WITH_SELECTION', payload: snapshot }
+  snapshot = null
   chrome.runtime.sendMessage(payload).catch(() => { /* receiving end unavailable */ })
   hide()
 }
@@ -79,9 +84,15 @@ function show(rect: DOMRect) { ensureButton(); position(rect); if (host) host.st
 function hide() { if (host) host.style.display = 'none' }
 
 function refresh() {
-  if (!docKind()) { hide(); return }
+  const kind = docKind()
+  if (!kind) { snapshot = null; hide(); return }
   const sel = currentSelection()
-  if (!sel) { hide(); return }
+  if (!sel) { snapshot = null; hide(); return }
+  const f = parseFeishuContext(location.href)
+  const docToken = (f?.kind === 'wiki' ? f.wikiToken : f?.documentId) ?? ''
+  if (!docToken) { snapshot = null; hide(); return }
+  // Snapshot NOW — the selection may be gone by the time the user clicks the button.
+  snapshot = { kind, docToken, docTitle: document.title || '', url: location.href, selectedText: sel.text }
   show(sel.rect)
 }
 

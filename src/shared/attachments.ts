@@ -227,6 +227,18 @@ export function attachmentsToContentParts(attachments: Attachment[]): Array<
 /** Max removable selection chips staged in the input box at once. */
 export const MAX_SELECTION_CHIPS = 5
 
+/** Below this length a selection is shown in full on its chip; longer ones are cut to this many
+ *  characters with "...." appended (the full text is still sent to the agent + shown on hover). */
+const SELECTION_PREVIEW_MAX = 50
+
+/** Compact a long selection for chip DISPLAY only (the full text is still sent to the agent
+ *  and shown on hover via `title`). Shows the first 50 characters + "....". */
+export function previewSelectionText(text: string): string {
+  const t = (text ?? '').trim()
+  if (t.length <= SELECTION_PREVIEW_MAX) return t
+  return `${t.slice(0, SELECTION_PREVIEW_MAX)}....`
+}
+
 /** Build a selection Attachment from a wire payload (+optional resolved context). */
 export function selectionToAttachment(
   payload: DocSelectionPayload,
@@ -251,12 +263,16 @@ export function selectionToAttachment(
 }
 
 /** Pure: try to append a selection chip, enforcing the cap + exact-duplicate dedup.
- *  Returns the new attachment list + whether it was added (and why not). */
+ *  The cap is PER DOC (chips staged for other docs are hidden, not counted) — so you can hold
+ *  up to MAX_SELECTION_CHIPS references for each doc independently. Returns the new attachment
+ *  list + whether it was added (and why not). */
 export function tryAddSelectionAttachment(
   current: Attachment[],
   payload: DocSelectionPayload,
 ): { attachments: Attachment[]; added: boolean; reason?: 'dup' | 'limit' } {
-  const selCount = current.filter((a) => a.type === 'selection').length
+  const selCount = current.filter(
+    (a) => a.type === 'selection' && a.selection?.docToken === payload.docToken,
+  ).length
   if (selCount >= MAX_SELECTION_CHIPS) return { attachments: current, added: false, reason: 'limit' }
   const dup = current.some(
     (a) => a.type === 'selection' && a.selection?.docToken === payload.docToken && a.selection?.selectedText === payload.selectedText,
