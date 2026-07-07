@@ -70,6 +70,31 @@
   white-space: nowrap;
 }
 
+.attachment-sel {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 220px;
+  padding: 1px 2px;
+}
+.attachment-sel-doc {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-sel-text {
+  font-size: 11px;
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .attachment-remove {
   background: none;
   border: none;

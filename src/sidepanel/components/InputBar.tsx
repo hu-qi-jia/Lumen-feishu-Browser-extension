@@ -1,12 +1,16 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardEvent, DragEvent, ChangeEvent } from 'react'
-import type { Attachment } from '../../shared/types'
-import { fileToAttachment, validateAttachmentCount } from '../../shared/attachments'
+import type { Attachment, DocSelectionPayload } from '../../shared/types'
+import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment } from '../../shared/attachments'
 import { preloadSkills, type Skill } from '../../shared/ai/skills'
 import Tooltip from './Tooltip'
 import './InputBar.css'
 
 /** Imperative handle so parents (e.g. a field picker) can drop text into the box. */
-export interface InputBarHandle { insert: (t: string) => void }
+export interface InputBarHandle {
+  insert: (t: string) => void
+  /** Stage a doc-selection chip programmatically. Returns false if rejected (cap/dup). */
+  addSelection: (payload: DocSelectionPayload) => boolean
+}
 
 interface Props {
   onSend: (text: string, attachments?: Attachment[]) => void
@@ -20,10 +24,14 @@ interface Props {
   selection?: string
   /** Resource kind for skill preloading. */
   resourceKind?: string
+  /** A doc selection staged for the next send (App drives this on SELECTION_INCOMING). Consumed once. */
+  stagedSelection?: DocSelectionPayload | null
+  /** Fired after stagedSelection is consumed (added or rejected) so App can clear it. */
+  onStagedConsumed?: () => void
 }
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, onStop, selection, resourceKind },
+  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed },
   ref,
 ) {
   const [text, setText] = useState('')
@@ -34,6 +42,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const textRef = useRef('')
   textRef.current = text
   const lastInsertedRef = useRef('')
+  const suppressSelectionFillRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const skillsWrapRef = useRef<HTMLDivElement>(null)
 
@@ -68,6 +77,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   useEffect(() => {
     const sel = (selection ?? '').trim()
     if (!sel) return
+    if (suppressSelectionFillRef.current) { suppressSelectionFillRef.current = false; return }
     const filled = sel + ' '
     if (textRef.current === '' || textRef.current === lastInsertedRef.current) {
       lastInsertedRef.current = filled
@@ -83,8 +93,27 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     textareaRef.current?.focus()
   }
 
-  // Parent-driven insert (field picker)
-  useImperativeHandle(ref, () => ({ insert }), [insert])
+  function addSelection(payload: DocSelectionPayload): boolean {
+    let added = false
+    setAttachments((prev) => {
+      const r = tryAddSelectionAttachment(prev, payload)
+      added = r.added
+      return r.attachments
+    })
+    suppressSelectionFillRef.current = true // 抑制当次页面选区文本自动填充，避免选区既进 chip 又填进 textarea
+    textareaRef.current?.focus()
+    return added
+  }
+
+  // Parent-driven insert (field picker) + selection staging (App)
+  useImperativeHandle(ref, () => ({ insert, addSelection }), [insert, addSelection])
+
+  // Consume an App-staged doc selection (SELECTION_INCOMING) → push a selection chip once.
+  useEffect(() => {
+    if (!stagedSelection) return
+    addSelection(stagedSelection)
+    onStagedConsumed?.()
+  }, [stagedSelection])  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   function submit() {
     const t = text.trim()
@@ -176,6 +205,11 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               <div key={a.id} className="attachment-chip">
                 {a.type === 'image' && a.dataUrl ? (
                   <img className="attachment-thumb" src={a.dataUrl} alt={a.name} />
+                ) : a.type === 'selection' && a.selection ? (
+                  <span className="attachment-sel" title={a.selection.selectedText}>
+                    <span className="attachment-sel-doc">{a.selection.docTitle || '文档片段'}</span>
+                    <span className="attachment-sel-text">{a.selection.selectedText}</span>
+                  </span>
                 ) : (
                   <span className="attachment-name">{a.name}</span>
                 )}
