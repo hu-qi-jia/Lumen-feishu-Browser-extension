@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react'
 import type { ChatMessage } from '../../shared/types'
 import Markdown from './Markdown'
 import Tooltip from './Tooltip'
-import Avatar from './Avatar'
 import './MessageList.css'
 
 type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
@@ -161,15 +160,14 @@ function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?
   )
 }
 
-// One bubble per agent turn — all text segments flow inside a single bubble, so a multi-round
-// task (text → tool → text → …) reads as one continuous reply instead of N boxed bubbles.
-// `thinking` renders the 思考中… indicator INSIDE this bubble (under the text) during a
-// mid-turn thinking gap, so the answer never gets interrupted by a separate thinking bubble.
+// One full-width reply per agent turn (no bubble — ChatGPT-style: only the user's question
+// is bubbled; the answer flows as plain full-width text so wide content isn't constrained).
+// All text segments flow inside one reply, and the 思考中… indicator renders inline (under
+// the text) during a mid-turn gap so the answer stays one continuous block.
 function ReplyBlock({ msgs, thinking }: { msgs: ChatMessage[]; thinking?: boolean }) {
   return (
     <div className="msg-row msg-row--assistant">
-      <Avatar role="assistant" />
-      <div className="bubble bubble--assistant reply-block">
+      <div className="reply-block">
         {msgs.map((m) => <ReplyItem key={m.id} msg={m} />)}
         {thinking && <ThinkingIndicator />}
       </div>
@@ -192,7 +190,6 @@ const ReplyItem = React.memo(function ReplyItem({ msg }: { msg: ChatMessage }) {
 function UserBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="msg-row msg-row--user">
-      <Avatar role="user" />
       <div className="bubble bubble--user">
         {msg.attachments && msg.attachments.length > 0 && (
           <div className="msg-attachments">
@@ -214,7 +211,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 }
 
 // Inner 思考中… content (spinner + text + animated dots) — shared by the inline indicator
-// (inside a reply block) and the standalone bubble (turn start). Pure CSS, no emoji.
+// (inside a reply block) and the standalone indicator (turn start). Pure CSS, no emoji.
 function ThinkingDots() {
   return (
     <>
@@ -227,8 +224,8 @@ function ThinkingDots() {
   )
 }
 
-// Inline thinking indicator — rendered inside a reply block so a mid-turn gap stays in the
-// same bubble as the answer instead of interrupting it.
+// Inline thinking indicator — rendered inside a reply block so a mid-turn gap stays with
+// the answer instead of interrupting it with a separate block.
 function ThinkingIndicator() {
   return (
     <div className="reply-thinking" role="status" aria-live="polite">
@@ -237,16 +234,13 @@ function ThinkingIndicator() {
   )
 }
 
-// Transient standalone "思考中…" bubble — shown only at a turn's start, before any reply
-// block exists. Reuses the assistant bubble frame + avatar so it reads as the assistant
-// composing; once text streams the reply block takes over (with the indicator inline).
+// Transient standalone "思考中…" indicator — shown only at a turn's start, before any reply
+// exists. No bubble (matches the bubbleless agent reply); once text streams the reply block
+// takes over, with the indicator appended inline under the text.
 function ThinkingBubble() {
   return (
     <div className="msg-row msg-row--assistant">
-      <Avatar role="assistant" />
-      <div className="bubble bubble--assistant thinking-bubble" role="status" aria-live="polite">
-        <ThinkingDots />
-      </div>
+      <ThinkingIndicator />
     </div>
   )
 }

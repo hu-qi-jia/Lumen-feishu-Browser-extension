@@ -79,8 +79,6 @@
 /* ── Message rows ── */
 .msg-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
   max-width: 100%;
   animation: msgIn .28s cubic-bezier(.2, .7, .3, 1) both;
 }
@@ -91,11 +89,11 @@
 @media (prefers-reduced-motion: reduce) {
   .msg-row, .example-chip, .btn-send, .sc-card, .thinking-spinner, .thinking-dots span { animation: none; transition: none; }
 }
-/* Avatar sits ABOVE its bubble; align the column to the sender's side. */
-.msg-row--user { align-items: flex-end; }
-.msg-row--assistant { align-items: flex-start; }
+/* Only the user's question is bubbled (right-aligned); the agent's reply is full-width. */
+.msg-row--user { justify-content: flex-end; }
+.msg-row--assistant { justify-content: flex-start; }
 
-/* ── Bubbles ── */
+/* ── Bubbles (user question only — agent replies are bubbleless, see .reply-block) ── */
 .bubble {
   max-width: 88%;
   padding: 9px 13px;
@@ -110,13 +108,6 @@
   border-bottom-right-radius: 5px;
   box-shadow: var(--shadow-brand-bubble);
 }
-.bubble--assistant {
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-bottom-left-radius: 5px;
-  box-shadow: var(--shadow-sm);
-}
 .cursor {
   display: inline-block;
   animation: blink 1s step-end infinite;
@@ -124,34 +115,31 @@
 }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* ── Reply block — one bubble per agent turn; all text segments flow inside ── */
+/* ── Reply block — the agent's bubbleless, full-width reply. One per turn; all text segments
+   flow inside (a multi-round task reads as one continuous answer). min-width:0 lets wide code
+   blocks / tables scroll instead of stretching the layout. ── */
 .reply-block {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
 }
-.reply-text { min-width: 0; }
+.reply-text { min-width: 0; overflow-wrap: anywhere; }
 
 /* Inline 思考中… — rendered inside a reply block during a mid-turn thinking gap, so the
-   indicator stays in the same bubble as the answer (reuses .thinking-spinner/text/dots). */
+   indicator stays with the answer instead of interrupting it (reuses .thinking-spinner/text/dots). */
 .reply-thinking {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding-top: 2px;
   color: var(--color-text-secondary);
 }
 
-/* ── 思考中… — transient indicator shown during a turn's thinking gaps (before the first
-   token of a round, and between rounds / while tools run). Reuses the assistant bubble frame
-   so it reads as the assistant composing; spinner + animated dots, pure CSS, no emoji. ── */
-.thinking-bubble {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  color: var(--color-text-secondary);
-}
+/* ── 思考中… — spinner + animated dots used by the inline/standalone indicator. Pure CSS. ── */
 .thinking-spinner {
   flex-shrink: 0;
   width: 14px;

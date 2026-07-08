@@ -145,15 +145,17 @@ describe('MessageList — 思考中… indicator', () => {
     expect(screen.getByText('思考中')).toBeTruthy()
   })
 
-  it('renders the between-rounds indicator INSIDE the reply bubble — one bubble, not two', () => {
-    // A mid-turn thinking gap must not interrupt the answer with a separate bubble: the
-    // indicator lives inside the existing reply block, so the whole turn reads as one bubble.
+  it('renders the between-rounds indicator INSIDE the reply — one reply, no separate block', () => {
+    // A mid-turn thinking gap must not interrupt the answer with a separate block: the
+    // indicator lives inside the existing reply block (appended under the prior text).
     const { container } = render(<MessageList streaming messages={[
       mk({ role: 'user', content: '加个字段' }),
       mk({ role: 'assistant', content: '我先查一下结构。', isStreaming: false }),
     ]} />)
     expect(screen.getByText('思考中')).toBeTruthy()
-    expect(container.querySelectorAll('.bubble--assistant')).toHaveLength(1)
+    expect(container.querySelectorAll('.reply-block')).toHaveLength(1)
+    expect(container.querySelectorAll('.reply-thinking')).toHaveLength(1)
+    expect(container.querySelector('.reply-block')?.querySelector('.reply-thinking')).toBeTruthy()
   })
 })
 
