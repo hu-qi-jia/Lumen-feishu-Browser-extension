@@ -67,34 +67,36 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
           )
         })()}
 
-        {!usingManagedLlm(form) && (<>
-          <FormField
-            label="Base URL"
-            hint={baseUrlNote?.msg}
-            hintColor={baseUrlNote?.kind === 'error' ? '#d4380d' : baseUrlNote?.kind === 'warn' ? '#d48806' : undefined}
-          >
-            <FormInput type="url"
-              value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
-              placeholder="https://api.deepseek.com" />
-          </FormField>
+        {!usingManagedLlm(form) && (
+          <div className="model-config-fields">
+            <FormField
+              label="Base URL"
+              hint={baseUrlNote?.msg}
+              hintColor={baseUrlNote?.kind === 'error' ? '#d4380d' : baseUrlNote?.kind === 'warn' ? '#d48806' : undefined}
+            >
+              <FormInput type="url"
+                value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
+                placeholder="https://api.deepseek.com" />
+            </FormField>
 
-          <FormField label="API Key">
-            <FormInput type="password"
-              value={form.openaiApiKey} onChange={set('openaiApiKey')}
-              placeholder="sk-…" />
-          </FormField>
+            <FormField label="API Key">
+              <FormInput type="password"
+                value={form.openaiApiKey} onChange={set('openaiApiKey')}
+                placeholder="sk-…" />
+            </FormField>
 
-          <FormField label="Model">
-            <>
-              <FormInput type="text" list="model-suggestions"
-                value={form.openaiModel} onChange={set('openaiModel')}
-                placeholder={provider.models[0] || 'deepseek-v4-pro'} />
-              <datalist id="model-suggestions">
-                {provider.models.map((m) => <option key={m} value={m} />)}
-              </datalist>
-            </>
-          </FormField>
-        </>)}
+            <FormField label="Model">
+              <>
+                <FormInput type="text" list="model-suggestions"
+                  value={form.openaiModel} onChange={set('openaiModel')}
+                  placeholder={provider.models[0] || 'deepseek-v4-pro'} />
+                <datalist id="model-suggestions">
+                  {provider.models.map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </>
+            </FormField>
+          </div>
+        )}
       </SettingsSection>
     </>
   )

@@ -163,7 +163,7 @@ export default function BackupTab() {
 
         <div className="settings-row">
           <div className="settings-row-main">
-            <span className="settings-row-title">包含密钥</span>
+            <span className="settings-row-title">导出包含密钥</span>
             <span className="settings-row-desc">备份文件中包含 API Key、飞书 Token 及 App Secret</span>
           </div>
           <span className="settings-row-control">
