@@ -39,26 +39,27 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
   return (
     <>
       {/* ── 删除自动确认 ── */}
-      <SettingsSection
-        title={titleHelp('删除自动确认', AUTO_CONFIRM_TIP)}
-        action={
-          <FormSwitch
-            checked={form.autoConfirm === true}
-            disabled={policyLocks.has('autoConfirm')}
-            onChange={(checked) => patch({ autoConfirm: checked })}
-          />
-        }
-      >
+      <SettingsSection title={titleHelp('删除自动确认', AUTO_CONFIRM_TIP)}>
+        <div className="settings-row">
+          <span className="settings-row-label">删除内容时自动确认</span>
+          <span className="settings-row-control">
+            <FormSwitch
+              checked={form.autoConfirm === true}
+              disabled={policyLocks.has('autoConfirm')}
+              onChange={(checked) => patch({ autoConfirm: checked })}
+            />
+          </span>
+        </div>
         {policyLocks.has('autoConfirm') && (
           <p className="field-hint">（由企业策略锁定）</p>
         )}
       </SettingsSection>
 
       {/* ── 本地经验 ── */}
-      <SettingsSection
-        title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}
-        action={
-          <span className="section-inline-actions">
+      <SettingsSection title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}>
+        <div className="settings-row">
+          <span className="settings-row-label">记住成功经验</span>
+          <span className="settings-row-control">
             <FormSwitch
               checked={form.learnFromHistory !== false}
               disabled={policyLocks.has('learnFromHistory')}
@@ -75,8 +76,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
               </button>
             </Tooltip>
           </span>
-        }
-      >
+        </div>
         {policyLocks.has('learnFromHistory') && (
           <p className="field-hint">（由企业策略锁定）</p>
         )}
@@ -84,22 +84,30 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
       {/* ── 模板库地址 ── */}
       <SettingsSection title={titleHelp('模板库地址', REGISTRY_TIP)}>
-        <FormInput
-          type="text"
-          value={form.templateRegistryUrl}
-          onChange={set('templateRegistryUrl')}
-          placeholder="https://… 或 http://localhost:8787/registry.json"
-        />
+        <div className="field-group">
+          <span className="field-label-inline">地址</span>
+          <FormInput
+            type="text"
+            value={form.templateRegistryUrl}
+            onChange={set('templateRegistryUrl')}
+            placeholder="https://… 或 http://localhost:8787/registry.json"
+          />
+        </div>
       </SettingsSection>
 
       {/* ── GitHub Trending翻译 ── */}
       <SettingsSection title={titleHelp('GitHub Trending翻译', TRANSLATION_TIP)}>
-        <SettingsSelect
-          options={ENGINE_OPTIONS}
-          value={engine}
-          onChange={changeEngine}
-          ariaLabel="GitHub 描述翻译引擎"
-        />
+        <div className="settings-row">
+          <span className="settings-row-label">翻译引擎</span>
+          <span className="settings-row-control">
+            <SettingsSelect
+              options={ENGINE_OPTIONS}
+              value={engine}
+              onChange={changeEngine}
+              ariaLabel="GitHub 描述翻译引擎"
+            />
+          </span>
+        </div>
       </SettingsSection>
 
       {/* ── 场景模板 ── */}

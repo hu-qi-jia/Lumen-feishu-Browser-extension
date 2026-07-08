@@ -120,10 +120,10 @@ export default function BackupTab() {
   return (
     <>
       {/* ── 本地备份与恢复（导出到文件 / 从文件导入）—— 所有版本可用 ── */}
-      <SettingsSection
-        title={titleHelp('本地备份与恢复', BACKUP_TIP)}
-        action={
-          <span className="section-inline-actions">
+      <SettingsSection title={titleHelp('本地备份与恢复', BACKUP_TIP)}>
+        <div className="settings-row">
+          <span className="settings-row-label">备份文件</span>
+          <span className="settings-row-control">
             <Tooltip content="导出备份" position="bottom">
               <button
                 type="button"
@@ -156,11 +156,13 @@ export default function BackupTab() {
               }}
             />
           </span>
-        }
-      >
-        <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
-          <>包含密钥（API Key / 飞书 Token / App Secret）</>
-        </FormCheckbox>
+        </div>
+
+        <div className="settings-row">
+          <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
+            <>包含密钥（API Key / 飞书 Token / App Secret）</>
+          </FormCheckbox>
+        </div>
         {includeSecrets && (
           <p className="field-hint" style={{ color: '#d4380d' }}>
             勾选后文件含<b>明文密钥</b>，请妥善保管、勿外发；不勾选则更安全，恢复后重新填一次 Key 即可。
@@ -171,18 +173,19 @@ export default function BackupTab() {
 
       {/* ── 数据清理 ── */}
       <SettingsSection title={titleHelp('数据清理', cleanupTip(impactBytes, lastCleanedAt))}>
-        <div className="cache-row">
-          <span className="cache-row-label">自动清理</span>
-          <SettingsSelect
-            options={CLEANUP_INTERVAL_OPTIONS}
-            value={String(cleanupDays)}
-            onChange={changeInterval}
-            ariaLabel="自动清理频率"
-          />
+        <div className="settings-row">
+          <span className="settings-row-label">自动清理</span>
+          <span className="settings-row-control">
+            <SettingsSelect
+              options={CLEANUP_INTERVAL_OPTIONS}
+              value={String(cleanupDays)}
+              onChange={changeInterval}
+              ariaLabel="自动清理频率"
+            />
+          </span>
         </div>
         <Button
           variant="danger"
-          block
           loading={clearing}
           onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
         >
