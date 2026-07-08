@@ -119,10 +119,13 @@ export default function BackupTab() {
 
   return (
     <>
-      {/* ── 本地备份与恢复（导出到文件 / 从文件导入）—— 所有版本可用 ── */}
+      {/* ── 本地备份与恢复 ── */}
       <SettingsSection title={titleHelp('本地备份与恢复', BACKUP_TIP)}>
         <div className="settings-row">
-          <span className="settings-row-label">备份文件</span>
+          <div className="settings-row-main">
+            <span className="settings-row-title">备份文件</span>
+            <span className="settings-row-desc">导出全部数据或从文件恢复</span>
+          </div>
           <span className="settings-row-control">
             <Tooltip content="导出备份" position="bottom">
               <button
@@ -159,9 +162,15 @@ export default function BackupTab() {
         </div>
 
         <div className="settings-row">
-          <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
-            <>包含密钥（API Key / 飞书 Token / App Secret）</>
-          </FormCheckbox>
+          <div className="settings-row-main">
+            <span className="settings-row-title">包含密钥</span>
+            <span className="settings-row-desc">API Key / 飞书 Token / App Secret</span>
+          </div>
+          <span className="settings-row-control">
+            <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
+              <></>
+            </FormCheckbox>
+          </span>
         </div>
         {includeSecrets && (
           <p className="field-hint" style={{ color: '#d4380d' }}>
@@ -174,7 +183,10 @@ export default function BackupTab() {
       {/* ── 数据清理 ── */}
       <SettingsSection title={titleHelp('数据清理', cleanupTip(impactBytes, lastCleanedAt))}>
         <div className="settings-row">
-          <span className="settings-row-label">自动清理</span>
+          <div className="settings-row-main">
+            <span className="settings-row-title">自动清理</span>
+            <span className="settings-row-desc">按周期自动清理会话与缓存数据</span>
+          </div>
           <span className="settings-row-control">
             <SettingsSelect
               options={CLEANUP_INTERVAL_OPTIONS}
@@ -184,46 +196,58 @@ export default function BackupTab() {
             />
           </span>
         </div>
-        <Button
-          variant="danger"
-          loading={clearing}
-          onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
-        >
-          清除全部数据
-        </Button>
+        <div className="settings-row">
+          <div className="settings-row-main">
+            <span className="settings-row-title">清除全部数据</span>
+            <span className="settings-row-desc">清除会话、PPT、建站、PDF 等，只保留设置，不可恢复</span>
+          </div>
+          <span className="settings-row-control">
+            <Button
+              variant="danger"
+              size="sm"
+              loading={clearing}
+              onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
+            >
+              清除
+            </Button>
+          </span>
+        </div>
         {cleanupMsg && <p className="field-hint">{cleanupMsg}</p>}
       </SettingsSection>
 
-      {/* ── 企业云备份（产物 → 企业自有对象存储；本地丢失可拉回） ── */}
+      {/* ── 企业云备份 ── */}
       {HAS_ARTIFACT_SYNC && (
-        <SettingsSection title="企业云备份（小程序 / 建站 / PPT）">
-          <p className="field-hint">
-            你保存的<b>小程序、AI建站、PPT</b>会自动备份到<b>本企业自有的</b>对象存储；
-            一旦本地被清空、换设备或重装，可一键拉回。仅用你本人的飞书身份鉴权，按你的账号隔离，他人读不到你的备份。
-          </p>
-          <button
-            className="btn-secondary"
-            disabled={restoring}
-            onClick={async () => {
-              setRestoring(true)
-              setRestoreMsg('')
-              try {
-                const n = await restoreAllArtifacts()
-                setRestoreMsg(
-                  n > 0
-                    ? `已从云端恢复 ${n} 个（重新打开对应面板即可看到）。`
-                    : '云端没有可补充的内容（本地已是最新）。',
-                )
-              } catch {
-                setRestoreMsg('恢复失败：请确认已用本企业飞书账号授权、且网络可达企业代理。')
-              } finally {
-                setRestoring(false)
-              }
-            }}
-            style={{ alignSelf: 'flex-start' }}
-          >
-            {restoring ? '正在从云端恢复…' : '从企业云端恢复'}
-          </button>
+        <SettingsSection title="企业云备份">
+          <div className="settings-row">
+            <div className="settings-row-main">
+              <span className="settings-row-title">小程序 / 建站 / PPT</span>
+              <span className="settings-row-desc">自动备份到本企业自有对象存储，本地清空后可一键拉回</span>
+            </div>
+            <span className="settings-row-control">
+              <button
+                className="btn-secondary"
+                disabled={restoring}
+                onClick={async () => {
+                  setRestoring(true)
+                  setRestoreMsg('')
+                  try {
+                    const n = await restoreAllArtifacts()
+                    setRestoreMsg(
+                      n > 0
+                        ? `已从云端恢复 ${n} 个（重新打开对应面板即可看到）。`
+                        : '云端没有可补充的内容（本地已是最新）。',
+                    )
+                  } catch {
+                    setRestoreMsg('恢复失败：请确认已用本企业飞书账号授权、且网络可达企业代理。')
+                  } finally {
+                    setRestoring(false)
+                  }
+                }}
+              >
+                {restoring ? '恢复中…' : '从云端恢复'}
+              </button>
+            </span>
+          </div>
           {restoreMsg && <p className="field-hint" style={{ marginTop: 6 }}>{restoreMsg}</p>}
         </SettingsSection>
       )}
@@ -250,14 +274,14 @@ function titleHelp(title: string, tip: string) {
       {title}
       <Tooltip content={tip} position="bottom">
         <span className="help-icon" aria-label="帮助">
-          <HelpIcon />
+          <HelpIconSvg />
         </span>
       </Tooltip>
     </>
   )
 }
 
-function HelpIcon() {
+function HelpIconSvg() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />

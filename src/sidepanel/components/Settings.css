@@ -18,35 +18,35 @@
 .settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px 14px;
+  padding: 20px 16px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 28px;
   background: var(--color-surface);
 }
 
-/* Card-style section: clear grouping with background, border and radius. */
+/* Flat section: no card chrome, just a heading + stacked rows. */
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   box-shadow: none;
 }
-.settings-section:last-child { border-bottom: 1px solid var(--color-border); }
 
 .section-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--color-text);
-  margin-bottom: 0;
+  margin-bottom: 8px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 .section-title-text {
   display: inline-flex;
@@ -55,28 +55,67 @@
 }
 .section-title-action { flex-shrink: 0; }
 
-/* Standard form row: label on the left, control on the right. */
+/* Option row: label + description on the left, control on the right. */
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 28px;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
 }
-.settings-row-label {
+.settings-section > .settings-row:first-of-type { padding-top: 0; }
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.settings-row-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text);
-  flex-shrink: 0;
+}
+.settings-row-desc {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 .settings-row-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* Vertical field: label + description above, full-width control below. */
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.settings-section > .settings-field:first-of-type { padding-top: 0; }
+.settings-field:last-child { border-bottom: none; }
+.settings-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.settings-field-desc {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 /* Multiple controls in a title row (e.g. switch + icon button). */
@@ -108,7 +147,7 @@
 }
 .icon-btn svg { width: 14px; height: 14px; }
 
-/* Inline help icon after section titles / labels */
+/* Inline help icon after titles / labels */
 .help-icon {
   display: inline-flex;
   align-items: center;
@@ -156,7 +195,7 @@
 /* ── Engine dropdown (reuses Dropdown component, styled like form-input) ── */
 .engine-dropdown {
   width: auto;
-  min-width: 120px;
+  min-width: 140px;
 }
 .engine-trigger {
   display: flex;
@@ -341,7 +380,7 @@
 .builtin-label { font-size: 12px; font-weight: 600; color: #2e7d32; }
 .builtin-sub { font-size: 11px; color: #388e3c; line-height: 1.5; }
 
-/* ── Field group ── */
+/* ── Field group (legacy compatibility) ── */
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label-inline { font-size: 12px; font-weight: 500; color: var(--color-text); }
 

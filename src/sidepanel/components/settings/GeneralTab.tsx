@@ -38,10 +38,16 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
   return (
     <>
-      {/* ── 删除自动确认 ── */}
-      <SettingsSection title={titleHelp('删除自动确认', AUTO_CONFIRM_TIP)}>
+      {/* ── 操作确认 ── */}
+      <SettingsSection title="操作确认">
         <div className="settings-row">
-          <span className="settings-row-label">删除内容时自动确认</span>
+          <div className="settings-row-main">
+            <span className="settings-row-title">
+              删除自动确认
+              <HelpIcon tip={AUTO_CONFIRM_TIP} />
+            </span>
+            <span className="settings-row-desc">删除文档内容时不再弹确认，文件级删除始终拦截</span>
+          </div>
           <span className="settings-row-control">
             <FormSwitch
               checked={form.autoConfirm === true}
@@ -58,7 +64,10 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       {/* ── 本地经验 ── */}
       <SettingsSection title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}>
         <div className="settings-row">
-          <span className="settings-row-label">记住成功经验</span>
+          <div className="settings-row-main">
+            <span className="settings-row-title">记住成功经验</span>
+            <span className="settings-row-desc">从任务中提炼本地经验，下次遇到相似任务自动参考</span>
+          </div>
           <span className="settings-row-control">
             <FormSwitch
               checked={form.learnFromHistory !== false}
@@ -84,8 +93,8 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
       {/* ── 模板库地址 ── */}
       <SettingsSection title={titleHelp('模板库地址', REGISTRY_TIP)}>
-        <div className="field-group">
-          <span className="field-label-inline">地址</span>
+        <div className="settings-field">
+          <span className="settings-field-label">自定义模板库地址</span>
           <FormInput
             type="text"
             value={form.templateRegistryUrl}
@@ -98,7 +107,10 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       {/* ── GitHub Trending翻译 ── */}
       <SettingsSection title={titleHelp('GitHub Trending翻译', TRANSLATION_TIP)}>
         <div className="settings-row">
-          <span className="settings-row-label">翻译引擎</span>
+          <div className="settings-row-main">
+            <span className="settings-row-title">翻译引擎</span>
+            <span className="settings-row-desc">选择项目描述翻译方式</span>
+          </div>
           <span className="settings-row-control">
             <SettingsSelect
               options={ENGINE_OPTIONS}
@@ -126,14 +138,24 @@ function titleHelp(title: string, tip: string) {
       {title}
       <Tooltip content={tip} position="bottom">
         <span className="help-icon" aria-label="帮助">
-          <HelpIcon />
+          <HelpIconSvg />
         </span>
       </Tooltip>
     </>
   )
 }
 
-function HelpIcon() {
+function HelpIcon({ tip }: { tip: string }) {
+  return (
+    <Tooltip content={tip} position="bottom">
+      <span className="help-icon" aria-label="帮助">
+        <HelpIconSvg />
+      </span>
+    </Tooltip>
+  )
+}
+
+function HelpIconSvg() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />

@@ -118,7 +118,7 @@ describe('Settings — data cleanup (backup tab)', () => {
     const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
     fireEvent.click(backupTab)
     // step 1: the danger button opens the confirm dialog (no removal yet)
-    fireEvent.click(getByText('清除全部数据'))
+    fireEvent.click(getByText('清除'))
     expect(getByText('删除')).toBeTruthy()
     // step 2: confirm → actually clears
     fireEvent.click(getByText('删除'))
