@@ -9,7 +9,7 @@ interface Props {
   onThemeChange: (theme: 'light' | 'dark') => void
 }
 
-/** 外观 tab：主题风格、强调色。 */
+/** 外观 tab：主题风格、主题颜色。 */
 export default function AppearanceTab({ accent, onAccentChange, theme, onThemeChange }: Props) {
   const accentChanged = accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase()
 
@@ -33,8 +33,8 @@ export default function AppearanceTab({ accent, onAccentChange, theme, onThemeCh
         </div>
       </SettingsSection>
 
-      {/* ── 强调色 ── */}
-      <SettingsSection title="强调色">
+      {/* ── 主题颜色 ── */}
+      <SettingsSection title="主题颜色">
         <div className="accent-grid">
           {ACCENT_PRESETS.map((p) => (
             <Tooltip key={p.hex} content={p.name} position="bottom">

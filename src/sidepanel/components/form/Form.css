@@ -34,7 +34,7 @@
   box-shadow: var(--ring);
 }
 
-/* ── Checkbox row ── */
+/* ── Checkbox row (Feishu-style) ── */
 .form-checkbox-group {
   display: flex;
   flex-direction: column;
@@ -49,6 +49,45 @@
   font-weight: 500;
   color: var(--color-text);
   cursor: pointer;
+}
+.form-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.form-checkbox-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color .15s ease, background .15s ease;
+}
+.form-checkbox-box svg {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.form-checkbox input:checked + .form-checkbox-box {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.form-checkbox input:checked + .form-checkbox-box svg {
+  opacity: 1;
+  transform: scale(1);
+}
+.form-checkbox input:disabled + .form-checkbox-box,
+.form-checkbox input:disabled ~ .form-checkbox-label {
+  opacity: .4;
+  cursor: not-allowed;
 }
 
 /* ── Switch (single on/off pill) ── */

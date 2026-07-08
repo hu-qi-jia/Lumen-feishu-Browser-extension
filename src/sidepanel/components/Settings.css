@@ -130,20 +130,6 @@
   white-space: nowrap;
 }
 
-/* ── Backup option row (label left, switch right) ── */
-.backup-option-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.backup-option-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text);
-  line-height: 1.4;
-}
-
 /* Inline two-step confirm for the destructive 清除全部数据 button. */
 .cache-confirm {
   display: flex;

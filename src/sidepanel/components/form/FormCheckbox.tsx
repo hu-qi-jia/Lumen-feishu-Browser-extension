@@ -13,9 +13,8 @@ interface Props {
 }
 
 /**
- * Checkbox with inline label — horizontal row: ☑ label text.
- * Replaces the repeated `<label className="field-label" style={{flexDirection:'row'...}}>`
- * pattern across settings tabs.
+ * Feishu-style checkbox: a rounded square box with an animated checkmark.
+ * The native input is visually hidden but remains accessible.
  */
 export default function FormCheckbox({ checked, onChange, disabled, hint, hintColor, children }: Props) {
   return (
@@ -27,6 +26,11 @@ export default function FormCheckbox({ checked, onChange, disabled, hint, hintCo
           disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
         />
+        <span className="form-checkbox-box" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </span>
         <span className="form-checkbox-label">{children}</span>
       </label>
       {hint && (

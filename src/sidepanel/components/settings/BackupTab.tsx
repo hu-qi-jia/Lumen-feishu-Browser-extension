@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { HAS_ARTIFACT_SYNC } from '../../../shared/config'
 import { restoreAllArtifacts } from '../../cloudRestore'
 import { applyBackup, buildBackup } from '../../../shared/configBackup'
-import { FormSwitch } from '../form'
+import { FormCheckbox } from '../form'
+import { IconDownload, IconUpload } from '../icons'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import type { ConfirmRequest } from '../../../shared/ai/agent'
+import '../SessionDrawer.css'
 import {
   cleanupImpact,
   clearAllUserData,
@@ -122,12 +124,26 @@ export default function BackupTab() {
         title={titleHelp('本地备份与恢复', BACKUP_TIP)}
         action={
           <span className="section-inline-actions">
-            <button className="btn-secondary" onClick={() => void handleExportBackup()}>
-              导出
-            </button>
-            <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
-              导入
-            </button>
+            <Tooltip content="导出备份" position="bottom">
+              <button
+                type="button"
+                className="drawer-row-btn"
+                aria-label="导出备份"
+                onClick={() => void handleExportBackup()}
+              >
+                <IconDownload />
+              </button>
+            </Tooltip>
+            <Tooltip content="从文件导入" position="bottom">
+              <button
+                type="button"
+                className="drawer-row-btn"
+                aria-label="从文件导入"
+                onClick={() => fileRef.current?.click()}
+              >
+                <IconUpload />
+              </button>
+            </Tooltip>
             <input
               ref={fileRef}
               type="file"
@@ -142,13 +158,9 @@ export default function BackupTab() {
           </span>
         }
       >
-        <div className="backup-option-row">
-          <span className="backup-option-label">包含密钥（API Key / 飞书 Token / App Secret）</span>
-          <FormSwitch
-            checked={includeSecrets}
-            onChange={setIncludeSecrets}
-          />
-        </div>
+        <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
+          <>包含密钥（API Key / 飞书 Token / App Secret）</>
+        </FormCheckbox>
         {includeSecrets && (
           <p className="field-hint" style={{ color: '#d4380d' }}>
             勾选后文件含<b>明文密钥</b>，请妥善保管、勿外发；不勾选则更安全，恢复后重新填一次 Key 即可。
@@ -235,19 +247,19 @@ function titleHelp(title: string, tip: string) {
       {title}
       <Tooltip content={tip} position="bottom">
         <span className="help-icon" aria-label="帮助">
-          <InfoIcon />
+          <HelpIcon />
         </span>
       </Tooltip>
     </>
   )
 }
 
-function InfoIcon() {
+function HelpIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   )
 }
