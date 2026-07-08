@@ -19,7 +19,7 @@ import {
   type CleanupIntervalDays,
 } from '../../../shared/dataCleanup'
 
-const BACKUP_TIP = '把你的配置、保存的小程序 / AI建站 / PPT、本地经验、会话导出成一个文件；换设备、重装或清缓存后导入即可恢复，防止数据丢失。全程在本机，不上传任何服务器。'
+const BACKUP_TIP = '导出配置、小程序、AI 建站、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
 
 
 /**
@@ -124,7 +124,7 @@ export default function BackupTab() {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">备份文件</span>
-            <span className="settings-row-desc">导出全部数据或从文件恢复</span>
+            <span className="settings-row-desc">导出或导入本地备份</span>
           </div>
           <span className="settings-row-control">
             <Tooltip content="导出备份" position="bottom">
@@ -164,7 +164,7 @@ export default function BackupTab() {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">包含密钥</span>
-            <span className="settings-row-desc">API Key / 飞书 Token / App Secret</span>
+            <span className="settings-row-desc">备份文件中包含 API Key、飞书 Token 及 App Secret</span>
           </div>
           <span className="settings-row-control">
             <FormCheckbox checked={includeSecrets} onChange={setIncludeSecrets}>
@@ -185,7 +185,7 @@ export default function BackupTab() {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">自动清理</span>
-            <span className="settings-row-desc">按周期自动清理会话与缓存数据</span>
+            <span className="settings-row-desc">按周期清理会话与缓存</span>
           </div>
           <span className="settings-row-control">
             <SettingsSelect
@@ -199,7 +199,7 @@ export default function BackupTab() {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">清除全部数据</span>
-            <span className="settings-row-desc">清除会话、PPT、建站、PDF 等，只保留设置，不可恢复</span>
+            <span className="settings-row-desc">清除会话、PPT、建站、PDF 等数据，仅保留设置</span>
           </div>
           <span className="settings-row-control">
             <Button
@@ -221,7 +221,7 @@ export default function BackupTab() {
           <div className="settings-row">
             <div className="settings-row-main">
               <span className="settings-row-title">小程序 / 建站 / PPT</span>
-              <span className="settings-row-desc">自动备份到本企业自有对象存储，本地清空后可一键拉回</span>
+              <span className="settings-row-desc">自动备份至企业自有对象存储，本地清空后可恢复</span>
             </div>
             <span className="settings-row-control">
               <button
@@ -292,7 +292,7 @@ function HelpIconSvg() {
 }
 
 function cleanupTip(impactBytes: number | null, lastCleanedAt: number | null): string {
-  let tip = '清除全部会话记录、保存的 PPT / 建站 / PDF、图片附件、本地经验等，只保留你的设置（API Key、飞书授权、主题等）。不可恢复。'
+  let tip = '清除会话、PPT、建站、PDF、图片附件及本地经验，仅保留设置。不可恢复。'
   if (impactBytes != null && impactBytes > 0) tip += ` 当前约 ${formatBytes(impactBytes)} 可清除。`
   if (lastCleanedAt) tip += ` 上次清理：${relTime(lastCleanedAt)}。`
   return tip

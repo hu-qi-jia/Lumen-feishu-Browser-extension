@@ -15,9 +15,9 @@ interface Props extends SettingsTabProps {
   policyLocks: Set<keyof AppSettings>
 }
 
-const AUTO_CONFIRM_TIP = '开启后，删除文档内的行 / 字段 / 内容块 / 去重等操作不再弹确认按钮。文件级删除（整表 / 电子表格 / 文档 / 云文件）始终拦截。'
-const TRANSLATION_TIP = 'Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。'
-const REGISTRY_TIP = '留空使用内置模版。填写任意可访问的地址（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。'
+const AUTO_CONFIRM_TIP = '删除文档行、字段、内容块及去重等操作不再确认。文件级删除始终拦截。'
+const TRANSLATION_TIP = 'Bing 翻译免费，AI 翻译使用已配置模型。翻译结果会缓存。'
+const REGISTRY_TIP = '留空使用内置模板库。支持 HTTPS 或本地测试地址，格式为单文件 bundle 或 index.json。'
 
 /** 通用 tab：删除自动确认、本地经验、模板库地址、GitHub Trending翻译、场景模板。 */
 export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
@@ -46,7 +46,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
               删除自动确认
               <HelpIcon tip={AUTO_CONFIRM_TIP} />
             </span>
-            <span className="settings-row-desc">删除文档内容时不再弹确认，文件级删除始终拦截</span>
+            <span className="settings-row-desc">删除行、字段、内容块时跳过确认</span>
           </div>
           <span className="settings-row-control">
             <FormSwitch
@@ -62,11 +62,11 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       </SettingsSection>
 
       {/* ── 本地经验 ── */}
-      <SettingsSection title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}>
+      <SettingsSection title={titleHelp('本地经验', `任务成功后在本机提炼执行经验（不含表格/文档数据），相似任务自动参考。最多 300 条，已积累 ${recipeN ?? '…'} 条。`)}>
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">记住成功经验</span>
-            <span className="settings-row-desc">从任务中提炼本地经验，下次遇到相似任务自动参考</span>
+            <span className="settings-row-desc">相似任务自动参考历史经验</span>
           </div>
           <span className="settings-row-control">
             <FormSwitch
@@ -109,7 +109,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">翻译引擎</span>
-            <span className="settings-row-desc">选择项目描述翻译方式</span>
+            <span className="settings-row-desc">GitHub 项目描述的翻译方式</span>
           </div>
           <span className="settings-row-control">
             <SettingsSelect
@@ -124,9 +124,10 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
       {/* ── 场景模板 ── */}
       <SettingsSection title="场景模板">
-        <p className="field-hint">
-          在「场景」Tab 中一键搭建 CRM、电商、项目管理系统等应用。内置常用模版，也可通过上方「模板库地址」接入自定义模版库。
-        </p>
+        <div className="settings-field">
+          <span className="settings-field-label">可用模板</span>
+          <span className="settings-field-desc">内置 CRM、电商、项目管理系统等常用模板，也可通过「模板库地址」接入自定义模板库。</span>
+        </div>
       </SettingsSection>
     </>
   )
