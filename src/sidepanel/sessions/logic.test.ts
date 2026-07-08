@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
 import {
-  emptyIndex, ensureSession, removeSession, capSessions, MAX_SESSIONS,
+  emptyIndex, ensureSession, removeSession, removeSessionsByAppToken, capSessions, MAX_SESSIONS,
   previewFromMessages, groupSessions, stampKind, resolveSessionTitle, GENERAL_GROUP_KEY,
   messagesForRetry,
 } from './logic'
@@ -83,27 +83,99 @@ describe('removeSession', () => {
     let idx = ensureSession(emptyIndex(), 'appA', gen).idx   // s1 (doc appA)
     idx = ensureSession(idx, null, gen).idx                  // s2 (general)
     idx = { ...idx, activeId: idx.generalId }                // general active
-    const out = removeSession(idx, idx.byAppToken['appA'], null, gen)
+    const out = removeSession(idx, idx.byAppToken['appA'], gen)
     expect(out.idx.sessions.some((s) => s.appToken === 'appA')).toBe(false)
     expect(out.idx.byAppToken['appA']).toBeUndefined()
     expect(out.activeId).toBe(idx.generalId) // active unchanged
   })
 
-  it('falls back to the current document session when the active one is deleted', () => {
+  it('deleting the ONLY session under a doc falls back to general (no recreate)', () => {
+    // The bug this fixes: deleting the last session under the current doc used to recreate
+    // an empty doc session, so it looked like it "couldn't be deleted". It's now truly gone.
     const gen = ids()
-    let idx = ensureSession(emptyIndex(), 'appA', gen).idx
-    idx = { ...idx, activeId: idx.byAppToken['appA'] }
-    // delete the active doc session while still on appA → a fresh appA session is created
-    const out = removeSession(idx, idx.byAppToken['appA'], 'appA', gen)
-    expect(out.activeId).toBeTruthy()
-    expect(out.idx.byAppToken['appA']).toBe(out.activeId)
-    expect(out.idx.sessions.find((s) => s.id === out.activeId)?.messageCount).toBe(0) // brand new
+    let idx = ensureSession(emptyIndex(), 'appA', gen).idx   // s1 (doc appA, the only one)
+    idx = ensureSession(idx, null, gen).idx                  // s2 (general)
+    idx = { ...idx, activeId: idx.byAppToken['appA'] }       // the doc session is active
+    const out = removeSession(idx, idx.byAppToken['appA'], gen)
+    expect(out.idx.sessions.some((s) => s.appToken === 'appA')).toBe(false) // truly removed
+    expect(out.idx.byAppToken['appA']).toBeUndefined()
+    expect(out.activeId).toBe(idx.generalId) // landed on the general session, not a new appA
+  })
+
+  it('deleting the active doc session falls back to a sibling of the same doc', () => {
+    // Two sessions under appA; the byAppToken shortcut moves to the survivor, which also
+    // becomes active so the user stays on the same document.
+    const gen = ids()
+    let idx = ensureSession(emptyIndex(), 'appA', gen).idx   // s1
+    const s2: SessionMeta = { id: 's2', title: 't', appToken: 'appA', createdAt: 0, updatedAt: 0, messageCount: 0, titleResolved: true }
+    idx = { ...idx, sessions: [s2, ...idx.sessions], byAppToken: { ...idx.byAppToken } }
+    idx = { ...idx, activeId: 's1' }
+    const out = removeSession(idx, 's1', gen)
+    expect(out.idx.sessions.some((s) => s.id === 's1')).toBe(false)
+    expect(out.idx.byAppToken['appA']).toBe('s2')        // shortcut handed to the sibling
+    expect(out.activeId).toBe('s2')                       // landed on the sibling
+    expect(out.idx.sessions.some((s) => s.appToken === 'appA')).toBe(true) // doc still present
   })
 
   it('is a no-op for an unknown id', () => {
     const idx = ensureSession(emptyIndex(), 'appA', ids()).idx
-    const out = removeSession(idx, 'nope', null, ids())
+    const out = removeSession(idx, 'nope', ids())
     expect(out.idx).toBe(idx)
+  })
+})
+
+describe('removeSessionsByAppToken — delete every session under a document', () => {
+  const sess = (id: string, appToken: string | null): SessionMeta => ({
+    id, title: id, appToken, createdAt: 0, updatedAt: 0, messageCount: 0, titleResolved: true,
+  })
+  const mk = (metas: SessionMeta[], activeId: string | null = null): SessionIndex => {
+    const general = metas.find((m) => m.appToken === null)
+    return {
+      sessions: metas, activeId,
+      generalId: general ? general.id : null, // the hook always maintains generalId
+      byAppToken: Object.fromEntries(metas.filter((m) => m.appToken).map((m) => [m.appToken as string, m.id])),
+    }
+  }
+
+  it('removes all sessions for the appToken and clears the shortcut', () => {
+    const idx = mk([sess('a', 'doc1'), sess('b', 'doc1'), sess('c', 'doc2')])
+    const out = removeSessionsByAppToken(idx, 'doc1', ids())
+    expect(out.idx.sessions.map((s) => s.id)).toEqual(['c'])
+    expect(out.idx.byAppToken['doc1']).toBeUndefined()
+    expect(out.idx.byAppToken['doc2']).toBe('c')
+    expect(out.removed.sort()).toEqual(['a', 'b'])
+    expect(out.activeId).toBeNull() // nothing was active
+  })
+
+  it('falls back to the general session when the active one is among the removed', () => {
+    const idx = mk([sess('a', 'doc1'), sess('g', null)], 'a')
+    const out = removeSessionsByAppToken(idx, 'doc1', ids())
+    expect(out.idx.sessions.some((s) => s.appToken === 'doc1')).toBe(false)
+    expect(out.activeId).toBe('g') // landed on general
+  })
+
+  it('creates a general session to fall back to when none exists yet', () => {
+    const idx = mk([sess('a', 'doc1')], 'a') // no general session yet
+    const out = removeSessionsByAppToken(idx, 'doc1', ids())
+    expect(out.idx.sessions.some((s) => s.appToken === 'doc1')).toBe(false)
+    expect(out.activeId).toBeTruthy()
+    expect(out.idx.sessions.find((s) => s.id === out.activeId)?.appToken).toBeNull() // general
+  })
+
+  it('is a no-op for an unknown appToken', () => {
+    const idx = mk([sess('a', 'doc1')])
+    const out = removeSessionsByAppToken(idx, 'nope', ids())
+    expect(out.idx).toBe(idx)
+    expect(out.removed).toEqual([])
+  })
+
+  it('clears the general group when appToken is null (re-ensures a fresh general)', () => {
+    const idx = mk([sess('g1', null), sess('a', 'doc1')], 'g1')
+    const out = removeSessionsByAppToken(idx, null, ids())
+    expect(out.idx.sessions.some((s) => s.id === 'g1')).toBe(false)
+    expect(out.idx.sessions.some((s) => s.appToken === 'doc1')).toBe(true) // doc untouched
+    expect(out.activeId).toBeTruthy()
+    expect(out.idx.sessions.find((s) => s.id === out.activeId)?.appToken).toBeNull()
   })
 })
 

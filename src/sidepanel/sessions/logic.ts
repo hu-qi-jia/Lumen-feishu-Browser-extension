@@ -96,34 +96,79 @@ export function ensureSession(
 
 /**
  * Remove a session and compute the fallback active id. If the removed session was
- * active, fall back to the current document's session (recreated if needed) or the
- * general session.
+ * active, fall back to a SIBLING session of the same document if one remains;
+ * otherwise to the general session (created if needed). We deliberately do NOT
+ * recreate the deleted document's session — so deleting the only session under a
+ * doc actually removes it from the list (the previous "can't delete the last
+ * session under a doc" behavior came from recreating it). When the deleted session
+ * held its doc's `byAppToken` shortcut, a surviving sibling inherits it.
  */
 export function removeSession(
   idx: SessionIndex,
   id: string,
-  currentAppToken: string | null,
   newId: () => string
 ): { idx: SessionIndex; activeId: string | null } {
   const target = idx.sessions.find((s) => s.id === id)
   if (!target) return { idx, activeId: idx.activeId }
 
+  const sessions = idx.sessions.filter((s) => s.id !== id)
   const byAppToken = { ...idx.byAppToken }
-  if (target.appToken) delete byAppToken[target.appToken]
+  if (target.appToken && byAppToken[target.appToken] === id) {
+    // Hand the doc shortcut to a surviving sibling, or drop it when none remain.
+    const heir = sessions.find((s) => s.appToken === target.appToken)
+    if (heir) byAppToken[target.appToken] = heir.id
+    else delete byAppToken[target.appToken]
+  }
   let next: SessionIndex = {
     ...idx,
-    sessions: idx.sessions.filter((s) => s.id !== id),
+    sessions,
     byAppToken,
     generalId: idx.generalId === id ? null : idx.generalId,
   }
 
   let activeId = idx.activeId
   if (activeId === id) {
-    const ensured = ensureSession(next, currentAppToken, newId)
+    const sibling = sessions.find((s) => s.appToken === target.appToken)
+    if (sibling) {
+      activeId = sibling.id
+    } else {
+      const ensured = ensureSession(next, null, newId) // general session — never recreate the deleted doc
+      next = ensured.idx
+      activeId = ensured.id
+    }
+  }
+  return { idx: { ...next, activeId }, activeId }
+}
+
+/**
+ * Remove EVERY session bound to `appToken` (a document-level delete from the history
+ * drawer). Clears the `byAppToken` shortcut; if the active session was among those
+ * removed, falls back to the general session (created if needed). Returns the removed
+ * session ids so the caller can drop their cached/stored messages. Pass
+ * `appToken = null` to clear the general group (a fresh general session is re-ensured
+ * as the fallback, since it's the sink every other fallback targets).
+ */
+export function removeSessionsByAppToken(
+  idx: SessionIndex,
+  appToken: string | null,
+  newId: () => string
+): { idx: SessionIndex; activeId: string | null; removed: string[] } {
+  const removedSessions = idx.sessions.filter((s) => s.appToken === appToken)
+  if (!removedSessions.length) return { idx, activeId: idx.activeId, removed: [] }
+  const removedIds = removedSessions.map((s) => s.id)
+  const gone = new Set(removedIds)
+  const sessions = idx.sessions.filter((s) => !gone.has(s.id))
+  const byAppToken = { ...idx.byAppToken }
+  if (appToken) delete byAppToken[appToken]
+  let next: SessionIndex = { ...idx, sessions, byAppToken }
+
+  let activeId = idx.activeId
+  if (activeId && gone.has(activeId)) {
+    const ensured = ensureSession(next, null, newId) // fall back to general
     next = ensured.idx
     activeId = ensured.id
   }
-  return { idx: { ...next, activeId }, activeId }
+  return { idx: { ...next, activeId }, activeId, removed: removedIds }
 }
 
 /**

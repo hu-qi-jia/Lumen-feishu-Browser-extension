@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
 import * as store from './store'
-import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, capSessions, previewFromMessages, stampKind as stampKindPure, resolveSessionTitle as resolveSessionTitlePure } from './logic'
+import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, removeSessionsByAppToken as removeSessionsByAppTokenPure, capSessions, previewFromMessages, stampKind as stampKindPure, resolveSessionTitle as resolveSessionTitlePure } from './logic'
 
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
@@ -23,6 +23,11 @@ export interface SessionsApi {
    *  tab the user just switched to, regardless of which session is currently held active). */
   createSession: (opts?: { appToken?: string; title?: string; kind?: SessionKind }) => void
   removeSession: (id: string) => void
+  /** Remove EVERY session bound to `appToken` (document-level delete from the history
+   *  drawer). `null` clears the general group. Drops each removed session's cached +
+   *  stored messages and falls back to the general session if the active one was among
+   *  them. Asks for confirmation in the UI before calling — this is destructive. */
+  removeSessionsByAppToken: (appToken: string | null) => void
   renameSession: (id: string, title: string) => void
   /** Re-bind an existing session to a different resource, keeping its messages (the
    *  "在原会话中继续工作" choice on the switch-doc popup — follow the new tab without
@@ -231,7 +236,7 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
   }, [persistCapped, activeAppToken])
 
   const removeSession = useCallback((id: string) => {
-    const { idx, activeId } = removeSessionPure(indexRef.current, id, activeAppToken, uid)
+    const { idx, activeId } = removeSessionPure(indexRef.current, id, uid)
     if (idx === indexRef.current) return // nothing removed
     persistIndex(idx)
     const t = flushTimers.current.get(id)
@@ -239,7 +244,22 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
     cache.current.delete(id)
     void store.removeMessages(id)
     if (activeId) void loadInto(activeId)
-  }, [persistIndex, loadInto, activeAppToken])
+  }, [persistIndex, loadInto])
+
+  // Document-level delete: drop every session under one appToken (null = the general
+  // group). Mirrors removeSession's cleanup per id, then loads the fallback active session.
+  const removeSessionsByAppToken = useCallback((appToken: string | null) => {
+    const { idx, activeId, removed } = removeSessionsByAppTokenPure(indexRef.current, appToken, uid)
+    if (idx === indexRef.current) return // nothing removed
+    persistIndex(idx)
+    for (const id of removed) {
+      const t = flushTimers.current.get(id)
+      if (t) { clearTimeout(t); flushTimers.current.delete(id) }
+      cache.current.delete(id)
+      void store.removeMessages(id)
+    }
+    if (activeId) void loadInto(activeId)
+  }, [persistIndex, loadInto])
 
   const renameSession = useCallback((id: string, title: string) => {
     const t = title.trim()
@@ -279,6 +299,6 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
 
   return {
     ready, index, activeSession, messages,
-    setMessages, setMessagesFor, switchTo, createSession, removeSession, renameSession, rebindSession, resolveTitle, stampKind,
+    setMessages, setMessagesFor, switchTo, createSession, removeSession, removeSessionsByAppToken, renameSession, rebindSession, resolveTitle, stampKind,
   }
 }

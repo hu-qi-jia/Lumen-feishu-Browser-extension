@@ -1632,6 +1632,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   - 工具用 \`spreadsheet_token\` 标识表格、\`range\` 格式为 "{sheet_id}!A1:C10"
 - 文档 Docs：创建文档、读取正文、插入内容块（段落/标题/列表/引用/代码/分割线/待办）、删除块
   - 工具用 \`document_id\` 标识文档；写正文用 \`add_document_content\`（blocks 数组，style 选 text/h1/h2/h3/bullet/ordered/quote/code/todo/divider）
+  - **插入内容到指定位置前先定位（重要）**：用 \`insert_table\` / \`insert_sheet\` / \`add_document_content\` 往文档**指定位置**（末尾 / 某标题后 / 某段前后）插内容时，**先调 \`list_blocks\` 看清当前块结构和总块数，再决定 \`index\`**——**绝不直接传一个猜测的大数字**（飞书会报"index 超出范围"，白费一整轮往返）。文档末尾的 index = 根块直接子块总数；插到开头才用 \`index=0\`。
   - **写整篇文档优先用 \`create_doc_from_markdown\`**：直接给 Markdown，自动建文档并排版（"帮我写一份方案/周报"走这个最快）
   - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制用 copy_document（一次调用保真）；
 	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。

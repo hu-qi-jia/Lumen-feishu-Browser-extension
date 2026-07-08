@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import type { SessionKind, SessionMeta } from '../../shared/types'
 import type { SessionsApi } from '../sessions/useSessions'
 import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../sessions/logic'
-import { KindIcon, GeneralIcon } from './icons'
+import { KindIcon, GeneralIcon, IconTrash } from './icons'
 import SideDrawer from './SideDrawer'
 import Tooltip from './Tooltip'
+import ConfirmDialog from './ConfirmDialog'
 import './SessionDrawer.css'
 
 interface Props {
@@ -20,10 +21,26 @@ interface Props {
 }
 
 export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind, onPickSession }: Props) {
-  const { index, removeSession, renameSession, stampKind } = sessions
+  const { index, removeSession, removeSessionsByAppToken, renameSession, stampKind } = sessions
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+
+  // A pending delete awaiting the ConfirmDialog. Both the session-row trash and the
+  // document-group trash route here first — nothing is deleted until the user confirms.
+  const [confirm, setConfirm] = useState<
+    | { kind: 'session'; id: string }
+    | { kind: 'group'; appToken: string | null; title: string; count: number }
+    | null
+  >(null)
+  const askDeleteSession = (id: string) => setConfirm({ kind: 'session', id })
+  const askDeleteGroup = (g: SessionGroup) =>
+    setConfirm({ kind: 'group', appToken: g.key === GENERAL_GROUP_KEY ? null : g.key, title: g.label, count: g.sessions.length })
+  const confirmSummary = !confirm
+    ? ''
+    : confirm.kind === 'session'
+      ? '删除该会话？删除后无法恢复。'
+      : `删除「${confirm.title}」下的全部会话（${confirm.count} 个）？删除后无法恢复。`
 
   // On open, upgrade unresolved 'wiki' sessions to their real type (base/sheet/doc) so each
   // group header shows the right doc-type icon. A wiki session's appToken is its wikiToken,
@@ -137,7 +154,7 @@ export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind
                 onDraft={setDraft}
                 onCommit={() => commitRename(s.id)}
                 onCancelRename={() => setEditingId(null)}
-                onDelete={() => removeSession(s.id)}
+                onDelete={() => askDeleteSession(s.id)}
               />
             ))
           )
@@ -159,12 +176,25 @@ export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind
               onDraft={setDraft}
               onCommit={commitRename}
               onCancelRename={() => setEditingId(null)}
-              onDelete={removeSession}
+              onDelete={askDeleteSession}
+              onDeleteGroup={() => askDeleteGroup(g)}
             />
           ))
         )}
       </div>
       {busy && <p className="drawer-hint">回复进行中，暂不能切换会话</p>}
+      {confirm && (
+        <ConfirmDialog
+          req={{ kind: 'delete', summary: confirmSummary }}
+          onChoose={(c) => {
+            if (c === 'confirm') {
+              if (confirm.kind === 'session') removeSession(confirm.id)
+              else removeSessionsByAppToken(confirm.appToken)
+            }
+            setConfirm(null)
+          }}
+        />
+      )}
     </SideDrawer>
   )
 }
@@ -173,7 +203,7 @@ export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind
 // Collapsed by default except the active session's group (see one-shot init above).
 function SessionGroupView({
   group, collapsed, activeId, busy, editingId, draft,
-  onToggle, onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete,
+  onToggle, onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete, onDeleteGroup,
 }: {
   group: SessionGroup
   collapsed: boolean
@@ -188,20 +218,30 @@ function SessionGroupView({
   onCommit: (id: string) => void
   onCancelRename: () => void
   onDelete: (id: string) => void
+  onDeleteGroup: () => void
 }) {
   const isGeneral = group.key === GENERAL_GROUP_KEY
   return (
     <div className="drawer-group">
-      <button className="drawer-group-head" onClick={onToggle} type="button" aria-expanded={!collapsed}>
-        <span className="drawer-group-icon" aria-hidden="true">
-          {isGeneral ? <GeneralIcon /> : <KindIcon kind={group.kind ?? 'doc'} />}
+      <div className="drawer-group-head">
+        <button className="drawer-group-toggle" onClick={onToggle} type="button" aria-expanded={!collapsed}>
+          <span className="drawer-group-icon" aria-hidden="true">
+            {isGeneral ? <GeneralIcon /> : <KindIcon kind={group.kind ?? 'doc'} />}
+          </span>
+          <span className="drawer-group-label">{group.label}</span>
+          <span className="drawer-group-count">{group.sessions.length}</span>
+          <svg className={`drawer-group-chev${collapsed ? '' : ' drawer-group-chev--open'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <span className="drawer-group-actions">
+          <Tooltip content="删除该文档全部会话" position="left">
+            <button className="drawer-row-btn" onClick={onDeleteGroup} type="button" aria-label="删除该文档全部会话">
+              <IconTrash />
+            </button>
+          </Tooltip>
         </span>
-        <span className="drawer-group-label">{group.label}</span>
-        <span className="drawer-group-count">{group.sessions.length}</span>
-        <svg className={`drawer-group-chev${collapsed ? '' : ' drawer-group-chev--open'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
+      </div>
       {!collapsed && (
         <div className="drawer-group-body">
           {group.sessions.map((s) => (
@@ -284,10 +324,7 @@ function SessionRow({
           </Tooltip>
           <Tooltip content="删除" position="left">
             <button className="drawer-row-btn" onClick={onDelete} type="button" aria-label="删除">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
+              <IconTrash />
             </button>
           </Tooltip>
         </span>

@@ -139,15 +139,28 @@
 .drawer-group { display: flex; flex-direction: column; }
 .drawer-group + .drawer-group { margin-top: 2px; }
 .drawer-group-head {
+  display: flex; align-items: center; gap: 2px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  transition: background .15s ease;
+}
+.drawer-group-head:hover { background: var(--color-surface); }
+/* The clickable area (icon + label + count + chevron) — flex:1 so the delete action sits
+   at the right edge. Was the whole header; split out so a delete button can live alongside
+   it without nesting buttons. */
+.drawer-group-toggle {
+  flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 10px 8px;
   background: none; border: none; cursor: pointer;
   font-family: inherit; text-align: left;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
-  transition: background .15s ease, color .15s ease;
+  padding: 0;
+  transition: color .15s ease;
 }
-.drawer-group-head:hover { background: var(--color-surface); color: var(--color-text); }
+.drawer-group-toggle:hover { color: var(--color-text); }
+/* Document-level delete — reveals on hover like the row actions. Reuses .drawer-row-btn. */
+.drawer-group-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity .15s ease; }
+.drawer-group-head:hover .drawer-group-actions { opacity: 1; }
 .drawer-group-icon { display: flex; align-items: center; justify-content: center; color: var(--color-text-secondary); flex-shrink: 0; }
 .drawer-group-icon svg { width: 16px; height: 16px; display: block; }
 .drawer-group-label {
