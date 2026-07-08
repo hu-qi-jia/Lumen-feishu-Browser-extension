@@ -5,7 +5,13 @@
   padding: 6px 14px;
   background: var(--color-surface);
   flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  white-space: nowrap;
 }
+.settings-tabs::-webkit-scrollbar { display: none; }
 
 .settings-tab {
   flex: 0 0 auto;

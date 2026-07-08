@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react'
 import './SettingsTabs.css'
 
 interface TabDef {
@@ -16,10 +17,20 @@ interface Props {
 
 /** Horizontal tab bar — text labels with an active indicator. Reusable across panels. */
 export default function SettingsTabs({ tabs, active, onChange, ariaLabel = '设置分类', variant = 'pill' }: Props) {
+  const navRef = useRef<HTMLElement>(null)
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLElement>) => {
+    const nav = navRef.current
+    if (!nav) return
+    // Scroll horizontally when the wheel is vertical and the tab bar overflows.
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault()
+      nav.scrollLeft += e.deltaY
+    }
+  }, [])
   const navClass = `settings-tabs${variant === 'underline' ? ' settings-tabs--underline' : ''}`
 
   return (
-    <nav className={navClass} role="tablist" aria-label={ariaLabel}>
+    <nav ref={navRef} className={navClass} role="tablist" aria-label={ariaLabel} onWheel={handleWheel}>
       {tabs.map((t) => {
         const on = t.id === active
         const baseClass = variant === 'underline' ? 'settings-tab settings-tab--underline' : 'settings-tab'

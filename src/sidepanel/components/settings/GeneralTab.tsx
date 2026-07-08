@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '../../../shared/types'
-import { FormCheckbox, FormField, FormInput, FormSwitch } from '../form'
+import { FormInput, FormSwitch } from '../form'
 import Dropdown from '../Dropdown'
+import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
@@ -12,7 +13,11 @@ interface Props extends SettingsTabProps {
   policyLocks: Set<keyof AppSettings>
 }
 
-/** 通用 tab：自动确认、GitHub 项目描述翻译、场景模版、模板库地址、越用越聪明（本地经验）。 */
+const AUTO_CONFIRM_TIP = '开启后，删除文档内的行 / 字段 / 内容块 / 去重等操作不再弹确认按钮。文件级删除（整表 / 电子表格 / 文档 / 云文件）始终拦截。'
+const TRANSLATION_TIP = 'Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。'
+const REGISTRY_TIP = '留空使用内置模版。填写任意可访问的地址（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。'
+
+/** 通用 tab：自动确认、GitHub Trending翻译、场景模版、模板库地址、本地经验。 */
 export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
   // News translation engine — stored in news_settings_v1 (separate from AppSettings), so
   // it's loaded/saved independently and takes effect immediately.
@@ -24,7 +29,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
     void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translationEngine: next }))
   }
 
-  // 越用越聪明：本地经验条数 + 清空
+  // 本地经验：条数 + 清空
   const [recipeN, setRecipeN] = useState<number | null>(null)
   useEffect(() => { void recipeCount().then(setRecipeN) }, [])
   async function handleClearRecipes() {
@@ -35,35 +40,29 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
   return (
     <>
       {/* ── 自动确认 ── */}
-      <SettingsSection title="自动确认">
-        <FormSwitch
-          checked={form.autoConfirm === true}
-          disabled={policyLocks.has('autoConfirm')}
-          onChange={(checked) => patch({ autoConfirm: checked })}
-          hint={
-            <>
-              开启后，删除文档内的行 / 字段 / 内容块 / 去重等操作<b>不再弹确认按钮</b>。
-              文件级删除（整表 / 电子表格 / 文档 / 云文件）始终拦截。
-              {policyLocks.has('autoConfirm') && <span className="field-hint">（由企业策略锁定）</span>}
-            </>
-          }
-          hintColor={form.autoConfirm ? '#d4380d' : undefined}
-        >
-          删除文档内容时自动确认
-        </FormSwitch>
+      <SettingsSection
+        title={titleHelp('自动确认', AUTO_CONFIRM_TIP)}
+        action={
+          <FormSwitch
+            checked={form.autoConfirm === true}
+            disabled={policyLocks.has('autoConfirm')}
+            onChange={(checked) => patch({ autoConfirm: checked })}
+          />
+        }
+      >
+        {policyLocks.has('autoConfirm') && (
+          <p className="field-hint">（由企业策略锁定）</p>
+        )}
       </SettingsSection>
 
-      {/* ── GitHub 项目描述翻译 ── */}
-      <SettingsSection title="GitHub 项目描述翻译">
+      {/* ── GitHub Trending翻译 ── */}
+      <SettingsSection title={titleHelp('GitHub Trending翻译', TRANSLATION_TIP)}>
         <SettingsSelect
           options={ENGINE_OPTIONS}
           value={engine}
           onChange={changeEngine}
           ariaLabel="GitHub 描述翻译引擎"
         />
-        <p className="field-hint">
-          Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。
-        </p>
       </SettingsSection>
 
       {/* ── 场景模版 ── */}
@@ -74,35 +73,44 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       </SettingsSection>
 
       {/* ── 模板库地址 ── */}
-      <SettingsSection title="模板库地址">
-        <FormField
-          label="模版库地址"
-          hint={<>留空使用内置模版。填写<b>任意可访问的地址</b>（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。</>}
-        >
-          <FormInput
-            type="text"
-            value={form.templateRegistryUrl}
-            onChange={set('templateRegistryUrl')}
-            placeholder="https://… 或 http://localhost:8787/registry.json"
-          />
-        </FormField>
+      <SettingsSection title={titleHelp('模板库地址', REGISTRY_TIP)}>
+        <FormInput
+          type="text"
+          value={form.templateRegistryUrl}
+          onChange={set('templateRegistryUrl')}
+          placeholder="https://… 或 http://localhost:8787/registry.json"
+        />
       </SettingsSection>
 
-      {/* ── 越用越聪明（本地经验） ── */}
-      <SettingsSection title="越用越聪明（本地经验）">
-        <FormCheckbox
-          checked={form.learnFromHistory !== false}
-          disabled={policyLocks.has('learnFromHistory')}
-          onChange={(checked) => patch({ learnFromHistory: checked })}
-          hint={<>每次任务成功后，仅在<b>本机</b>把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 <b>300</b> 条，已积累 <b>{recipeN ?? '…'}</b> 条。</>}
-        >
-          <>记住成功的操作套路，下次自动参考
-          {policyLocks.has('learnFromHistory') && <span className="field-hint">（由企业策略锁定）</span>}</>
-        </FormCheckbox>
+      {/* ── 本地经验 ── */}
+      <SettingsSection
+        title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}
+        action={
+          <FormSwitch
+            checked={form.learnFromHistory !== false}
+            disabled={policyLocks.has('learnFromHistory')}
+            onChange={(checked) => patch({ learnFromHistory: checked })}
+          />
+        }
+      >
+        {policyLocks.has('learnFromHistory') && (
+          <p className="field-hint">（由企业策略锁定）</p>
+        )}
         <button className="btn-secondary" onClick={() => void handleClearRecipes()} style={{ alignSelf: 'flex-start' }}>
           清空学到的经验
         </button>
       </SettingsSection>
+    </>
+  )
+}
+
+function titleHelp(title: string, tip: string) {
+  return (
+    <>
+      {title}
+      <Tooltip content={tip} position="bottom">
+        <span className="help-icon" aria-label="帮助">?</span>
+      </Tooltip>
     </>
   )
 }
