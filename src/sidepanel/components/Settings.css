@@ -18,10 +18,10 @@
 .settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 18px 16px 22px;
+  padding: 16px 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 22px;
   background: var(--color-surface);
 }
 
@@ -44,7 +44,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--color-border);
 }
 .settings-section > .settings-row:first-of-type { padding-top: 0; }
@@ -70,7 +70,7 @@
 .settings-row-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -98,8 +98,8 @@
 .settings-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 0;
+  gap: 6px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--color-border);
 }
 .settings-section > .settings-field:first-of-type { padding-top: 0; }
