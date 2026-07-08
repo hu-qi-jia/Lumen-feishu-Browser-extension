@@ -18,5 +18,5 @@ export interface SettingsTabProps {
   set: (k: keyof AppSettings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
 }
 
-/** The four top-level settings tabs. */
-export type SettingsTabId = 'general' | 'ai' | 'feishu' | 'backup'
+/** The five top-level settings tabs. */
+export type SettingsTabId = 'general' | 'ai' | 'feishu' | 'backup' | 'appearance'

@@ -5,6 +5,7 @@ import GeneralTab from './settings/GeneralTab'
 import AiTab from './settings/AiTab'
 import FeishuTab from './settings/FeishuTab'
 import BackupTab from './settings/BackupTab'
+import AppearanceTab from './settings/AppearanceTab'
 import SettingsTabs from './SettingsTabs'
 import Button from './Button'
 import Tooltip from './Tooltip'
@@ -12,10 +13,11 @@ import type { SettingsTabId } from './settings/types'
 import './Settings.css'
 
 const SETTINGS_TABS = [
-  { id: 'general', label: '偏好' },
+  { id: 'general', label: '通用' },
   { id: 'ai', label: '模型配置' },
   { id: 'feishu', label: '飞书配置' },
-  { id: 'backup', label: '备份' },
+  { id: 'backup', label: '数据与备份' },
+  { id: 'appearance', label: '外观' },
 ] as const
 
 interface Props {
@@ -84,25 +86,25 @@ export default function Settings({
         )}
 
         {tab === 'general' && (
-          <GeneralTab
-            form={form}
-            patch={patch}
-            set={set}
-            accent={accent}
-            onAccentChange={onAccentChange}
-            theme={theme}
-            onThemeChange={onThemeChange}
-            policyLocks={policyLocks}
-          />
+          <GeneralTab form={form} patch={patch} set={set} policyLocks={policyLocks} />
         )}
 
         {tab === 'ai' && (
-          <AiTab form={form} patch={patch} set={set} policyLocks={policyLocks} />
+          <AiTab form={form} patch={patch} set={set} />
         )}
 
         {tab === 'feishu' && <FeishuTab form={form} patch={patch} set={set} />}
 
         {tab === 'backup' && <BackupTab />}
+
+        {tab === 'appearance' && (
+          <AppearanceTab
+            accent={accent}
+            onAccentChange={onAccentChange}
+            theme={theme}
+            onThemeChange={onThemeChange}
+          />
+        )}
       </div>
 
       <div className="settings-footer">

@@ -1,32 +1,17 @@
-import { useEffect, useState } from 'react'
 import { BUILD_CONFIG, HAS_MANAGED_LLM } from '../../../shared/config'
 import { clearManagedLlmCache, usingManagedLlm } from '../../../shared/ai/llmConfig'
-import { clearRecipes, recipeCount } from '../../../shared/ai/recipes'
 import {
   KNOWN_PROVIDER_HOSTS,
   LLM_PROVIDERS,
   assertSafeBaseUrl,
   providerForBaseUrl,
 } from '../../../shared/providers'
-import type { AppSettings } from '../../../shared/types'
-import { FormCheckbox, FormField, FormInput, FormSelect, FormToggle } from '../form'
+import { FormField, FormInput, FormSelect, FormToggle } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
-interface Props extends SettingsTabProps {
-  policyLocks: Set<keyof AppSettings>
-}
-
-/** AI 模型 tab：模型配置、场景模版库、越用越聪明（本地经验）。 */
-export default function AiTab({ form, patch, set, policyLocks }: Props) {
-  // ── 越用越聪明：本地经验条数 + 清空 ──
-  const [recipeN, setRecipeN] = useState<number | null>(null)
-  useEffect(() => { void recipeCount().then(setRecipeN) }, [])
-  async function handleClearRecipes() {
-    await clearRecipes()
-    setRecipeN(0)
-  }
-
+/** AI 模型 tab：模型配置。 */
+export default function AiTab({ form, patch, set }: SettingsTabProps) {
   // ── LLM provider preset ──
   const provider = providerForBaseUrl(form.openaiBaseUrl)
 
@@ -132,37 +117,6 @@ export default function AiTab({ form, patch, set, policyLocks }: Props) {
             </>
           </FormField>
         </>)}
-      </SettingsSection>
-
-      {/* ── 场景模版库 ── */}
-      <SettingsSection title="场景模版库">
-        <FormField
-          label="模版库地址"
-          hint={<>留空使用内置模版。填写<b>任意可访问的地址</b>（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。</>}
-        >
-          <FormInput
-            type="text"
-            value={form.templateRegistryUrl}
-            onChange={set('templateRegistryUrl')}
-            placeholder="https://… 或 http://localhost:8787/registry.json"
-          />
-        </FormField>
-      </SettingsSection>
-
-      {/* ── 越用越聪明（本地经验记忆） ── */}
-      <SettingsSection title="越用越聪明（本地经验）">
-        <FormCheckbox
-          checked={form.learnFromHistory !== false}
-          disabled={policyLocks.has('learnFromHistory')}
-          onChange={(checked) => patch({ learnFromHistory: checked })}
-          hint={<>每次任务成功后，仅在<b>本机</b>把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 <b>300</b> 条，已积累 <b>{recipeN ?? '…'}</b> 条。</>}
-        >
-          <>记住成功的操作套路，下次自动参考
-          {policyLocks.has('learnFromHistory') && <span className="field-hint">（由企业策略锁定）</span>}</>
-        </FormCheckbox>
-        <button className="btn-secondary" onClick={() => void handleClearRecipes()} style={{ alignSelf: 'flex-start' }}>
-          清空学到的经验
-        </button>
       </SettingsSection>
     </>
   )

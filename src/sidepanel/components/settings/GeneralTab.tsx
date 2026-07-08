@@ -1,44 +1,21 @@
 import { useEffect, useState } from 'react'
-import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../shared/theme'
 import type { AppSettings } from '../../../shared/types'
-import { FormSwitch, FormToggle } from '../form'
-import Button from '../Button'
+import { FormCheckbox, FormField, FormInput, FormSwitch } from '../form'
 import Dropdown from '../Dropdown'
-import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
 import type { TranslationEngine } from '../../../shared/news/types'
-import {
-  cleanupImpact,
-  clearAllUserData,
-  loadCleanupSettings,
-  saveCleanupSettings,
-  type CleanupIntervalDays,
-} from '../../../shared/dataCleanup'
+import { clearRecipes, recipeCount } from '../../../shared/ai/recipes'
 
 interface Props extends SettingsTabProps {
-  accent: string
-  onAccentChange: (hex: string) => void
-  theme: 'light' | 'dark'
-  onThemeChange: (theme: 'light' | 'dark') => void
   policyLocks: Set<keyof AppSettings>
 }
 
-/** 通用 tab：主题色、外观模式、自动确认。 */
-export default function GeneralTab({
-  form,
-  patch,
-  accent,
-  onAccentChange,
-  theme,
-  onThemeChange,
-  policyLocks,
-}: Props) {
-  const accentChanged = accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase()
-
+/** 通用 tab：自动确认、GitHub 项目描述翻译、场景模版、模板库地址、越用越聪明（本地经验）。 */
+export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
   // News translation engine — stored in news_settings_v1 (separate from AppSettings), so
-  // it's loaded/saved independently and takes effect immediately (like theme/accent).
+  // it's loaded/saved independently and takes effect immediately.
   const [engine, setEngine] = useState<TranslationEngine>('bing')
   useEffect(() => { void loadNewsSettings().then((s) => setEngine(s.translationEngine)) }, [])
   const changeEngine = (value: string) => {
@@ -47,90 +24,16 @@ export default function GeneralTab({
     void loadNewsSettings().then((s) => saveNewsSettings({ ...s, translationEngine: next }))
   }
 
-  // 数据清理：间隔存 cleanup_settings_v1（独立于 AppSettings），改了立即生效；后台 onChanged
-  // 监听会重 arm 清理 alarm。cleanupImpact = 将被清除的体积（非保护键）。手动清除需二次确认。
-  const [cleanupDays, setCleanupDays] = useState<CleanupIntervalDays>(0)
-  const [impactBytes, setImpactBytes] = useState<number | null>(null)
-  const [lastCleanedAt, setLastCleanedAt] = useState<number | null>(null)
-  const [confirming, setConfirming] = useState(false)
-  const [clearing, setClearing] = useState(false)
-  const [cleanupMsg, setCleanupMsg] = useState('')
-  useEffect(() => {
-    void (async () => {
-      const cs = await loadCleanupSettings()
-      setCleanupDays(cs.intervalDays)
-      setLastCleanedAt(cs.lastCleanedAt)
-      setImpactBytes((await cleanupImpact()).bytes)
-    })()
-  }, [])
-  const changeInterval = (value: string) => {
-    const next = Number(value) as CleanupIntervalDays
-    setCleanupDays(next)
-    void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, intervalDays: next }))
-  }
-  const handleClearAll = async () => {
-    setClearing(true)
-    setCleanupMsg('')
-    try {
-      const { freedBytes } = await clearAllUserData()
-      const now = Date.now()
-      setLastCleanedAt(now)
-      setImpactBytes((await cleanupImpact()).bytes)
-      void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, lastCleanedAt: now }))
-      setCleanupMsg(`已清除${freedBytes > 0 ? `（释放约 ${formatBytes(freedBytes)}）` : ''}，即将刷新生效…`)
-      // 会话/PPT/建站等列表都缓存在 React state 里；清存储后必须刷新面板才能看到空状态。
-      setTimeout(() => { try { location.reload() } catch { /* ignore */ } }, 1200)
-    } catch (e) {
-      setCleanupMsg('清除失败：' + (e instanceof Error ? e.message : String(e)))
-      setClearing(false)
-      setConfirming(false)
-    }
+  // 越用越聪明：本地经验条数 + 清空
+  const [recipeN, setRecipeN] = useState<number | null>(null)
+  useEffect(() => { void recipeCount().then(setRecipeN) }, [])
+  async function handleClearRecipes() {
+    await clearRecipes()
+    setRecipeN(0)
   }
 
   return (
     <>
-      {/* ── 主题色 ── */}
-      <SettingsSection title="主题色">
-        <div className="accent-row">
-          {ACCENT_PRESETS.map((p) => (
-            <Tooltip key={p.hex} content={p.name} position="bottom">
-              <button
-                className={`accent-swatch ${accent.toLowerCase() === p.hex.toLowerCase() ? 'accent-swatch--active' : ''}`}
-                style={{ background: p.hex }}
-                aria-label={p.name}
-                onClick={() => onAccentChange(p.hex)}
-              />
-            </Tooltip>
-          ))}
-          <Tooltip content="自定义颜色" position="bottom">
-            <label className="accent-custom" aria-label="自定义颜色">
-              <input
-                type="color"
-                value={accent}
-                onChange={(e) => onAccentChange(e.target.value)}
-              />
-            </label>
-          </Tooltip>
-        </div>
-        {accentChanged && (
-          <button className="btn-link" onClick={() => onAccentChange(DEFAULT_ACCENT)}>
-            恢复默认
-          </button>
-        )}
-      </SettingsSection>
-
-      {/* ── 外观模式 ── */}
-      <SettingsSection title="外观模式">
-        <FormToggle
-          options={[
-            { value: 'light', label: '亮色' },
-            { value: 'dark', label: '深色' },
-          ]}
-          value={theme}
-          onChange={(v) => onThemeChange(v as 'light' | 'dark')}
-        />
-      </SettingsSection>
-
       {/* ── 自动确认 ── */}
       <SettingsSection title="自动确认">
         <FormSwitch
@@ -150,7 +53,7 @@ export default function GeneralTab({
         </FormSwitch>
       </SettingsSection>
 
-      {/* ── 资讯 ── */}
+      {/* ── GitHub 项目描述翻译 ── */}
       <SettingsSection title="GitHub 项目描述翻译">
         <SettingsSelect
           options={ENGINE_OPTIONS}
@@ -163,43 +66,42 @@ export default function GeneralTab({
         </p>
       </SettingsSection>
 
-      {/* ── 数据清理 ── */}
-      <SettingsSection title="数据清理">
-        <div className="cache-row">
-          <span className="cache-row-label">自动清理</span>
-          <SettingsSelect
-            options={CLEANUP_INTERVAL_OPTIONS}
-            value={String(cleanupDays)}
-            onChange={changeInterval}
-            ariaLabel="数据自动清理频率"
-          />
-        </div>
+      {/* ── 场景模版 ── */}
+      <SettingsSection title="场景模版">
         <p className="field-hint">
-          清除<b>全部会话记录、保存的 PPT / 建站 / PDF、图片附件、本地经验</b>等，只保留你的设置（API Key、
-          飞书授权、主题等）。<b>不可恢复。</b>
-          {impactBytes != null && impactBytes > 0 && <> 当前约 <b>{formatBytes(impactBytes)}</b> 可清除。</>}
-          {lastCleanedAt && <> 上次清理：{relTime(lastCleanedAt)}。</>}
+          在「场景」Tab 中一键搭建 CRM、电商、项目管理系统等应用。内置常用模版，也可通过下方配置接入自定义模版库。
         </p>
-        {confirming ? (
-          <div className="cache-confirm">
-            <p className="field-hint" style={{ color: 'var(--color-error)' }}>
-              确认清除？将删除全部会话、PPT、建站、PDF、图片等，<b>只保留设置，且不可恢复</b>。
-            </p>
-            <div className="cache-confirm-actions">
-              <Button variant="danger" loading={clearing} onClick={() => void handleClearAll()}>
-                确认清除
-              </Button>
-              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={clearing}>
-                取消
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button variant="danger" onClick={() => setConfirming(true)} style={{ alignSelf: 'flex-start' }}>
-            清除全部数据
-          </Button>
-        )}
-        {cleanupMsg && <p className="field-hint" style={{ marginTop: 6 }}>{cleanupMsg}</p>}
+      </SettingsSection>
+
+      {/* ── 模板库地址 ── */}
+      <SettingsSection title="模板库地址">
+        <FormField
+          label="模版库地址"
+          hint={<>留空使用内置模版。填写<b>任意可访问的地址</b>（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。</>}
+        >
+          <FormInput
+            type="text"
+            value={form.templateRegistryUrl}
+            onChange={set('templateRegistryUrl')}
+            placeholder="https://… 或 http://localhost:8787/registry.json"
+          />
+        </FormField>
+      </SettingsSection>
+
+      {/* ── 越用越聪明（本地经验） ── */}
+      <SettingsSection title="越用越聪明（本地经验）">
+        <FormCheckbox
+          checked={form.learnFromHistory !== false}
+          disabled={policyLocks.has('learnFromHistory')}
+          onChange={(checked) => patch({ learnFromHistory: checked })}
+          hint={<>每次任务成功后，仅在<b>本机</b>把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 <b>300</b> 条，已积累 <b>{recipeN ?? '…'}</b> 条。</>}
+        >
+          <>记住成功的操作套路，下次自动参考
+          {policyLocks.has('learnFromHistory') && <span className="field-hint">（由企业策略锁定）</span>}</>
+        </FormCheckbox>
+        <button className="btn-secondary" onClick={() => void handleClearRecipes()} style={{ alignSelf: 'flex-start' }}>
+          清空学到的经验
+        </button>
       </SettingsSection>
     </>
   )
@@ -211,37 +113,14 @@ const ENGINE_OPTIONS: { value: TranslationEngine; label: string }[] = [
   { value: 'ai', label: 'AI 翻译（需配置模型密钥）' },
 ]
 
-const CLEANUP_INTERVAL_OPTIONS: { value: string; label: string }[] = [
-  { value: '0', label: '关闭' },
-  { value: '3', label: '每 3 天' },
-  { value: '7', label: '每 7 天' },
-  { value: '30', label: '每 30 天' },
-]
-
-/** 字节数 → 人类可读。 */
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB`
-}
-
-/** 时间戳 → 相对时间（刚刚 / N 分钟前 / N 小时前 / N 天前）。 */
-function relTime(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
-  return `${Math.floor(diff / 86_400_000)} 天前`
-}
-
 interface SelectOption {
   value: string
   label: string
 }
 
 /**
- * 通用设置下拉（复用 engine-* 样式）。原 EngineDropdown 抽象而来：触发器 + 列表 + 选中勾，
- * 受控 open / value。供「翻译引擎」「缓存自动清理频率」等离散选项复用。
+ * 通用设置下拉。原 EngineDropdown 抽象而来：触发器 + 列表 + 选中勾，
+ * 受控 open / value。供「翻译引擎」等离散选项复用。
  */
 function SettingsSelect({
   options,

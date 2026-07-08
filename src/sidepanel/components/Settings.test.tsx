@@ -21,11 +21,16 @@ function renderSettings(overrides: Partial<Parameters<typeof Settings>[0]> = {})
 }
 
 describe('Settings — LLM provider preset', () => {
+  /** Click a tab by its visible label. */
+  function switchToTab(container: HTMLElement, label: string) {
+    const tabs = [...container.querySelectorAll('.settings-tab')]
+    const tab = tabs.find((t) => t.textContent === label)!
+    fireEvent.click(tab)
+  }
+
   /** Click the "AI 模型" tab — these fields are gated behind tab navigation. */
   function switchToAiTab(container: HTMLElement) {
-    const tabs = [...container.querySelectorAll('.settings-tab')]
-    const aiTab = tabs.find((t) => t.textContent === '模型配置')!
-    fireEvent.click(aiTab)
+    switchToTab(container, '模型配置')
   }
 
   it('defaults Base URL to DeepSeek', () => {
@@ -54,9 +59,12 @@ describe('Settings — LLM provider preset', () => {
 })
 
 describe('Settings — appearance accent', () => {
-  it('clicking a swatch calls onAccentChange with a hex', () => {
+  it('clicking a swatch on the 外观 tab calls onAccentChange with a hex', () => {
     const onAccentChange = vi.fn()
     const { container } = renderSettings({ onAccentChange })
+    const tabs = [...container.querySelectorAll('.settings-tab')]
+    const appearanceTab = tabs.find((t) => t.textContent === '外观')!
+    fireEvent.click(appearanceTab)
     const swatches = container.querySelectorAll('.accent-swatch')
     expect(swatches.length).toBeGreaterThan(1)
     fireEvent.click(swatches[1])
@@ -65,8 +73,8 @@ describe('Settings — appearance accent', () => {
   })
 })
 
-describe('Settings — data cleanup (general tab)', () => {
-  // General tab reads/writes chrome.storage.local for the data-cleanup feature; mock it so the
+describe('Settings — data cleanup (backup tab)', () => {
+  // 数据与备份 tab reads/writes chrome.storage.local for the data-cleanup feature; mock it so the
   // section mounts with real data and the clear button actually invokes storage.remove.
   function mockChromeStorage(seed: Record<string, unknown> = {}) {
     const store: Record<string, unknown> = { ...seed }
@@ -96,9 +104,12 @@ describe('Settings — data cleanup (general tab)', () => {
   }
   afterEach(() => vi.unstubAllGlobals())
 
-  it('renders the data-cleanup section with a 清除全部数据 button on the general tab', () => {
+  it('renders the data-cleanup section with a 清除全部数据 button on the 数据与备份 tab', () => {
     mockChromeStorage({ sessions_index_v1: { x: 1 } })
-    const { getByText } = renderSettings()
+    const { container, getByText } = renderSettings()
+    const tabs = [...container.querySelectorAll('.settings-tab')]
+    const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
+    fireEvent.click(backupTab)
     expect(getByText('清除全部数据')).toBeTruthy()
   })
 
@@ -112,7 +123,10 @@ describe('Settings — data cleanup (general tab)', () => {
       _device_seed: 'THE-SEED',
       _feishu_utoken_v1: 'enc-utoken',
     })
-    const { getByText } = renderSettings()
+    const { container, getByText } = renderSettings()
+    const tabs = [...container.querySelectorAll('.settings-tab')]
+    const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
+    fireEvent.click(backupTab)
     // step 1: the danger button reveals an inline confirm (no removal yet)
     fireEvent.click(getByText('清除全部数据'))
     expect(getByText('确认清除')).toBeTruthy()
