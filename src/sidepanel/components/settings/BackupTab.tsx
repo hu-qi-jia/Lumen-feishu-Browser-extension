@@ -197,21 +197,19 @@ export default function BackupTab() {
             />
           </span>
         </div>
-        <div className="settings-row">
+        <div className="settings-field">
           <div className="settings-row-main">
             <span className="settings-row-title">清除全部数据</span>
             <span className="settings-row-desc">清除会话、PPT、建站、PDF 等数据，仅保留设置</span>
           </div>
-          <span className="settings-row-control">
-            <Button
-              variant="danger"
-              size="sm"
-              loading={clearing}
-              onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
-            >
-              清除
-            </Button>
-          </span>
+          <Button
+            variant="danger"
+            block
+            loading={clearing}
+            onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
+          >
+            清除全部数据
+          </Button>
         </div>
         {cleanupMsg && <p className="field-hint">{cleanupMsg}</p>}
       </SettingsSection>

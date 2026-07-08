@@ -96,11 +96,11 @@ describe('Settings — data cleanup (backup tab)', () => {
 
   it('renders the data-cleanup section with a 清除全部数据 button on the 数据与备份 tab', () => {
     mockChromeStorage({ sessions_index_v1: { x: 1 } })
-    const { container, getByText } = renderSettings()
+    const { container, getByRole } = renderSettings()
     const tabs = [...container.querySelectorAll('.settings-tab')]
     const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
     fireEvent.click(backupTab)
-    expect(getByText('清除全部数据')).toBeTruthy()
+    expect(getByRole('button', { name: '清除全部数据' })).toBeTruthy()
   })
 
   it('clearing requires a two-step confirm, then wipes content but keeps settings/seed/token', async () => {
@@ -113,12 +113,12 @@ describe('Settings — data cleanup (backup tab)', () => {
       _device_seed: 'THE-SEED',
       _feishu_utoken_v1: 'enc-utoken',
     })
-    const { container, getByText } = renderSettings()
+    const { container, getByRole, getByText } = renderSettings()
     const tabs = [...container.querySelectorAll('.settings-tab')]
     const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
     fireEvent.click(backupTab)
     // step 1: the danger button opens the confirm dialog (no removal yet)
-    fireEvent.click(getByText('清除'))
+    fireEvent.click(getByRole('button', { name: '清除全部数据' }))
     expect(getByText('删除')).toBeTruthy()
     // step 2: confirm → actually clears
     fireEvent.click(getByText('删除'))
