@@ -19,30 +19,6 @@ export function useNewsData() {
   const inFlightRef = useRef<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
   const translatingRef = useRef(false)
 
-  // Initial load: cache + settings.
-  useEffect(() => {
-    let alive = true
-    void (async () => {
-      const [c, s] = await Promise.all([loadNewsCache(), loadNewsSettings()])
-      if (!alive) return
-      setCache(c)
-      setSettings(s)
-    })()
-    return () => { alive = false }
-  }, [])
-
-  // Live updates from the alarm (SW writes cache → storage.onChanged fires here).
-  useEffect(() => {
-    if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) return
-    const handler = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
-      if (area !== 'local') return
-      if (changes.news_cache_v1) setCache((prev) => ({ ...prev, ...(changes.news_cache_v1.newValue as NewsCache) }))
-      if (changes.news_settings_v1) setSettings((prev) => ({ ...prev, ...(changes.news_settings_v1.newValue as NewsSettings) }))
-    }
-    chrome.storage.onChanged.addListener(handler)
-    return () => chrome.storage.onChanged.removeListener(handler)
-  }, [])
-
   const refresh = useCallback(async (source?: NewsSourceId) => {
     const targets: NewsSourceId[] = source ? [source] : ['github', 'weibo']
     // Skip any source already in flight; only fire for the rest.
@@ -66,6 +42,43 @@ export function useNewsData() {
         return next
       })
     }
+  }, [])
+
+  // Initial load: cache + settings. Also re-fetch any enabled source whose cache is older
+  // than one interval (or missing) — chrome.alarms don't fire while Chrome is closed, so on
+  // reopen the cache can be hours stale. This staleness check triggers a refresh so the user
+  // sees fresh data without having to click the refresh button.
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      const [c, s] = await Promise.all([loadNewsCache(), loadNewsSettings()])
+      if (!alive) return
+      setCache(c)
+      setSettings(s)
+      const staleThreshold = s.interval * 60_000
+      const staleSources = (['github', 'weibo'] as NewsSourceId[]).filter((src) => {
+        if (src === 'github' && !s.enabled.github) return false
+        if (src === 'weibo' && !s.enabled.weibo) return false
+        const fetchedAt = c[src]?.fetchedAt
+        return !fetchedAt || Date.now() - fetchedAt > staleThreshold
+      })
+      if (staleSources.length === 0) return
+      // Refresh both at once when both are stale; otherwise just the stale one.
+      void refresh(staleSources.length === 2 ? undefined : staleSources[0])
+    })()
+    return () => { alive = false }
+  }, [refresh])
+
+  // Live updates from the alarm (SW writes cache → storage.onChanged fires here).
+  useEffect(() => {
+    if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) return
+    const handler = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area !== 'local') return
+      if (changes.news_cache_v1) setCache((prev) => ({ ...prev, ...(changes.news_cache_v1.newValue as NewsCache) }))
+      if (changes.news_settings_v1) setSettings((prev) => ({ ...prev, ...(changes.news_settings_v1.newValue as NewsSettings) }))
+    }
+    chrome.storage.onChanged.addListener(handler)
+    return () => chrome.storage.onChanged.removeListener(handler)
   }, [])
 
   const translate = useCallback(async () => {

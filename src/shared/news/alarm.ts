@@ -12,11 +12,13 @@ function hasAlarms(): boolean {
 
 /** Clear any existing news alarm then create a fresh one with the given interval.
  *  chrome.alarms.create enforces a 0.5-min minimum; all our intervals (10/30/60) clear
- *  that bar comfortably. Delay is set to 0 so the first refresh fires on install/save. */
+ *  that bar comfortably. `delayInMinutes: 0` fires the first tick ASAP (within ~1 min) so
+ *  the cache is populated right after install / settings change — otherwise the user would
+ *  see a stale "updated N hours ago" tooltip for a full interval before the first tick. */
 export function setupNewsAlarm(intervalMin: NewsInterval): void {
   if (!hasAlarms()) return
   chrome.alarms.clear(NEWS_ALARM_NAME, () => {
-    chrome.alarms.create(NEWS_ALARM_NAME, { delayInMinutes: intervalMin, periodInMinutes: intervalMin })
+    chrome.alarms.create(NEWS_ALARM_NAME, { delayInMinutes: 0, periodInMinutes: intervalMin })
   })
 }
 
