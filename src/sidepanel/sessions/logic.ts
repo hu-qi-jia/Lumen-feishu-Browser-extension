@@ -180,6 +180,19 @@ export function previewFromMessages(msgs: ChatMessage[]): string | undefined {
   return text ? text.slice(0, 60) : undefined
 }
 
+/** History to re-run when the user hits "重试" on the last agent reply: everything up to
+ *  (and including) the most recent user message — the assistant reply after it is dropped so
+ *  the agent regenerates a fresh answer instead of appending a duplicate turn. Returns the
+ *  input by reference when there's no user message to retry from (nothing to do). */
+export function messagesForRetry(messages: ChatMessage[]): ChatMessage[] {
+  let lastUserIdx = -1
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') { lastUserIdx = i; break }
+  }
+  if (lastUserIdx === -1) return messages
+  return messages.slice(0, lastUserIdx + 1)
+}
+
 // A title that's a generated placeholder, not a real doc/user name — the group header
 // should prefer a resolved name or the first-message preview over these.
 function isPlaceholderTitle(title: string): boolean {

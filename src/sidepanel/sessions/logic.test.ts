@@ -3,6 +3,7 @@ import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
 import {
   emptyIndex, ensureSession, removeSession, capSessions, MAX_SESSIONS,
   previewFromMessages, groupSessions, stampKind, resolveSessionTitle, GENERAL_GROUP_KEY,
+  messagesForRetry,
 } from './logic'
 
 // Deterministic id generator for assertions.
@@ -235,6 +236,37 @@ describe('previewFromMessages', () => {
   it('returns undefined when there is no user text', () => {
     expect(previewFromMessages([msg('1', 'assistant', 'a')])).toBeUndefined()
     expect(previewFromMessages([])).toBeUndefined()
+  })
+})
+
+describe('messagesForRetry', () => {
+  const msg = (id: string, role: ChatMessage['role'], content: string | null): ChatMessage =>
+    ({ id, role, content, createdAt: 0 })
+
+  it('drops the assistant reply after the most recent user message', () => {
+    const msgs = [
+      msg('1', 'user', 'q1'),
+      msg('2', 'assistant', 'a1'),
+      msg('3', 'user', 'q2'),
+      msg('4', 'assistant', 'a2'),
+    ]
+    // Keep everything up to and including the last user message (q2); a2 is dropped.
+    expect(messagesForRetry(msgs)).toEqual([msgs[0], msgs[1], msgs[2]])
+  })
+
+  it('keeps the earlier conversation intact (full history for context)', () => {
+    const msgs = [
+      msg('1', 'user', 'q1'),
+      msg('2', 'assistant', 'a1'),
+      msg('3', 'user', 'q2'),
+    ]
+    expect(messagesForRetry(msgs)).toEqual([msgs[0], msgs[1], msgs[2]])
+  })
+
+  it('returns the input by reference when there is no user message to retry from', () => {
+    const msgs = [msg('1', 'assistant', 'a'), msg('2', 'assistant', 'b')]
+    expect(messagesForRetry(msgs)).toBe(msgs)
+    expect(messagesForRetry([])).toEqual([])
   })
 })
 

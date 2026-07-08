@@ -217,3 +217,64 @@ describe('MessageList — resource-aware welcome capabilities', () => {
     expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
   })
 })
+
+describe('MessageList — reply actions (copy / retry)', () => {
+  it('renders copy + retry under the last completed assistant reply', () => {
+    render(<MessageList messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: 'a1' }),
+    ]} onRetry={() => {}} />)
+    expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
+  })
+
+  it('shows retry only on the latest reply; copy on every completed reply', () => {
+    render(<MessageList messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: 'a1' }),
+      mk({ role: 'user', content: 'q2' }),
+      mk({ role: 'assistant', content: 'a2' }),
+    ]} onRetry={() => {}} />)
+    expect(screen.getAllByRole('button', { name: '重试' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: '复制' })).toHaveLength(2)
+  })
+
+  it('clicking retry calls onRetry', () => {
+    const onRetry = vi.fn()
+    render(<MessageList messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: 'a1' }),
+    ]} onRetry={onRetry} />)
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('hides all actions while the reply is streaming', () => {
+    render(<MessageList streaming messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: 'a', isStreaming: true }),
+    ]} onRetry={() => {}} />)
+    expect(screen.queryByRole('button', { name: '复制' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
+  })
+
+  it('hides all actions during a mid-turn thinking gap (reply finalized, turn still going)', () => {
+    render(<MessageList streaming messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: 'a1', isStreaming: false }),
+    ]} onRetry={() => {}} />)
+    expect(screen.queryByRole('button', { name: '复制' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
+  })
+
+  it('copy writes the joined reply text to the clipboard', () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<MessageList messages={[
+      mk({ role: 'user', content: 'q1' }),
+      mk({ role: 'assistant', content: '复制我' }),
+    ]} />)
+    fireEvent.click(screen.getByRole('button', { name: '复制' }))
+    expect(writeText).toHaveBeenCalledWith('复制我')
+  })
+})

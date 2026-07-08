@@ -21,6 +21,7 @@ import FieldChips from './FieldChips'
 import ConfirmDialog from './ConfirmDialog'
 import DocSelector from './DocSelector'
 import type { RecentFile } from '../recentFiles'
+import { messagesForRetry } from '../sessions/logic'
 import SkillSuggest from './SkillSuggest'
 import Tooltip from './Tooltip'
 import './ChatPanel.css'
@@ -161,12 +162,11 @@ export default function ChatPanel({
     loadBaseCtx()
   }
 
-  async function handleSend(text: string, attachments: Attachment[] = []) {
-    if ((!text.trim() && !attachments.length) || streaming) return
-
-    // Bind this whole turn to the session that's active NOW — so the streamed reply
-    // always lands here even if the user navigates / the active session switches.
-    const turnId = activeSessionId
+  // Core of a single agent turn: stream a reply into the given session from the given
+  // history (which must end with the user message to answer). Shared by send + retry so the
+  // streaming lifecycle (abort, finalize, undo-reload) stays identical. The caller owns the
+  // streaming guard and the history assembly (appending a new user msg vs. trimming to retry).
+  async function runAgentTurn(history: ChatMessage[], turnId: string | undefined) {
     const setTurn = (u: ChatMessage[] | ((p: ChatMessage[]) => ChatMessage[])) =>
       turnId ? setMessagesFor(turnId, u) : setMessages(u)
     const appendTurn = (msg: ChatMessage) =>
@@ -176,22 +176,6 @@ export default function ChatPanel({
         const next = [...prev]; next[i] = msg; return next
       })
 
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text.trim() || null,
-      attachments: attachments.length ? attachments.map((a) => ({ ...a })) : undefined,
-      createdAt: Date.now(),
-    }
-    // Derive the agent history from the session's CURRENT messages, not the render
-    // snapshot `messages`. setTurn's updater runs synchronously against the session
-    // cache (useSessions), so any write that landed since the last render is included —
-    // and we append (not clobber) so we never overwrite newer state with a stale array.
-    let allMessages: ChatMessage[] = [...messages, userMsg]
-    setTurn((prev) => {
-      allMessages = [...prev, userMsg]
-      return allMessages
-    })
     setStreaming(true)
 
     // New turn → cancel any still-running prior turn, then bind this turn's signal.
@@ -209,7 +193,7 @@ export default function ChatPanel({
     const undoAtBefore = (await loadDeleteUndo())?.at ?? 0
 
     try {
-      await runAgent(allMessages, settings, context, {
+      await runAgent(history, settings, context, {
         onChunk(chunk) {
           if (!streamId) {
             streamId = crypto.randomUUID()
@@ -286,6 +270,52 @@ export default function ChatPanel({
         setTurn(p => p.map(m => m.id === id ? { ...m, isStreaming: false } : m))
       }
     }
+  }
+
+  async function handleSend(text: string, attachments: Attachment[] = []) {
+    if ((!text.trim() && !attachments.length) || streaming) return
+
+    // Bind this whole turn to the session that's active NOW — so the streamed reply
+    // always lands here even if the user navigates / the active session switches.
+    const turnId = activeSessionId
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text.trim() || null,
+      attachments: attachments.length ? attachments.map((a) => ({ ...a })) : undefined,
+      createdAt: Date.now(),
+    }
+    // Derive the agent history from the session's CURRENT messages, not the render
+    // snapshot `messages`. setMessagesFor's updater runs synchronously against the session
+    // cache (useSessions), so any write that landed since the last render is included —
+    // and we append (not clobber) so we never overwrite newer state with a stale array.
+    let history: ChatMessage[] = [...messages, userMsg]
+    const setTurn = (u: ChatMessage[] | ((p: ChatMessage[]) => ChatMessage[])) =>
+      turnId ? setMessagesFor(turnId, u) : setMessages(u)
+    setTurn((prev) => {
+      history = [...prev, userMsg]
+      return history
+    })
+
+    await runAgentTurn(history, turnId)
+  }
+
+  // Retry (regenerate) the last agent reply — the "重试" action under the latest answer.
+  // Drops the assistant turn after the most recent user message, then re-runs so a fresh
+  // answer replaces the old one. No-op while a turn is streaming or with no user message.
+  async function handleRetry() {
+    if (streaming) return
+    const turnId = activeSessionId
+    const setTurn = (u: ChatMessage[] | ((p: ChatMessage[]) => ChatMessage[])) =>
+      turnId ? setMessagesFor(turnId, u) : setMessages(u)
+    let history: ChatMessage[] = []
+    setTurn((prev) => {
+      history = messagesForRetry(prev)
+      return history
+    })
+    if (!history.some((m) => m.role === 'user')) return
+    await runAgentTurn(history, turnId)
   }
 
   // render_data_app result → pull the live full dataset and render it in the page overlay.
@@ -379,6 +409,7 @@ export default function ChatPanel({
       <MessageList
         messages={messages}
         onExample={disabled || streaming ? undefined : handleSend}
+        onRetry={handleRetry}
         kind={context.feishu?.kind}
         streaming={streaming}
       />

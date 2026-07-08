@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import type { ChatMessage } from '../../shared/types'
 import Markdown from './Markdown'
 import Tooltip from './Tooltip'
+import ReplyActions from './ReplyActions'
 import './MessageList.css'
 
 type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
@@ -10,6 +11,8 @@ interface Props {
   messages: ChatMessage[]
   /** Click an example chip to send it. Omit (undefined) to render chips disabled. */
   onExample?: (text: string) => void
+  /** Regenerate the last agent reply (the 重试 action). Lifted to ChatPanel. */
+  onRetry?: () => void
   /** Current Feishu resource — drives a capability list tailored to it. 'wiki' is a
    *  transient unresolved state, treated as the general guide. */
   kind?: ResourceKind | 'wiki'
@@ -73,7 +76,7 @@ function groupTurns(messages: ChatMessage[]): TurnGroup[] {
   return groups
 }
 
-export default function MessageList({ messages, onExample, kind, streaming }: Props) {
+export default function MessageList({ messages, onExample, onRetry, kind, streaming }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -115,11 +118,27 @@ export default function MessageList({ messages, onExample, kind, streaming }: Pr
   return (
     <div className="msg-list">
       {visible.length === 0 && <Welcome kind={kind} onExample={onExample} />}
-      {groups.map((g, i) =>
-        g.kind === 'user'
-          ? <UserBubble key={g.msg.id} msg={g.msg} />
-          : <ReplyBlock key={g.msgs[0].id} msgs={g.msgs} thinking={thinkingInsideReply && i === groups.length - 1} />,
-      )}
+      {groups.map((g, i) => {
+        if (g.kind === 'user') return <UserBubble key={g.msg.id} msg={g.msg} />
+        const isLastGroup = i === groups.length - 1
+        const groupThinking = thinkingInsideReply && isLastGroup
+        const replyComplete = !g.msgs.some((m) => m.isStreaming)
+        const hasText = g.msgs.some((m) => typeof m.content === 'string' && m.content.trim().length > 0)
+        // Copy/retry show under a COMPLETED reply that has text. Retry only on the latest
+        // reply (regenerating a middle one would delete the conversation after it), and never
+        // mid-turn — during streaming the group is either streaming text or showing 思考中.
+        const showActions = replyComplete && !groupThinking && hasText
+        const canRetry = showActions && isLastGroup && !streaming
+        return (
+          <ReplyBlock
+            key={g.msgs[0].id}
+            msgs={g.msgs}
+            thinking={groupThinking}
+            showActions={showActions}
+            onRetry={canRetry ? onRetry : undefined}
+          />
+        )
+      })}
       {thinkingStandalone && <ThinkingBubble />}
       <div ref={bottomRef} />
     </div>
@@ -163,13 +182,22 @@ function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?
 // One full-width reply per agent turn (no bubble — ChatGPT-style: only the user's question
 // is bubbled; the answer flows as plain full-width text so wide content isn't constrained).
 // All text segments flow inside one reply, and the 思考中… indicator renders inline (under
-// the text) during a mid-turn gap so the answer stays one continuous block.
-function ReplyBlock({ msgs, thinking }: { msgs: ChatMessage[]; thinking?: boolean }) {
+// the text) during a mid-turn gap so the answer stays one continuous block. A completed reply
+// shows copy/retry actions under the text (retry only on the latest reply).
+function ReplyBlock({ msgs, thinking, showActions, onRetry }: {
+  msgs: ChatMessage[]
+  thinking?: boolean
+  showActions?: boolean
+  onRetry?: () => void
+}) {
+  // Copy text = every round's markdown joined (blank rounds dropped).
+  const text = msgs.map((m) => m.content ?? '').filter(Boolean).join('\n\n')
   return (
     <div className="msg-row msg-row--assistant">
       <div className="reply-block">
         {msgs.map((m) => <ReplyItem key={m.id} msg={m} />)}
         {thinking && <ThinkingIndicator />}
+        {showActions && <ReplyActions text={text} onRetry={onRetry} />}
       </div>
     </div>
   )
