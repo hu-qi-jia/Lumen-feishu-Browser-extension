@@ -71,7 +71,7 @@ export default function Settings({
         <h2>设置</h2>
       </div>
 
-      <SettingsTabs tabs={SETTINGS_TABS} active={tab} onChange={(id) => setTab(id as SettingsTabId)} />
+      <SettingsTabs tabs={SETTINGS_TABS} active={tab} onChange={(id) => setTab(id as SettingsTabId)} variant="underline" />
 
       <div className="settings-body">
         {/* Enterprise policy notice — always visible regardless of tab. */}

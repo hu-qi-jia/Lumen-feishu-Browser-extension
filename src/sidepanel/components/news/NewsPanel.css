@@ -140,14 +140,15 @@
 }
 .news-card {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--color-border);
   text-decoration: none;
   color: inherit;
   transition: background .12s ease;
   border-left: 2px solid transparent;
+  min-height: 64px;
 }
 .news-card:hover {
   background: var(--color-surface-2);
