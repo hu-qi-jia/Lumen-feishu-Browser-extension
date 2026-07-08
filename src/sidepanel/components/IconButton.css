@@ -1,0 +1,17 @@
+/* ── Icon button (bare, hover-bg) ──────────────────────────────────────────
+   Shared by SessionDrawer row actions and Settings tab icon buttons.
+   Extracted from SessionDrawer.css so settings doesn't depend on drawer CSS. */
+
+.icon-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-action svg { display: block; width: 14px; height: 14px; }
+.icon-action:hover { background: var(--color-surface-2); color: var(--color-text); }

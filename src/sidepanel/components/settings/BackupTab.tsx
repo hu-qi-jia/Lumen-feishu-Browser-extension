@@ -9,8 +9,9 @@ import ConfirmDialog from '../ConfirmDialog'
 import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
+import { TitleWithHelp } from './HelpIcon'
 import type { ConfirmRequest } from '../../../shared/ai/agent'
-import '../SessionDrawer.css'
+import '../IconButton.css'
 import {
   cleanupImpact,
   clearAllUserData,
@@ -120,7 +121,7 @@ export default function BackupTab() {
   return (
     <>
       {/* ── 本地备份与恢复 ── */}
-      <SettingsSection title={titleHelp('本地备份与恢复', BACKUP_TIP)}>
+      <SettingsSection title={<TitleWithHelp title="本地备份与恢复" tip={BACKUP_TIP} />}>
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">备份文件</span>
@@ -130,7 +131,7 @@ export default function BackupTab() {
             <Tooltip content="导出备份" position="bottom">
               <button
                 type="button"
-                className="drawer-row-btn"
+                className="icon-action"
                 aria-label="导出备份"
                 onClick={() => void handleExportBackup()}
               >
@@ -140,7 +141,7 @@ export default function BackupTab() {
             <Tooltip content="从文件导入" position="bottom">
               <button
                 type="button"
-                className="drawer-row-btn"
+                className="icon-action"
                 aria-label="从文件导入"
                 onClick={() => fileRef.current?.click()}
               >
@@ -173,7 +174,7 @@ export default function BackupTab() {
           </span>
         </div>
         {includeSecrets && (
-          <p className="field-hint" style={{ color: '#d4380d' }}>
+          <p className="field-hint" style={{ color: 'var(--color-error)' }}>
             勾选后文件含<b>明文密钥</b>，请妥善保管、勿外发；不勾选则更安全，恢复后重新填一次 Key 即可。
           </p>
         )}
@@ -181,7 +182,7 @@ export default function BackupTab() {
       </SettingsSection>
 
       {/* ── 数据清理 ── */}
-      <SettingsSection title={titleHelp('数据清理', cleanupTip(impactBytes, lastCleanedAt))}>
+      <SettingsSection title={<TitleWithHelp title="数据清理" tip={cleanupTip(impactBytes, lastCleanedAt)} />}>
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">自动清理</span>
@@ -265,29 +266,6 @@ export default function BackupTab() {
         />
       )}
     </>
-  )
-}
-
-function titleHelp(title: string, tip: string) {
-  return (
-    <>
-      {title}
-      <Tooltip content={tip} position="bottom">
-        <span className="help-icon" aria-label="帮助">
-          <HelpIconSvg />
-        </span>
-      </Tooltip>
-    </>
-  )
-}
-
-function HelpIconSvg() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
   )
 }
 

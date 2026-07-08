@@ -84,7 +84,7 @@
   color: var(--color-text);
 }
 .settings-row-desc {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
@@ -112,7 +112,7 @@
   color: var(--color-text);
 }
 .settings-field-desc {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
@@ -162,26 +162,15 @@
   height: 100%;
 }
 
-.field-label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text);
-}
-
 /* Model config: stack FormFields with consistent breathing room. */
 .model-config-fields {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.field-hint {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
+
+/* .field-label / .field-hint / .field-group / .field-label-inline / .field-input
+   now live in Form.css — they are shared by all settings tabs and other panels. */
 
 /* Inline two-step confirm for the destructive 清除全部数据 button. */
 .cache-confirm {
@@ -198,7 +187,7 @@
   gap: 8px;
 }
 
-/* ── Engine dropdown (reuses Dropdown component, styled like form-input) ── */
+/* ── Engine dropdown (reuses Dropdown component; trigger inherits .form-input) ── */
 .engine-dropdown {
   width: auto;
   min-width: 140px;
@@ -208,16 +197,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 12px;
   cursor: pointer;
-  transition: border-color .15s ease;
+  text-align: left;
 }
 .engine-trigger:hover,
 .engine-trigger.is-open {
@@ -262,45 +243,6 @@
 .engine-item:hover { background: var(--color-surface-2); }
 .engine-item.is-active { color: var(--color-primary); }
 .engine-check { color: var(--color-primary); flex-shrink: 0; }
-
-/* ── Appearance tab: theme mode cards ── */
-.appearance-modes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.appearance-mode {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-bg);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
-}
-.appearance-mode:hover { border-color: var(--color-border-strong); }
-.appearance-mode--active { border-color: var(--color-primary); }
-.appearance-mode__icon {
-  width: 20px;
-  height: 20px;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-}
-.appearance-mode__label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text);
-}
-.appearance-mode__check {
-  margin-left: auto;
-  width: 16px;
-  height: 16px;
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
 
 /* ── Accent picker ── */
 .accent-grid {
@@ -357,38 +299,20 @@
   padding: 0;
 }
 
-.field-input {
-  padding: 7px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 12px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  outline: none;
-  transition: border-color 0.15s;
-  font-family: inherit;
-  width: 100%;
-}
-.field-input:focus { border-color: var(--color-primary); box-shadow: var(--ring); }
-
-/* ── Built-in creds badge ── */
+/* ── Built-in creds badge (Feishu-specific) ── */
 .builtin-badge {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: #e8f5e9;
-  border: 1px solid #a5d6a7;
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
   border-radius: var(--radius);
   padding: 10px 12px;
 }
 .builtin-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
 .builtin-text { display: flex; flex-direction: column; gap: 2px; }
-.builtin-label { font-size: 12px; font-weight: 600; color: #2e7d32; }
-.builtin-sub { font-size: 11px; color: #388e3c; line-height: 1.5; }
-
-/* ── Field group (legacy compatibility) ── */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label-inline { font-size: 12px; font-weight: 500; color: var(--color-text); }
+.builtin-label { font-size: 12px; font-weight: 600; color: var(--color-success-strong); }
+.builtin-sub { font-size: 11px; color: var(--color-success); line-height: 1.5; }
 
 /* ── Storage note ── */
 .storage-note {
@@ -404,25 +328,15 @@
   gap: 8px;
 }
 
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--color-primary);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: underline;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+/* .btn-link / .btn-test now live in Button.css — shared across panels. */
 
 /* ── Help box ── */
 .help-box {
-  background: #f0f5ff;
-  border: 1px solid #c7d7ff;
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
   border-radius: var(--radius);
   padding: 10px 12px;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.6;
   display: flex;
   flex-direction: column;
@@ -437,8 +351,8 @@
 }
 .help-steps li { margin-bottom: 2px; }
 .help-code {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
   padding: 6px 8px;
   border-radius: 5px;
   font-family: monospace;
@@ -448,7 +362,7 @@
   margin: 2px 0;
 }
 .help-note {
-  color: #b45309;
+  color: var(--color-warning);
   font-style: italic;
   font-size: 11px;
 }
@@ -461,19 +375,6 @@
   flex-wrap: wrap;
   margin-top: 2px;
 }
-.btn-test {
-  padding: 6px 12px;
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
-  background: none;
-  color: var(--color-primary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-.btn-test:hover:not(:disabled) { background: var(--color-primary); color: white; }
-.btn-test:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .test-result {
   font-size: 11px;
@@ -512,11 +413,11 @@
   flex-direction: column;
   gap: 8px;
 }
-.unlock-head { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--color-text); }
+.unlock-head { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--color-text); }
 .unlock-title { font-weight: 600; }
 .unlock-row { display: flex; gap: 8px; }
-.unlock-row .field-input { flex: 1; }
-.unlock-btn { flex: 0 0 auto; padding: 9px 16px; }
+.unlock-row .form-input { flex: 1; }
+.unlock-btn { flex: 0 0 auto; }
 
 /* ── Feishu config stepper ── */
 .feishu-tab {
@@ -606,7 +507,7 @@
 }
 
 .feishu-step__desc {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--color-text-secondary);
   line-height: 1.5;
 }

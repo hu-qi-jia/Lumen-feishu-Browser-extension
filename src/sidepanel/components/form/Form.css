@@ -16,8 +16,29 @@
   margin: 0;
 }
 
-/* ── Form input (text / password / url / select) ── */
-.form-input {
+/* ── Legacy field helpers (used by raw labels / hints outside FormField) ──
+   Prefer FormField + .form-field-label / .form-field-hint for new code. */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.field-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label-inline { font-size: 12px; font-weight: 500; color: var(--color-text); }
+
+/* ── Form input (text / password / url / select) ──
+   .field-input is a legacy alias kept for non-component usages; new code
+   should use <FormInput> (which renders .form-input). */
+.form-input,
+.field-input {
   padding: 7px 10px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -29,7 +50,8 @@
   font-family: inherit;
   width: 100%;
 }
-.form-input:focus {
+.form-input:focus,
+.field-input:focus {
   border-color: var(--color-primary);
   box-shadow: var(--ring);
 }

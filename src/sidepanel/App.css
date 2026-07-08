@@ -26,6 +26,15 @@
   --color-text-secondary: #888f9c;
   --color-error: #f54a45;
   --color-success: #2bb673;
+  --color-success-bg: #e8f5e9;
+  --color-success-border: #a5d6a7;
+  --color-success-strong: #2e7d32;
+  --color-warning: #b45309;
+  --color-warning-strong: #d48806;
+  --color-info-bg: #f0f5ff;
+  --color-info-border: #c7d7ff;
+  --color-code-bg: #1e1e2e;
+  --color-code-text: #cdd6f4;
   --color-tool-bg: #fff8e6;
   --color-tool-border: #f0d080;
 

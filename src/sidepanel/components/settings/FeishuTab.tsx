@@ -16,6 +16,7 @@ import {
   oauthRedirectUrl,
 } from '../../../shared/feishu/oauth'
 import { FormField, FormInput } from '../form'
+import Button from '../Button'
 import Tooltip from '../Tooltip'
 import FeishuSteps from './FeishuSteps'
 import type { SettingsTabProps } from './types'
@@ -176,18 +177,15 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
             {builtinBadge}
             {!HAS_BUILTIN_CREDS && (
               <>
-                <input
-                  className="field-input"
+                <FormInput
                   type="text"
                   value={byoAppId}
                   onChange={(e) => setByoAppId(e.target.value)}
                   placeholder="App ID：cli_xxxxxxxxxxxx"
                 />
-                <input
-                  className="field-input"
+                <FormInput
                   type="password"
                   value={byoSecret}
-                  style={{ marginTop: 6 }}
                   onChange={(e) => setByoSecret(e.target.value)}
                   placeholder={byoSaved ? 'App Secret（已保存，如需更新再填）' : 'App Secret'}
                 />
@@ -247,8 +245,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                 {secretLocked ? (
                   <>
                     <div className="unlock-row">
-                      <input
-                        className="field-input"
+                      <FormInput
                         type={showUnlockPwd ? 'text' : 'password'}
                         value={unlockPwd}
                         onChange={(e) => setUnlockPwd(e.target.value)}
@@ -258,21 +255,24 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                         placeholder="粘贴解锁密码"
                       />
                       <Tooltip content={showUnlockPwd ? '隐藏' : '显示，核对粘贴是否完整'} position="top">
-                        <button
-                          className="btn-secondary unlock-btn"
-                          type="button"
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="unlock-btn"
                           onClick={() => setShowUnlockPwd((v) => !v)}
                         >
                           {showUnlockPwd ? '隐藏' : '显示'}
-                        </button>
+                        </Button>
                       </Tooltip>
-                      <button
-                        className="btn-primary unlock-btn"
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="unlock-btn"
                         disabled={!unlockPwd}
                         onClick={() => void handleUnlock()}
                       >
                         解锁
-                      </button>
+                      </Button>
                     </div>
                     {unlockPwd && (
                       <span className="field-hint">
@@ -282,12 +282,12 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                     )}
                   </>
                 ) : (
-                  <button className="btn-secondary" onClick={() => void handleLock()}>
+                  <Button variant="secondary" size="sm" onClick={() => void handleLock()}>
                     锁定（清除本机已记住的密钥）
-                  </button>
+                  </Button>
                 )}
                 {unlockMsg && (
-                  <span className="field-hint" style={{ color: unlockMsg.ok ? '#389e0d' : '#d4380d' }}>
+                  <span className="field-hint" style={{ color: unlockMsg.ok ? 'var(--color-success)' : 'var(--color-error)' }}>
                     {unlockMsg.msg}
                   </span>
                 )}
@@ -316,8 +316,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
               </div>
             )}
 
-            <input
-              className="field-input"
+            <FormInput
               type="password"
               value={form.feishuAccessToken}
               onChange={set('feishuAccessToken')}

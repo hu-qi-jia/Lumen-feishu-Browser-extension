@@ -30,7 +30,7 @@ export default function SettingsSelect({ options, value, onChange, ariaLabel, cl
       trigger={
         <button
           type="button"
-          className={`engine-trigger${open ? ' is-open' : ''}`}
+          className={`form-input engine-trigger${open ? ' is-open' : ''}`}
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="listbox"
           aria-expanded={open}

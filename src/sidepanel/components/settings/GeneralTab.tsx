@@ -5,8 +5,9 @@ import { IconTrash } from '../icons'
 import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
+import { HelpIcon, TitleWithHelp } from './HelpIcon'
 import type { SettingsTabProps } from './types'
-import '../SessionDrawer.css'
+import '../IconButton.css'
 import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
 import type { TranslationEngine } from '../../../shared/news/types'
 import { clearRecipes, recipeCount } from '../../../shared/ai/recipes'
@@ -62,7 +63,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       </SettingsSection>
 
       {/* ── 本地经验 ── */}
-      <SettingsSection title={titleHelp('本地经验', `任务成功后在本机提炼执行经验（不含表格/文档数据），相似任务自动参考。最多 300 条，已积累 ${recipeN ?? '…'} 条。`)}>
+      <SettingsSection title={<TitleWithHelp title="本地经验" tip={`任务成功后在本机提炼执行经验（不含表格/文档数据），相似任务自动参考。最多 300 条，已积累 ${recipeN ?? '…'} 条。`} />}>
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">记住成功经验</span>
@@ -77,7 +78,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
             <Tooltip content="清空学到的经验" position="bottom">
               <button
                 type="button"
-                className="drawer-row-btn"
+                className="icon-action"
                 aria-label="清空学到的经验"
                 onClick={() => void handleClearRecipes()}
               >
@@ -92,7 +93,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       </SettingsSection>
 
       {/* ── 模板库地址 ── */}
-      <SettingsSection title={titleHelp('模板库地址', REGISTRY_TIP)}>
+      <SettingsSection title={<TitleWithHelp title="模板库地址" tip={REGISTRY_TIP} />}>
         <div className="settings-field">
           <span className="settings-field-label">自定义模板库地址</span>
           <FormInput
@@ -105,7 +106,7 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
       </SettingsSection>
 
       {/* ── GitHub Trending翻译 ── */}
-      <SettingsSection title={titleHelp('GitHub Trending翻译', TRANSLATION_TIP)}>
+      <SettingsSection title={<TitleWithHelp title="GitHub Trending翻译" tip={TRANSLATION_TIP} />}>
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">翻译引擎</span>
@@ -130,39 +131,6 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
         </div>
       </SettingsSection>
     </>
-  )
-}
-
-function titleHelp(title: string, tip: string) {
-  return (
-    <>
-      {title}
-      <Tooltip content={tip} position="bottom">
-        <span className="help-icon" aria-label="帮助">
-          <HelpIconSvg />
-        </span>
-      </Tooltip>
-    </>
-  )
-}
-
-function HelpIcon({ tip }: { tip: string }) {
-  return (
-    <Tooltip content={tip} position="bottom">
-      <span className="help-icon" aria-label="帮助">
-        <HelpIconSvg />
-      </span>
-    </Tooltip>
-  )
-}
-
-function HelpIconSvg() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
   )
 }
 

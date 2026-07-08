@@ -79,7 +79,7 @@ export default function Settings({
         {/* Enterprise policy notice — always visible regardless of tab. */}
         {policyNotice && (
           <section className="settings-section">
-            <p className="field-hint" style={{ color: '#d48806' }}>
+            <p className="field-hint" style={{ color: 'var(--color-warning-strong)' }}>
               {policyNotice}
             </p>
           </section>

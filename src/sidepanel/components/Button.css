@@ -71,3 +71,33 @@
   animation: btn-spin .8s linear infinite;
 }
 @keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ── Link-style button (inline text link) ──
+   For inline "重新获取" / "恢复默认" style actions inside hints/descriptions. */
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Test / verify button (outline style) ──
+   For "测试连接" / "飞书授权" actions that sit beside a status line. */
+.btn-test {
+  padding: 6px 12px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.btn-test:hover:not(:disabled) { background: var(--color-primary); color: white; }
+.btn-test:disabled { opacity: 0.4; cursor: not-allowed; }

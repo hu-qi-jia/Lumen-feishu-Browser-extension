@@ -8,8 +8,10 @@ interface Props {
 }
 
 /**
- * Select dropdown styled with `.form-input`.
- * Use inside `<FormField>` for a complete labeled field.
+ * Native `<select>` styled with `.form-input`.
+ * Use for short, static option lists (e.g. model provider dropdown) inside
+ * `<FormField>`. For richer dropdown UI (icons, checkmarks, search) use
+ * `SettingsSelect` which wraps the `Dropdown` component instead.
  */
 export default function FormSelect({ value, onChange, children }: Props) {
   return (
