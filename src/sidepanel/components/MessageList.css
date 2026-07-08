@@ -79,8 +79,8 @@
 /* ── Message rows ── */
 .msg-row {
   display: flex;
-  align-items: flex-start;
-  gap: 7px;
+  flex-direction: column;
+  gap: 4px;
   max-width: 100%;
   animation: msgIn .28s cubic-bezier(.2, .7, .3, 1) both;
 }
@@ -91,12 +91,13 @@
 @media (prefers-reduced-motion: reduce) {
   .msg-row, .example-chip, .btn-send, .sc-card, .thinking-spinner, .thinking-dots span { animation: none; transition: none; }
 }
-.msg-row--user { justify-content: flex-end; }
-.msg-row--assistant { justify-content: flex-start; }
+/* Avatar sits ABOVE its bubble; align the column to the sender's side. */
+.msg-row--user { align-items: flex-end; }
+.msg-row--assistant { align-items: flex-start; }
 
 /* ── Bubbles ── */
 .bubble {
-  max-width: 85%;
+  max-width: 88%;
   padding: 9px 13px;
   border-radius: 14px;
   font-size: 13px;

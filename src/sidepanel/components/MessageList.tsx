@@ -192,6 +192,7 @@ const ReplyItem = React.memo(function ReplyItem({ msg }: { msg: ChatMessage }) {
 function UserBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="msg-row msg-row--user">
+      <Avatar role="user" />
       <div className="bubble bubble--user">
         {msg.attachments && msg.attachments.length > 0 && (
           <div className="msg-attachments">
@@ -208,7 +209,6 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
         )}
         {msg.content}
       </div>
-      <Avatar role="user" />
     </div>
   )
 }

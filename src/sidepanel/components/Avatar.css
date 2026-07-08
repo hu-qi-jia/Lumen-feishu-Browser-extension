@@ -7,19 +7,17 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  /* Top-align with the bubble, nudged down to ride the first text line
-     (the bubble has ~9px top padding). */
-  margin-top: 3px;
 }
 .avatar svg {
   width: 58%;
   height: 58%;
 }
 
-/* Assistant = the AI on the brand gradient (mirrors the user-bubble brand fill),
-   white filled sparkle — the codebase's canonical "AI" affordance. */
+/* Assistant = the AI. Flat solid brand disc (no gradient — cleaner and more minimal
+   than the user-bubble's brand gradient) with a white filled sparkle, the codebase's
+   canonical "AI" affordance. */
 .avatar--assistant {
-  background: var(--gradient-brand);
+  background: var(--color-primary);
   color: #fff;
   box-shadow: var(--shadow-sm);
 }
