@@ -425,7 +425,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
 
   return (
     <div className="feishu-tab">
-      <FeishuSteps steps={steps} current={currentStep} onChange={setCurrentStep} />
+      <FeishuSteps steps={steps} current={currentStep} />
     </div>
   )
 }

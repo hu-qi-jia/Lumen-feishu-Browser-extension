@@ -539,16 +539,7 @@
   align-items: center;
   width: var(--step-dot-size);
   flex-shrink: 0;
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: transparent;
-  cursor: default;
   color: inherit;
-}
-
-.feishu-step__indicator:enabled {
-  cursor: pointer;
 }
 
 .feishu-step__dot {
