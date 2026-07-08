@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 6px;
@@ -78,7 +78,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text);
 }
@@ -108,7 +108,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text);
 }
@@ -629,26 +629,6 @@
 
 .feishu-step--active .feishu-step__title {
   color: var(--color-primary);
-}
-
-/* Done step */
-.feishu-step--done .feishu-step__dot {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.feishu-step--done .feishu-step__line {
-  background: var(--color-primary);
-}
-
-/* Pending step */
-.feishu-step--pending .feishu-step__title {
-  color: var(--color-text-secondary);
-}
-
-.feishu-step--pending .feishu-step__desc {
-  color: var(--color-text-tertiary, #999);
 }
 
 /* Help code inline in step description */
