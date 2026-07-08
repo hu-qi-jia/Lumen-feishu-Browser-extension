@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 6px;
@@ -78,7 +78,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
 }
@@ -108,7 +108,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
 }
@@ -511,3 +511,151 @@
 .unlock-row { display: flex; gap: 8px; }
 .unlock-row .field-input { flex: 1; }
 .unlock-btn { flex: 0 0 auto; padding: 9px 16px; }
+
+/* ── Feishu config stepper ── */
+.feishu-tab {
+  --step-dot-size: 22px;
+  --step-line-width: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feishu-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.feishu-step {
+  display: flex;
+  gap: 12px;
+  position: relative;
+}
+
+.feishu-step__indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--step-dot-size);
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+  color: inherit;
+}
+
+.feishu-step__indicator:enabled {
+  cursor: pointer;
+}
+
+.feishu-step__dot {
+  width: var(--step-dot-size);
+  height: var(--step-dot-size);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.feishu-step__dot svg {
+  width: 12px;
+  height: 12px;
+}
+
+.feishu-step__line {
+  flex: 1;
+  width: var(--step-line-width);
+  min-height: 16px;
+  background: var(--color-border);
+  margin: 4px 0;
+  border-radius: 1px;
+  transition: background .15s ease;
+}
+
+.feishu-step__body {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feishu-step:last-child .feishu-step__body {
+  padding-bottom: 0;
+}
+
+.feishu-step__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.feishu-step__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.feishu-step__desc {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.feishu-step__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Active step */
+.feishu-step--active .feishu-step__dot {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.feishu-step--active .feishu-step__title {
+  color: var(--color-primary);
+}
+
+/* Done step */
+.feishu-step--done .feishu-step__dot {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.feishu-step--done .feishu-step__line {
+  background: var(--color-primary);
+}
+
+/* Pending step */
+.feishu-step--pending .feishu-step__title {
+  color: var(--color-text-secondary);
+}
+
+.feishu-step--pending .feishu-step__desc {
+  color: var(--color-text-tertiary, #999);
+}
+
+/* Help code inline in step description */
+.feishu-step__content .help-box {
+  margin-top: 2px;
+}
+
+.feishu-step__content .help-box code {
+  word-break: break-all;
+}
