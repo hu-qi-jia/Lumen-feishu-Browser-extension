@@ -158,7 +158,15 @@ export async function listBlocks(token: string, documentId: string, cap = 2000) 
     pageToken = res.has_more ? res.page_token : undefined
     if (items.length >= cap) { truncated = !!pageToken; pageToken = undefined } // bound context size
   } while (pageToken)
-  return { items: items.slice(0, cap), has_more: truncated, truncated }
+  // A flat, 0-indexed view of the doc's ROOT children — the very thing delete_document_blocks
+  // / insert indices count by. list_blocks otherwise returns the whole nested tree, and the
+  // agent counting "root children" off the tree is the documented cause of off-by-one deletes
+  // (it counts every nested block). Handing it N + a numbered list makes the index unambiguous.
+  const root = summarizeRootChildren(items, documentId)
+  return {
+    items: items.slice(0, cap), has_more: truncated, truncated,
+    root_children_count: root.count, root_children_truncated: root.truncated, root_children: root.indexed,
+  }
 }
 
 /** 文本块/标题块的文本 key（飞书 docx）：text→'text'，heading(3/4/5)→'heading1'/'heading2'/'heading3'。 */
@@ -173,6 +181,43 @@ function readBlockText(block: Record<string, unknown>): string {
   if (!key) return ''
   const el = block[key] as { elements?: Array<{ text_run?: { content?: string } }> } | undefined
   return (el?.elements ?? []).map((e) => e?.text_run?.content ?? '').join('')
+}
+
+/** 飞书 block_type → 短名（给 summarizeRootChildren 的索引清单用，让人一眼看懂每行是什么块）。 */
+const BLOCK_TYPE_NAMES: Record<number, string> = {
+  1: 'page', 2: 'text', 3: 'h1', 4: 'h2', 5: 'h3', 6: 'h4', 7: 'h5', 8: 'h6',
+  9: 'bullet', 10: 'ordered', 11: 'code', 12: 'quote', 13: 'todo', 14: 'bitable',
+  15: 'callout', 17: 'divider', 19: 'iframe', 22: 'table', 27: 'image', 30: 'sheet',
+}
+function blockTypeName(bt: number): string {
+  return BLOCK_TYPE_NAMES[bt] ?? `type${bt}`
+}
+
+/**
+ * 纯：把整棵块树压成「文档根直接子块」的扁平 0 基索引清单（{ i, t, s }）。`list_blocks`
+ * 返回嵌套树，模型要靠它数根块数极易数错（把嵌套块也算进去）→ off-by-one 删除。这里
+ * 替它数好 N，并给带索引的清单，删/插哪个根块一目了然。`cap` 限清单长度防爆体积；`count`
+ * 始终是真实总数（清单截断时 `truncated=true`）。
+ */
+export function summarizeRootChildren(
+  items: unknown[],
+  documentId: string,
+  cap = 120,
+): { count: number; indexed: Array<{ i: number; t: string; s: string }>; truncated: boolean } {
+  const root = (items as Record<string, unknown>[])
+    .filter((b) => b.parent_id === documentId)
+    .sort((a, b) => ((a.index as number) ?? 0) - ((b.index as number) ?? 0))
+  const truncated = root.length > cap
+  const slice = truncated ? root.slice(0, cap) : root
+  return {
+    count: root.length,
+    truncated,
+    indexed: slice.map((b, i) => ({
+      i,
+      t: blockTypeName((b.block_type as number) ?? 0),
+      s: readBlockText(b).slice(0, 40),
+    })),
+  }
 }
 
 /** 纯：在扁平块列表里，按 selectedText 文本匹配定位「所在完整段落 + 最近上方标题」。
@@ -412,6 +457,32 @@ export async function insertSheet(token: string, documentId: string, data: strin
 }
 
 /** Delete a contiguous range of child blocks [startIndex, endIndex). */
+/**
+ * 纯：删除范围预校验。飞书 batch_delete 的报错是模糊的 `invalid param`，模型读不懂就容易
+ * 盲目重试（实测连弹 4 次确认框）。这里按真实子块数 N 把错误翻译成可自愈的精确信息
+ * （"共 N 个、有效索引 0~N-1、你传的是 X/Y"），模型一次就能改对。半开区间 [start, end)。
+ */
+export function assertValidDeleteRange(
+  parentBlockId: string | undefined,
+  startIndex: number,
+  endIndex: number,
+  childCount: number,
+): void {
+  if (!parentBlockId) {
+    throw new Error('delete_document_blocks 需要 parent_block_id（删除文档正文块时填 document_id）。')
+  }
+  if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex)) {
+    throw new Error(`删除范围无效：start_index / end_index 必须是整数，你传的是 start_index=${startIndex}、end_index=${endIndex}。`)
+  }
+  if (startIndex < 0 || endIndex > childCount || startIndex >= endIndex) {
+    throw new Error(
+      `删除范围无效：parent=${parentBlockId} 的直接子块共 ${childCount} 个（有效索引 0~${childCount - 1}），` +
+      `半开区间 [start_index, end_index) 要求 0 ≤ start < end ≤ ${childCount}。` +
+      `你传的是 start_index=${startIndex}、end_index=${endIndex}。请按真实数量修正后再调用（不要原样重试）。`,
+    )
+  }
+}
+
 export function deleteBlocks(
   token: string,
   documentId: string,
