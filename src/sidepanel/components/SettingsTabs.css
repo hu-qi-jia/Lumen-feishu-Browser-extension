@@ -32,6 +32,52 @@
   background: var(--color-primary);
 }
 
+/* ── Underline variant ── */
+.settings-tabs--underline {
+  gap: 0;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-tab--underline {
+  position: relative;
+  padding: 8px 12px 6px;
+  background: none;
+  border-radius: 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+
+.settings-tab--underline::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-primary);
+  transform: scaleX(0);
+  transition: transform .2s cubic-bezier(.4, 0, .2, 1);
+}
+
+.settings-tab--underline:hover {
+  color: var(--color-text);
+  background: none;
+}
+
+.settings-tab--underline-active {
+  color: var(--color-text);
+  font-weight: 600;
+  background: none;
+}
+
+.settings-tab--underline-active::after {
+  transform: scaleX(1);
+}
+
 /* ── Dark theme ── */
 [data-theme="dark"] .settings-tab:hover {
   background: rgba(255, 255, 255, .08);
@@ -40,4 +86,13 @@
 [data-theme="dark"] .settings-tab--active {
   color: #fff;
   background: var(--color-primary);
+}
+
+[data-theme="dark"] .settings-tab--underline:hover {
+  background: none;
+}
+
+[data-theme="dark"] .settings-tab--underline-active {
+  color: var(--color-text);
+  background: none;
 }
