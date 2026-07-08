@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { HAS_ARTIFACT_SYNC } from '../../../shared/config'
 import { restoreAllArtifacts } from '../../cloudRestore'
 import { applyBackup, buildBackup } from '../../../shared/configBackup'
-import { FormCheckbox, FormSelect } from '../form'
+import { FormSwitch } from '../form'
 import Button from '../Button'
+import ConfirmDialog from '../ConfirmDialog'
+import Tooltip from '../Tooltip'
 import SettingsSection from './SettingsSection'
+import SettingsSelect from './SettingsSelect'
+import type { ConfirmRequest } from '../../../shared/ai/agent'
 import {
   cleanupImpact,
   clearAllUserData,
@@ -13,8 +17,11 @@ import {
   type CleanupIntervalDays,
 } from '../../../shared/dataCleanup'
 
+const BACKUP_TIP = '把你的配置、保存的小程序 / AI建站 / PPT、本地经验、会话导出成一个文件；换设备、重装或清缓存后导入即可恢复，防止数据丢失。全程在本机，不上传任何服务器。'
+
+
 /**
- * 数据与备份 tab：本地备份与恢复（文件）、数据清理，以及企业云备份（条件渲染）。
+ * 数据与备份 tab：本地备份与恢复、数据清理，以及企业云备份（条件渲染）。
  * 备份/恢复/清理操作都独立于 settings 表单——直接执行。
  */
 export default function BackupTab() {
@@ -31,9 +38,10 @@ export default function BackupTab() {
   const [cleanupDays, setCleanupDays] = useState<CleanupIntervalDays>(0)
   const [impactBytes, setImpactBytes] = useState<number | null>(null)
   const [lastCleanedAt, setLastCleanedAt] = useState<number | null>(null)
-  const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [cleanupMsg, setCleanupMsg] = useState('')
+  const [clearDialog, setClearDialog] = useState<ConfirmRequest | null>(null)
+
   useEffect(() => {
     void (async () => {
       const cs = await loadCleanupSettings()
@@ -42,11 +50,13 @@ export default function BackupTab() {
       setImpactBytes((await cleanupImpact()).bytes)
     })()
   }, [])
+
   const changeInterval = (value: string) => {
     const next = Number(value) as CleanupIntervalDays
     setCleanupDays(next)
     void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, intervalDays: next }))
   }
+
   const handleClearAll = async () => {
     setClearing(true)
     setCleanupMsg('')
@@ -57,12 +67,12 @@ export default function BackupTab() {
       setImpactBytes((await cleanupImpact()).bytes)
       void loadCleanupSettings().then((s) => saveCleanupSettings({ ...s, lastCleanedAt: now }))
       setCleanupMsg(`已清除${freedBytes > 0 ? `（释放约 ${formatBytes(freedBytes)}）` : ''}，即将刷新生效…`)
-      // 会话/PPT/建站等列表都缓存在 React state 里；清存储后必须刷新面板才能看到空状态。
       setTimeout(() => { try { location.reload() } catch { /* ignore */ } }, 1200)
     } catch (e) {
       setCleanupMsg('清除失败：' + (e instanceof Error ? e.message : String(e)))
       setClearing(false)
-      setConfirming(false)
+    } finally {
+      setClearDialog(null)
     }
   }
 
@@ -108,80 +118,65 @@ export default function BackupTab() {
   return (
     <>
       {/* ── 本地备份与恢复（导出到文件 / 从文件导入）—— 所有版本可用 ── */}
-      <SettingsSection title="本地备份与恢复（文件）">
-        <p className="field-hint">
-          把你的<b>配置、保存的小程序 / AI建站 / PPT、本地经验、会话</b>导出成一个文件；
-          换设备、重装或清缓存后导入即可恢复，<b>防止数据丢失</b>。全程在本机，不上传任何服务器。
-        </p>
-        <FormCheckbox
-          checked={includeSecrets}
-          onChange={setIncludeSecrets}
-        >
-          <>包含密钥（API Key / 飞书 Token / App Secret）</>
-        </FormCheckbox>
+      <SettingsSection
+        title={titleHelp('本地备份与恢复', BACKUP_TIP)}
+        action={
+          <span className="section-inline-actions">
+            <button className="btn-secondary" onClick={() => void handleExportBackup()}>
+              导出
+            </button>
+            <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
+              导入
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void handleImportBackup(f)
+                e.target.value = ''
+              }}
+            />
+          </span>
+        }
+      >
+        <div className="backup-option-row">
+          <span className="backup-option-label">包含密钥（API Key / 飞书 Token / App Secret）</span>
+          <FormSwitch
+            checked={includeSecrets}
+            onChange={setIncludeSecrets}
+          />
+        </div>
         {includeSecrets && (
           <p className="field-hint" style={{ color: '#d4380d' }}>
             勾选后文件含<b>明文密钥</b>，请妥善保管、勿外发；不勾选则更安全，恢复后重新填一次 Key 即可。
           </p>
         )}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn-secondary" onClick={() => void handleExportBackup()}>
-            导出备份到文件
-          </button>
-          <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
-            从文件恢复
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void handleImportBackup(f)
-              e.target.value = ''
-            }}
-          />
-        </div>
-        {backupMsg && <p className="field-hint" style={{ marginTop: 6 }}>{backupMsg}</p>}
+        {backupMsg && <p className="field-hint">{backupMsg}</p>}
       </SettingsSection>
 
       {/* ── 数据清理 ── */}
-      <SettingsSection title="数据清理">
+      <SettingsSection title={titleHelp('数据清理', cleanupTip(impactBytes, lastCleanedAt))}>
         <div className="cache-row">
           <span className="cache-row-label">自动清理</span>
-          <FormSelect value={String(cleanupDays)} onChange={(e) => changeInterval(e.target.value)}>
-            {CLEANUP_INTERVAL_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </FormSelect>
+          <SettingsSelect
+            options={CLEANUP_INTERVAL_OPTIONS}
+            value={String(cleanupDays)}
+            onChange={changeInterval}
+            ariaLabel="自动清理频率"
+          />
         </div>
-        <p className="field-hint">
-          清除<b>全部会话记录、保存的 PPT / 建站 / PDF、图片附件、本地经验</b>等，只保留你的设置（API Key、
-          飞书授权、主题等）。<b>不可恢复。</b>
-          {impactBytes != null && impactBytes > 0 && <> 当前约 <b>{formatBytes(impactBytes)}</b> 可清除。</>}
-          {lastCleanedAt && <> 上次清理：{relTime(lastCleanedAt)}。</>}
-        </p>
-        {confirming ? (
-          <div className="cache-confirm">
-            <p className="field-hint" style={{ color: 'var(--color-error)' }}>
-              确认清除？将删除全部会话、PPT、建站、PDF、图片等，<b>只保留设置，且不可恢复</b>。
-            </p>
-            <div className="cache-confirm-actions">
-              <Button variant="danger" loading={clearing} onClick={() => void handleClearAll()}>
-                确认清除
-              </Button>
-              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={clearing}>
-                取消
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <button className="btn-secondary" onClick={() => setConfirming(true)} style={{ alignSelf: 'flex-start' }}>
-            清除全部数据
-          </button>
-        )}
-        {cleanupMsg && <p className="field-hint" style={{ marginTop: 6 }}>{cleanupMsg}</p>}
+        <Button
+          variant="danger"
+          block
+          loading={clearing}
+          onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
+        >
+          清除全部数据
+        </Button>
+        {cleanupMsg && <p className="field-hint">{cleanupMsg}</p>}
       </SettingsSection>
 
       {/* ── 企业云备份（产物 → 企业自有对象存储；本地丢失可拉回） ── */}
@@ -217,8 +212,51 @@ export default function BackupTab() {
           {restoreMsg && <p className="field-hint" style={{ marginTop: 6 }}>{restoreMsg}</p>}
         </SettingsSection>
       )}
+
+      {clearDialog && (
+        <ConfirmDialog
+          req={clearDialog}
+          onChoose={(choice) => {
+            if (choice === 'confirm') {
+              void handleClearAll()
+            } else {
+              setClearDialog(null)
+            }
+          }}
+        />
+      )}
     </>
   )
+}
+
+function titleHelp(title: string, tip: string) {
+  return (
+    <>
+      {title}
+      <Tooltip content={tip} position="bottom">
+        <span className="help-icon" aria-label="帮助">
+          <InfoIcon />
+        </span>
+      </Tooltip>
+    </>
+  )
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function cleanupTip(impactBytes: number | null, lastCleanedAt: number | null): string {
+  let tip = '清除全部会话记录、保存的 PPT / 建站 / PDF、图片附件、本地经验等，只保留你的设置（API Key、飞书授权、主题等）。不可恢复。'
+  if (impactBytes != null && impactBytes > 0) tip += ` 当前约 ${formatBytes(impactBytes)} 可清除。`
+  if (lastCleanedAt) tip += ` 上次清理：${relTime(lastCleanedAt)}。`
+  return tip
 }
 
 const CLEANUP_INTERVAL_OPTIONS: { value: string; label: string }[] = [

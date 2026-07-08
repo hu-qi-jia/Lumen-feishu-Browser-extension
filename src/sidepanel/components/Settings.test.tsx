@@ -117,11 +117,11 @@ describe('Settings — data cleanup (backup tab)', () => {
     const tabs = [...container.querySelectorAll('.settings-tab')]
     const backupTab = tabs.find((t) => t.textContent === '数据与备份')!
     fireEvent.click(backupTab)
-    // step 1: the danger button reveals an inline confirm (no removal yet)
+    // step 1: the danger button opens the confirm dialog (no removal yet)
     fireEvent.click(getByText('清除全部数据'))
-    expect(getByText('确认清除')).toBeTruthy()
+    expect(getByText('删除')).toBeTruthy()
     // step 2: confirm → actually clears
-    fireEvent.click(getByText('确认清除'))
+    fireEvent.click(getByText('删除'))
     await waitFor(() => expect(getByText(/已清除/)).toBeTruthy())
     const removedKeys = removed.flat()
     expect(removedKeys).toContain('sessions_index_v1')
