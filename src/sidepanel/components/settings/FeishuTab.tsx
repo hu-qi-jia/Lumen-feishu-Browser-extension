@@ -40,7 +40,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
   const [byoSaved, setByoSaved] = useState(false)
   const [byoMsg, setByoMsg] = useState('')
 
-  const [currentStep, setCurrentStep] = useState(0)
   const redirectUrl = oauthRedirectUrl()
 
   useEffect(() => {
@@ -51,7 +50,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         if (id) setByoAppId(id)
         const saved = await hasUserAppCreds()
         setByoSaved(saved)
-        if (saved) setCurrentStep(1)
       })()
   }, [])
 
@@ -68,7 +66,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
     setByoSaved(true)
     setByoSecret('')
     setByoMsg('已保存（App Secret 已本机加密存储）。现在可继续下一步并「用飞书账号授权」。')
-    setCurrentStep(1)
   }
 
   async function handleUnlock() {
@@ -97,7 +94,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       await saveUserToken({ accessToken: userToken, refreshToken, expiresIn })
       patch({ feishuOwnerOpenId: openId, feishuAccessToken: userToken })
       setAuthResult({ ok: true, msg: `已授权：${name}（open_id 已自动填入，将自动续期，记得点保存）` })
-      setCurrentStep(3)
     } catch (err) {
       setAuthResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
     } finally {
@@ -114,7 +110,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       await clearUserToken()
       patch({ feishuOwnerOpenId: openId })
       setAuthResult({ ok: true, msg: `已获取：${name}（open_id 已填入，记得点保存）` })
-      setCurrentStep(3)
     } catch (err) {
       setAuthResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
     } finally {
@@ -425,7 +420,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
 
   return (
     <div className="feishu-tab">
-      <FeishuSteps steps={steps} current={currentStep} />
+      <FeishuSteps steps={steps} current={null} />
     </div>
   )
 }

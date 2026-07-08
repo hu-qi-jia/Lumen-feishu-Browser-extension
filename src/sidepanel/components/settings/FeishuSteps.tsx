@@ -8,15 +8,16 @@ export interface FeishuStep {
 
 interface Props {
   steps: FeishuStep[]
-  current: number
+  /** 当前高亮步骤；传 null/undefined 表示全部不选中。 */
+  current?: number | null
 }
 
-/** 纵向步骤条：纯展示，点击不切换步骤。 */
+/** 纵向步骤条：纯展示，无点击交互，无完成态。 */
 export default function FeishuSteps({ steps, current }: Props) {
   return (
     <div className="feishu-steps">
       {steps.map((step, index) => {
-        const isActive = index === current
+        const isActive = current != null && index === current
         return (
           <div
             key={index}
