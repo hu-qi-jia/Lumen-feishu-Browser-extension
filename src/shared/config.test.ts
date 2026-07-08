@@ -24,3 +24,33 @@ describe('isFeishuOutboundAllowed — code-layer outbound allowlist', () => {
     expect(FEISHU_HOST_PATTERN).toBe('*.feishu.cn')
   })
 })
+
+import { isObsidianOutboundAllowed, HAS_KNOWLEDGE_BASE } from './config'
+
+describe('isObsidianOutboundAllowed — Obsidian loopback-only guard', () => {
+  const base = 'http://127.0.0.1:27123'
+  it('allows URLs under the configured loopback base', () => {
+    expect(isObsidianOutboundAllowed('http://127.0.0.1:27123/', base)).toBe(true)
+    expect(isObsidianOutboundAllowed('http://127.0.0.1:27123/vault/Note.md', base)).toBe(true)
+  })
+  it('accepts localhost as loopback', () => {
+    expect(isObsidianOutboundAllowed('http://localhost:27123/', 'http://localhost:27123')).toBe(true)
+  })
+  it('rejects a different port on the same host (origin mismatch)', () => {
+    expect(isObsidianOutboundAllowed('http://127.0.0.1:27124/', base)).toBe(false)
+  })
+  it('rejects non-loopback hosts even if baseUrl is misconfigured to them', () => {
+    expect(isObsidianOutboundAllowed('http://evil.com:27123/', 'http://evil.com:27123')).toBe(false)
+    expect(isObsidianOutboundAllowed('http://192.168.1.5:27123/', 'http://192.168.1.5:27123')).toBe(false)
+  })
+  it('rejects scheme mismatch (https vs http)', () => {
+    expect(isObsidianOutboundAllowed('https://127.0.0.1:27124/', base)).toBe(false)
+  })
+  it('rejects malformed / empty input', () => {
+    expect(isObsidianOutboundAllowed('not a url', base)).toBe(false)
+    expect(isObsidianOutboundAllowed('http://127.0.0.1:27123/', '')).toBe(false)
+  })
+  it('HAS_KNOWLEDGE_BASE is a boolean (default on unless VITE_KNOWLEDGE_BASE=false)', () => {
+    expect(typeof HAS_KNOWLEDGE_BASE).toBe('boolean')
+  })
+})

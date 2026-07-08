@@ -83,6 +83,10 @@ export const BUILD_CONFIG = {
    *  Feishu Base. Gesture-gated + activeTab only (no new host_permissions, no new egress —
    *  see SECURITY_AUDIT). Default on; set VITE_CLIP_ENABLED=false to ship without it. */
   clipEnabled: ((import.meta.env.VITE_CLIP_ENABLED ?? 'true') as string).trim().toLowerCase() !== 'false',
+  /** Knowledge Base (Obsidian Local REST API integration). Default on; set
+   *  VITE_KNOWLEDGE_BASE=false to ship without it. Loopback-only egress
+   *  (see isObsidianOutboundAllowed + manifest host_permissions). */
+  knowledgeBaseEnabled: ((import.meta.env.VITE_KNOWLEDGE_BASE ?? 'true') as string).trim().toLowerCase() !== 'false',
   /** Optional enterprise governance (v2 — flag defined now, enforcement deferred):
    *  comma-separated domains where clipping is allowed. Empty = allow anywhere. */
   clipManagedDomains: (import.meta.env.VITE_CLIP_MANAGED_DOMAINS ?? '')
@@ -142,6 +146,10 @@ export const HAS_ARTIFACT_SYNC = BUILD_CONFIG.artifactSync && !!BUILD_CONFIG.oau
 /** Web Clipper feature flag (see BUILD_CONFIG.clipEnabled). */
 export const CLIP_ENABLED = BUILD_CONFIG.clipEnabled
 
+/** Knowledge Base (Obsidian) feature flag. When off, all KB code no-ops and the
+ *  Hub card / chat toggle are hidden. Store builds disable via VITE_KNOWLEDGE_BASE=false. */
+export const HAS_KNOWLEDGE_BASE = BUILD_CONFIG.knowledgeBaseEnabled
+
 /** No-remote-code mode: data-viz/site render from a declarative VizSpec, never from LLM-generated
  *  JS; lets us honestly answer "no remote code" + drop sandbox 'unsafe-eval'. Now independent of the
  *  store-packaging flag, so a store build can keep full features (remote code) while still BYO. */
@@ -177,6 +185,25 @@ export function isFeishuOutboundAllowed(url: string): boolean {
     const d = BUILD_CONFIG.feishuBaseDomain
     if (host === d || host.endsWith('.' + d)) return true
     return !!OAUTH_PROXY_HOST && host === OAUTH_PROXY_HOST
+  } catch {
+    return false
+  }
+}
+
+/** Loopback hostnames permitted for the Obsidian Local REST API (v1: local-only). */
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost'])
+
+/** Code-layer outbound guard for the OBSIDIAN (knowledge base) group: true only when the
+ *  URL's origin exactly matches the user-configured Obsidian base URL AND that host is
+ *  loopback. v1 is local-only, so this group physically cannot reach the public internet.
+ *  `baseUrl` is the configured endpoint, e.g. 'http://127.0.0.1:27123'. */
+export function isObsidianOutboundAllowed(url: string, baseUrl: string): boolean {
+  if (!baseUrl) return false
+  try {
+    const u = new URL(url)
+    const b = new URL(baseUrl)
+    if (u.origin !== b.origin) return false                       // exact scheme+host+port
+    return LOOPBACK_HOSTS.has(u.hostname.toLowerCase())           // v1: loopback only
   } catch {
     return false
   }

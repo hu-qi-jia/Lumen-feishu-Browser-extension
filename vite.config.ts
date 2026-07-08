@@ -35,6 +35,12 @@ export default defineConfig(({ command, mode }) => {
   const connect = ["'self'", `https://*.${baseDomain}`]
   if (proxyOrigin) connect.push(proxyOrigin)
   if (registryOrigin) connect.push(registryOrigin)
+  // Knowledge Base (Obsidian Local REST API) — loopback HTTP egress. Default on
+  // (VITE_KNOWLEDGE_BASE); a KB-disabled build keeps CSP fully https-only. Loopback-only,
+  // cannot reach the public internet (enforced again in code by isObsidianOutboundAllowed).
+  // NOTE: this `connect` array IS the authoritative extension_pages connect-src — the
+  // manifest.json source CSP is overwritten by transformManifest (:116) and never ships.
+  if (String(env.VITE_KNOWLEDGE_BASE ?? 'true').trim().toLowerCase() !== 'false') connect.push('http://127.0.0.1:* http://localhost:*')
   connect.push(llmHosts.length ? llmHosts.map((h) => `https://${h}`).join(' ') : 'https:')
   // Dev needs the Vite HMR websocket; only lock down for production builds.
   const connectSrc = command === 'serve'
