@@ -39,6 +39,22 @@ export function displayName(r: RecentFile): string {
   return cleanRecentTitle(r.title, r.kind)
 }
 
+/** Titles that are our own kind-based fallback — they carry no real name. Legacy entries
+ *  recorded before titles were cleaned centrally can hold one of these; treat them as
+ *  "unknown" so the no-clobber rule + the API backfill can replace them with a real name. */
+const PLACEHOLDER_TITLES = new Set(['未命名文档', '未命名表格', '未命名多维表格'])
+
+/** The real, stable name hidden in a raw title — '' when it's empty, a Feishu brand/loading
+ *  string, OR one of our own placeholders. This is what we STORE (real-or-''); displayName()
+ *  re-adds the placeholder at render time. Keeping "unknown" as '' in storage (rather than
+ *  baking the placeholder in) is what lets a later real title overwrite it instead of sticking
+ *  — the fix for "doc name disappears and never comes back". */
+export function realRecentTitle(title: string): string {
+  const cleaned = cleanDocTitle(title)
+  if (!cleaned || PLACEHOLDER_TITLES.has(cleaned.trim())) return ''
+  return cleaned
+}
+
 /**
  * Upsert a resource: move it to the front (most-recent) and cap at MAX_RECENT. Returns
  * the SAME array reference when the entry is already the most-recent with an unchanged
@@ -49,9 +65,15 @@ export function upsertRecent(
   entry: { token: string; title: string; kind: SessionKind },
   now: number = Date.now(),
 ): RecentFile[] {
-  if (files[0]?.token === entry.token && files[0]?.title === entry.title) return files
+  // entry.title is real-or-'' (callers clean via realRecentTitle). NEVER let an unknown title
+  // ('' — a tab in its loading transient, or a tab that's since closed) clobber a real name we
+  // already captured: that was the "doc name disappears after reload/close" bug. A real incoming
+  // title still wins, so reopening a stuck doc recovers its name.
+  const existing = files.find((f) => f.token === entry.token)
+  const title = entry.title || existing?.title || ''
+  if (files[0]?.token === entry.token && files[0]?.title === title) return files
   const rest = files.filter((f) => f.token !== entry.token)
-  return [{ token: entry.token, title: entry.title, kind: entry.kind, seen: now }, ...rest].slice(0, MAX_RECENT)
+  return [{ token: entry.token, title, kind: entry.kind, seen: now }, ...rest].slice(0, MAX_RECENT)
 }
 
 /** Drop the entry for `token` (the × on a recent row). Returns the same ref if absent. */
@@ -62,9 +84,12 @@ export function removeRecent(files: RecentFile[], token: string): RecentFile[] {
 
 export async function loadRecent(): Promise<RecentFile[]> {
   try {
-    return (await new Promise<RecentFile[] | undefined>((resolve) =>
+    const raw = (await new Promise<RecentFile[] | undefined>((resolve) =>
       chrome.storage.local.get([KEY], (r) => resolve(r[KEY] as RecentFile[] | undefined)),
     )) ?? []
+    // Normalize legacy entries: a stored "未命名文档" / raw brand title carries no real name →
+    // collapse to '' so the backfill can recover it and the no-clobber rule can replace it.
+    return raw.map((f) => ({ ...f, title: realRecentTitle(f.title) }))
   } catch {
     return []
   }

@@ -280,7 +280,21 @@ export async function runAgent(
   // Validate the endpoint before sending any conversation/table content to it — a
   // tampered or mistyped base URL must fail loudly here, never silently exfiltrate.
   // Enterprise managed mode resolves the company LLM config from the proxy; else user settings.
-  const llmCfg = await resolveLlmConfig(settings)
+  // "越用越聪明": feed back the most relevant locally-learned recipes (if enabled).
+  const learn = settings.learnFromHistory !== false
+  const resourceKind = context.feishu?.kind ?? 'general'
+  const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? ''
+
+  // Run the independent turn-start I/O CONCURRENTLY so the first model request fires after
+  // max() not sum(): resolveLlmConfig (a proxy fetch on enterprise cold-start, else instant)
+  // overlaps loading the local recipe store. The skill match still follows recipes — its query
+  // is the lesson distilled FROM them — so it stays one step after. Behavior-preserving: a
+  // recipe-load failure still yields [] (the .catch), matching the old try/catch default.
+  const [llmCfg, loadedRecipes] = await Promise.all([
+    resolveLlmConfig(settings),
+    learn && lastUserText ? loadRecipes().catch(() => [] as Recipe[]) : Promise.resolve([] as Recipe[]),
+  ])
+
   const baseURL = assertSafeBaseUrl(llmCfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
   const client = new OpenAI({
     baseURL,
@@ -290,17 +304,13 @@ export async function runAgent(
 
   let systemPrompt = buildSystemPrompt(context, settings, baseCtx)
 
-  // "越用越聪明": feed back the most relevant locally-learned recipes (if enabled).
-  const learn = settings.learnFromHistory !== false
-  const resourceKind = context.feishu?.kind ?? 'general'
-  const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? ''
   // Community skills matched at turn start — re-surfaced once at a failure point (Phase 4). Empty
   // unless enterprise+proxy, so the fallback never fires on the store/BYO build.
   let matchedSkills: Skill[] = []
   if (learn && lastUserText) {
     let recipes: Recipe[] = []
     try {
-      recipes = relevantRecipes(await loadRecipes(), lastUserText, resourceKind)
+      recipes = relevantRecipes(loadedRecipes, lastUserText, resourceKind)
       const hints = formatRecipes(recipes)
       if (hints) systemPrompt += '\n\n' + hints
     } catch { /* recall is best-effort */ }
@@ -1579,7 +1589,16 @@ export function truncateToolResult(json: string): string {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx): string {
+/**
+ * Build the system prompt. LAYOUT MATTERS FOR LATENCY: all STATIC rules (role, tool rules,
+ * safety, field reference) come FIRST and contain NO interpolation, so they form a byte-stable
+ * prefix across every turn. DeepSeek/OpenAI prefix-cache that identical chunk → rounds 2+ and
+ * repeat turns skip re-processing the bulk of the prompt (real TTFT cut). All DYNAMIC content
+ * (auth mode, current app_token, page structure, selected text) lives in the trailing
+ * 「当前上下文」 block; recipe/skill hints are appended after that. Keep it this way: don't
+ * reintroduce a `${}` into the static section or move dynamic content above it.
+ */
+export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx): string {
   const authStatus = HAS_BUILTIN_CREDS
     ? '内置应用凭证（App Credentials）'
     : (s.feishuAccessToken ? '用户手动配置的 user_access_token' : '未配置 — 请提示用户在设置中填写 token')
@@ -1630,17 +1649,11 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
 
 ---
 
-# 认证与作用域
-认证方式：${authStatus}
-当前 app_token：${currentApp ?? '未检测到'}${structureBlock}${selectedBlock}
-
----
-
 # 工具调用规则
 
 ## 1. 作用域约束（新建 vs 当前页面，重要）
 - **新建独立表格/系统**：当用户要"创建一个 XX 表格/系统"且自带完整字段结构（常含示例数据），又**没有明确说**"在当前表/这个 Base 里加一张表" → 这是**全新创建**意图，与当前页面无关。应**先 \`create_bitable_app\` 新建应用，再在其中 \`create_table\`**。**不要**默认往当前 app 加表——当前页面可能是只读副本/模板/无关页面，那样会撞上无编辑权限并报错。
-- **针对当前页面的操作**：只有当用户明确指向当前表/这个 Base（如"给当前表加一列""改这张表的字段""在这个 Base 里再建一张表"）时，才用当前 app（${currentApp ?? '未检测到'}）。
+- **针对当前页面的操作**：只有当用户明确指向当前表/这个 Base（如"给当前表加一列""改这张表的字段""在这个 Base 里再建一张表"）时，才用当前页面的 app（具体 app_token 见末尾「当前上下文」）。
 - 操作除上述两类之外的其他 app，先在回复中说明目标 app 并等待用户确认。
 - **可点击链接**：新建 Base / 文档 / 电子表格后，工具返回里的 \`url\`（如 \`app.url\` / \`document.url\` / \`spreadsheet.url\`）必须用 **Markdown 链接**形式给出，例如 \`[打开 项目管理](https://…)\`，方便用户一键打开（界面会渲染为可点击链接，无需复制）。**绝不要**把 URL 放进反引号代码格式（如 \`\`\`https://…\`\`\` 或 \` \`https://…\` \`）或代码块里——那样会变成不可点击的纯文本。直接给裸 Markdown 链接。
 - **归属**：你以用户本人身份操作，\`create_bitable_app\` 新建的 Base 直接归用户所有、可编辑，无需转交，正常继续 \`create_table\` 等即可。
@@ -1760,5 +1773,11 @@ function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx):
 \`AND(CurrentValue.[优先级]="高", CurrentValue.[状态]!="已完成")\`
 
 # 响应语言
-用户用中文则中文回复，用英文则英文回复。技术 ID 保持原样不翻译。`
+用户用中文则中文回复，用英文则英文回复。技术 ID 保持原样不翻译。
+
+---
+
+# 当前上下文（随页面/会话变化）
+认证方式：${authStatus}
+当前 app_token：${currentApp ?? '未检测到'}${structureBlock}${selectedBlock}`
 }

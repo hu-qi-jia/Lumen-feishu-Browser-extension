@@ -131,14 +131,21 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-switch when the document changes (deferred until streaming ends).
+  // Auto-switch when the EFFECTIVE document changes — but NEVER as a side-effect of a reply
+  // finishing. `streaming` is deliberately OMITTED from the deps: with it included, this effect
+  // re-ran at every stream-end and, whenever the active session wasn't the live tab's (chatting
+  // in the general session on a doc page, or a session picked from history), ensureSession()
+  // yanked the view off the session the reply just landed in — the "生成回答后会切换会话" bug.
+  // The mid-stream `streaming` guard still prevents switching DURING a reply; a navigation that
+  // happens mid-stream simply isn't followed until the next genuine document change. Doc-to-doc
+  // following is driven by the SwitchDocDialog (pendingSwitch) in useDocBinding, not this effect.
   useEffect(() => {
     if (!ready || streaming) return
     const { idx, id } = ensureSession(indexRef.current, activeAppToken)
     if (idx !== indexRef.current || idx.activeId !== id) persistCapped({ ...idx, activeId: id }, id)
     void loadInto(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAppToken, ready, streaming])
+  }, [activeAppToken, ready])
 
   useEffect(() => { activeIdRef.current = index.activeId }, [index.activeId])
 

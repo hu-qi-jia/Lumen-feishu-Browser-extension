@@ -1,0 +1,32 @@
+/* Small circular chat avatars — sit beside a bubble in a .msg-row.
+   Sizing comes from the inline width/height set by the component (default 24px);
+   the glyph fills ~60% of the circle. No emoji — inline SVG only. */
+.avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  /* Top-align with the bubble, nudged down to ride the first text line
+     (the bubble has ~9px top padding). */
+  margin-top: 3px;
+}
+.avatar svg {
+  width: 58%;
+  height: 58%;
+}
+
+/* Assistant = the AI on the brand gradient (mirrors the user-bubble brand fill),
+   white filled sparkle — the codebase's canonical "AI" affordance. */
+.avatar--assistant {
+  background: var(--gradient-brand);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+/* User = a neutral person glyph, quiet so it doesn't compete with the assistant. */
+.avatar--user {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}

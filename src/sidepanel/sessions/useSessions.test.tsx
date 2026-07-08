@@ -124,6 +124,34 @@ describe('useSessions', () => {
     expect(result.current.activeSession?.id).toBe(newId)
   })
 
+  it('does NOT yank the view off the active session when a reply finishes (no post-reply switch)', async () => {
+    // The bug: the auto-switch effect had `streaming` in its deps, so it re-ran at every
+    // stream-end. When the active session wasn't the live tab's — here the general session
+    // while sitting on a doc page — ensureSession(activeAppToken) switched away the instant
+    // the reply finished, abandoning the session the reply just landed in.
+    const { result, rerender } = renderHook(
+      ({ t, s }: { t: string | null; s: boolean }) => useSessions(t, s),
+      { initialProps: { t: null as string | null, s: false } }, // non-doc page → general session
+    )
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    const generalId = result.current.activeSession!.id
+    expect(result.current.activeSession?.appToken).toBeNull()
+
+    // Navigate to appA (idle) → a doc session is created and activated...
+    rerender({ t: 'appA', s: false })
+    await waitFor(() => expect(result.current.activeSession?.appToken).toBe('appA'))
+    // ...then the user picks the general session back (e.g. from the history drawer).
+    act(() => result.current.switchTo(generalId))
+    expect(result.current.activeSession?.id).toBe(generalId)
+
+    // A reply streams into the general session, then finishes.
+    act(() => rerender({ t: 'appA', s: true }))
+    await act(async () => { rerender({ t: 'appA', s: false }) })
+
+    // The view must STAY on the general session — the reply landed there.
+    expect(result.current.activeSession?.id).toBe(generalId)
+  })
+
   it('createSession({ appToken }) binds the new session to a SPECIFIC resource', async () => {
     const { result } = renderSessions('appA')
     await waitFor(() => expect(result.current.ready).toBe(true))

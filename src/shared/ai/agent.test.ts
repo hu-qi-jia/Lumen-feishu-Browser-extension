@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
-import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex, attachmentToMetaData } from './agent'
+import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex, attachmentToMetaData, buildSystemPrompt } from './agent'
 
 describe('toolsForContext — exposes only the current resource\'s tools (+ core)', () => {
   const names = (kind: string | undefined) => toolsForContext(kind).map((t) => (t as { function: { name: string } }).function.name)
@@ -30,6 +30,42 @@ describe('toolsForContext — exposes only the current resource\'s tools (+ core
     expect(n).not.toContain('read_range')
     expect(n).not.toContain('batch_delete_records')
     expect(n.length).toBeLessThan(10)
+  })
+})
+
+describe('buildSystemPrompt — static prefix is cache-stable across pages', () => {
+  // Latency: DeepSeek/OpenAI prefix-cache the longest byte-stable prompt prefix. All STATIC
+  // rules must sit before the dynamic「当前上下文」block so that chunk caches across turns.
+  const s = { openaiBaseUrl: '', openaiApiKey: '', openaiModel: '', feishuAccessToken: '', feishuOwnerOpenId: '', templateRegistryUrl: '' } as AppSettings
+  const baseCtx = (over: Partial<PageContext['feishu']>): PageContext => ({
+    url: 'https://acme.feishu.cn/base/AppAAA', title: 't', selectedText: '',
+    feishu: { isBase: true, appToken: 'AppAAA', tableId: 'tblAAA', ...over },
+  })
+
+  it('the rules prefix is byte-identical for a Base page vs a Doc page vs a selection', () => {
+    const a = buildSystemPrompt(baseCtx({ kind: 'base' }), s)
+    const b = buildSystemPrompt({ url: 'https://acme.feishu.cn/docx/DocBBB', title: 't', selectedText: '', feishu: { isBase: false, kind: 'doc', documentId: 'DocBBB' } }, s)
+    const c = buildSystemPrompt({ url: 'https://acme.feishu.cn/docx/DocCCC', title: 't', selectedText: '用户选中的一段文字', feishu: { isBase: false, kind: 'doc', documentId: 'DocCCC' } }, s)
+    const marker = '# 当前上下文'
+    const prefix = (p: string) => p.slice(0, p.indexOf(marker))
+    expect(a.indexOf(marker)).toBeGreaterThan(0) // marker exists
+    // The whole static rules section is identical regardless of page kind / app_token / selection.
+    expect(prefix(a)).toBe(prefix(b))
+    expect(prefix(a)).toBe(prefix(c))
+  })
+
+  it('the dynamic block DOES vary with the page (so we\'re not accidentally caching everything as one blob)', () => {
+    const a = buildSystemPrompt(baseCtx({ kind: 'base', appToken: 'AppAAA' }), s)
+    const b = buildSystemPrompt(baseCtx({ kind: 'base', appToken: 'AppZZZ' }), s)
+    expect(a).not.toBe(b) // app_token differs → the trailing dynamic block differs
+  })
+
+  it('no `${}` interpolation leaked into the static section (would break the stable prefix)', () => {
+    const p = buildSystemPrompt(baseCtx({ kind: 'base' }), s)
+    const marker = '# 当前上下文'
+    const staticPart = p.slice(0, p.indexOf(marker))
+    // A leftover template placeholder means the prefix isn't actually stable.
+    expect(staticPart).not.toMatch(/\$\{|\bundefined\b/)
   })
 })
 

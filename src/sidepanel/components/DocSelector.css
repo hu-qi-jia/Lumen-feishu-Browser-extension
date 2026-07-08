@@ -6,6 +6,17 @@
   min-width: 0;
 }
 
+/* The Tooltip wraps the trigger in an inline <span class="tooltip">. That inline
+   wrapper sits between the flex item (min-width:0, above) and the width:100%
+   trigger, breaking the truncation chain — a long doc title then expands the
+   trigger past the topbar and overlaps the history / new-session buttons. Make
+   that wrapper a width-constrained block so the title ellipses instead. */
+.doc-selector > .tooltip {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .doc-selector-trigger {
   display: flex;
   align-items: center;

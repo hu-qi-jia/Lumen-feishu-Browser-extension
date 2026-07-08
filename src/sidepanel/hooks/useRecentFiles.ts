@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { PageContext, SessionKind } from '../../shared/types'
-import { upsertRecent, removeRecent, loadRecent, saveRecent, cleanRecentTitle, type RecentFile } from '../recentFiles'
+import { upsertRecent, removeRecent, loadRecent, saveRecent, realRecentTitle, type RecentFile } from '../recentFiles'
 
 export interface RecentFilesApi {
   recentFiles: RecentFile[]
@@ -34,9 +34,11 @@ export function useRecentFiles(
 
   const recordRecent = useCallback((token: string, title: string, kind: SessionKind) => {
     setRecentFiles((prev) => {
-      // Clean centrally so NO caller (focused-tab recorder, pinned-doc recorder, pin picker) can
-      // leak a raw placeholder title like "飞书云文档" into storage.
-      const next = upsertRecent(prev, { token, title: cleanRecentTitle(title, kind), kind })
+      // Store the REAL title (or '' when unknown — a loading/closed tab). Never bake the
+      // placeholder in: that way a later real title can replace an unknown one, and the
+      // loading-transient can't clobber an already-captured name. displayName() re-adds the
+      // placeholder at render time.
+      const next = upsertRecent(prev, { token, title: realRecentTitle(title), kind })
       if (next === prev) return prev // no-op — top entry unchanged
       void saveRecent(next)
       return next

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import type { ChatMessage } from '../../shared/types'
 import Markdown from './Markdown'
 import Tooltip from './Tooltip'
+import Avatar from './Avatar'
 import './MessageList.css'
 
 type ResourceKind = 'base' | 'sheet' | 'doc' | 'ppt'
@@ -13,6 +14,8 @@ interface Props {
   /** Current Feishu resource — drives a capability list tailored to it. 'wiki' is a
    *  transient unresolved state, treated as the general guide. */
   kind?: ResourceKind | 'wiki'
+  /** True while a reply turn is streaming — drives the transient 思考中… indicator. */
+  streaming?: boolean
 }
 
 // Per-resource welcome: one-click quick actions tailored to the page. The layout is identical
@@ -51,74 +54,10 @@ const GUIDE: Record<ResourceKind | 'none', { examples: string[] }> = {
   },
 }
 
-// Friendly Chinese labels for tool names — the raw machine name (e.g. `create_record`) is
-// opaque to non-technical users. Falls back to the raw name if unmapped.
-const TOOL_LABELS: Record<string, string> = {
-  // 多维表格 (Base)
-  render_data_app: '生成数据看板',
-  feishu_api_call: '调用飞书接口',
-  get_app_info: '读取表格信息',
-  create_bitable_app: '新建多维表格',
-  list_tables: '读取数据表列表',
-  create_table: '新建数据表',
-  delete_table: '删除数据表',
-  list_fields: '读取字段列表',
-  create_field: '新建字段',
-  update_field: '更新字段',
-  delete_field: '删除字段',
-  list_records: '读取记录',
-  create_record: '新建记录',
-  batch_create_records: '批量新建记录',
-  update_record: '更新记录',
-  batch_update_records: '批量更新记录',
-  search_records: '搜索记录',
-  delete_record: '删除记录',
-  batch_delete_records: '批量删除记录',
-  dedupe_records: '去重记录',
-  cross_table_lookup: '跨表匹配',
-  update_where: '按条件更新',
-  create_view: '新建视图',
-  list_views: '读取视图列表',
-  list_dashboards: '读取仪表盘列表',
-  copy_dashboard: '复制仪表盘',
-  base_table_to_sheet: '导出为电子表格',
-  summarize_table: '分组汇总',
-  base_to_doc_report: '生成汇总报告',
-  generate_data_report: '生成数据报告',
-  audit_table: '数据体检',
-  // 电子表格 (Sheet)
-  create_spreadsheet: '新建电子表格',
-  get_spreadsheet: '读取电子表格信息',
-  list_sheets: '读取工作表列表',
-  add_sheet: '新建工作表',
-  delete_sheet: '删除工作表',
-  read_range: '读取单元格',
-  write_range: '写入单元格',
-  append_rows: '追加数据行',
-  fill_column: '填充列公式',
-  find_replace: '查找替换',
-  set_number_format: '设置数字格式',
-  insert_dimension: '插入行/列',
-  delete_dimension: '删除行/列',
-  // 文档 (Doc)
-  create_document: '新建文档',
-  create_doc_from_markdown: '生成文档',
-  get_document_content: '读取文档内容',
-  list_blocks: '读取文档结构',
-  add_document_content: '插入文档内容',
-  insert_table: '插入表格',
-  insert_sheet: '插入电子表格',
-  delete_document_blocks: '删除文档内容',
-  audit_document: '文档体检',
-  summarize_document: '总结文档',
-}
-function toolLabel(name: string): string {
-  return TOOL_LABELS[name] ?? name
-}
-
 // Group consecutive non-user messages into one "reply block" so a single agent task
-// (text → tool → text → tool → text) renders as ONE bubble with the steps flowing inside,
-// instead of N separate bordered bubbles with gaps between them.
+// (text → tool → text → tool → text) renders as ONE bubble with the segments flowing inside,
+// instead of N separate bordered bubbles with gaps between them. Tool calls/results are
+// filtered out before this (hidden from the UI), so a multi-round turn reads as one answer.
 type TurnGroup = { kind: 'user'; msg: ChatMessage } | { kind: 'reply'; msgs: ChatMessage[] }
 function groupTurns(messages: ChatMessage[]): TurnGroup[] {
   const groups: TurnGroup[] = []
@@ -135,7 +74,7 @@ function groupTurns(messages: ChatMessage[]): TurnGroup[] {
   return groups
 }
 
-export default function MessageList({ messages, onExample, kind }: Props) {
+export default function MessageList({ messages, onExample, kind, streaming }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -145,35 +84,44 @@ export default function MessageList({ messages, onExample, kind }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: 'auto' })
   }, [messages])
 
-  const visible = messages.filter((m) => m.role !== 'system')
-
-  // A tool-call indicator (assistant + tool_calls + no content) renders as a "calling" card
-  // ONLY while in-flight. Once its tool result lands (a later `tool` message), the result card
-  // already conveys the done state — showing both is redundant. An indicator is "done" if a
-  // tool message appears after it BEFORE the next indicator (the agent calls tools serially:
-  // start → result → start → result, so each indicator pairs with the next tool message).
-  const doneIndicators = new Set<string>()
-  for (let i = 0; i < visible.length; i++) {
-    const m = visible[i]
-    if (!(m.role === 'assistant' && m.tool_calls?.length && !m.content)) continue
-    for (let j = i + 1; j < visible.length; j++) {
-      const n = visible[j]
-      if (n.role === 'tool') { doneIndicators.add(m.id); break }
-      if (n.role === 'assistant' && n.tool_calls?.length && !n.content) break // another in-flight call first
-    }
-  }
-  const rendered = visible.filter(
-    (m) => !(m.role === 'assistant' && m.tool_calls?.length && !m.content && doneIndicators.has(m.id)),
+  // Tool chatter is hidden from the UI ENTIRELY — a turn reads as just its text answer, with a
+  // 思考中… bubble filling the thinking gaps. The tool messages STAY in `messages` (API history,
+  // dataviz / image-export interception, the undo stash all depend on the data); they're simply
+  // not drawn. A future "show tool details" toggle could re-surface them.
+  const visible = messages.filter(
+    (m) =>
+      m.role !== 'system' &&
+      m.role !== 'tool' &&
+      !(m.role === 'assistant' && m.tool_calls?.length && !m.content),
   )
+
+  // The 思考中… indicator fills every "thinking gap": a turn is streaming AND no assistant text
+  // bubble is actively streaming content right now — i.e. before the first token of a round, and
+  // between rounds / while tools run. As soon as text starts flowing it hides (the streaming
+  // bubble + its blinking cursor take over). `streaming` comes from ChatPanel (whole-turn flag).
+  const hasStreamingText = visible.some(
+    (m) => m.role === 'assistant' && m.isStreaming && (m.content ?? '').trim().length > 0,
+  )
+  const thinking = !!streaming && !hasStreamingText
+
+  const groups = groupTurns(visible)
+  const lastGroup = groups[groups.length - 1]
+  // Keep the whole turn in ONE bubble: when a thinking gap hits mid-turn (between rounds),
+  // render the indicator INSIDE the in-flight reply block — appended under the prior text —
+  // instead of a separate thinking bubble that interrupts the answer. Only fall back to a
+  // standalone thinking bubble at turn start, when no reply block exists yet.
+  const thinkingInsideReply = thinking && lastGroup?.kind === 'reply'
+  const thinkingStandalone = thinking && !thinkingInsideReply
 
   return (
     <div className="msg-list">
       {visible.length === 0 && <Welcome kind={kind} onExample={onExample} />}
-      {groupTurns(rendered).map((g) =>
+      {groups.map((g, i) =>
         g.kind === 'user'
           ? <UserBubble key={g.msg.id} msg={g.msg} />
-          : <ReplyBlock key={g.msgs[0].id} msgs={g.msgs} />,
+          : <ReplyBlock key={g.msgs[0].id} msgs={g.msgs} thinking={thinkingInsideReply && i === groups.length - 1} />,
       )}
+      {thinkingStandalone && <ThinkingBubble />}
       <div ref={bottomRef} />
     </div>
   )
@@ -213,13 +161,17 @@ function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?
   )
 }
 
-// One bubble per agent turn — text segments + tool cards flow inside a single bubble, so a
-// multi-round task (text → tool → text → …) reads as one reply instead of N boxed bubbles.
-function ReplyBlock({ msgs }: { msgs: ChatMessage[] }) {
+// One bubble per agent turn — all text segments flow inside a single bubble, so a multi-round
+// task (text → tool → text → …) reads as one continuous reply instead of N boxed bubbles.
+// `thinking` renders the 思考中… indicator INSIDE this bubble (under the text) during a
+// mid-turn thinking gap, so the answer never gets interrupted by a separate thinking bubble.
+function ReplyBlock({ msgs, thinking }: { msgs: ChatMessage[]; thinking?: boolean }) {
   return (
     <div className="msg-row msg-row--assistant">
+      <Avatar role="assistant" />
       <div className="bubble bubble--assistant reply-block">
         {msgs.map((m) => <ReplyItem key={m.id} msg={m} />)}
+        {thinking && <ThinkingIndicator />}
       </div>
     </div>
   )
@@ -229,8 +181,6 @@ function ReplyBlock({ msgs }: { msgs: ChatMessage[] }) {
 // in-flight item's object identity changes. Without memo, EVERY item re-parses its markdown
 // per token → O(n²) jank on long replies. A shallow `msg` compare skips the stable items.
 const ReplyItem = React.memo(function ReplyItem({ msg }: { msg: ChatMessage }) {
-  if (msg.role === 'tool') return <ToolResult msg={msg} />
-  if (msg.role === 'assistant' && msg.tool_calls?.length && !msg.content) return <ToolCallIndicator msg={msg} />
   return (
     <div className="reply-text">
       <Markdown>{msg.content ?? ''}</Markdown>
@@ -258,67 +208,45 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
         )}
         {msg.content}
       </div>
+      <Avatar role="user" />
     </div>
   )
 }
 
-// Shown only while a tool is being called — a "calling" card with a spinner and the tool
-// name. No arguments (which can contain sensitive ids like app_token). Visually unified with
-// ToolResult (same height / font) so calling → done reads as one step changing state.
-function ToolCallIndicator({ msg }: { msg: ChatMessage }) {
-  const tc = msg.tool_calls![0]
+// Inner 思考中… content (spinner + text + animated dots) — shared by the inline indicator
+// (inside a reply block) and the standalone bubble (turn start). Pure CSS, no emoji.
+function ThinkingDots() {
   return (
-    <div className="tool-call">
-      <svg className="tool-call-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+    <>
+      <svg className="thinking-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
         <path d="M21 12a9 9 0 1 1-6.219-8.56" />
       </svg>
-      <span className="tool-call-label">调用中</span>
-      <Tooltip content={tc.function.name} position="top">
-        <span className="tool-call-name">{toolLabel(tc.function.name)}</span>
-      </Tooltip>
+      <span className="thinking-text">思考中</span>
+      <span className="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    </>
+  )
+}
+
+// Inline thinking indicator — rendered inside a reply block so a mid-turn gap stays in the
+// same bubble as the answer instead of interrupting it.
+function ThinkingIndicator() {
+  return (
+    <div className="reply-thinking" role="status" aria-live="polite">
+      <ThinkingDots />
     </div>
   )
 }
 
-// Collapsed by default to a compact status card — a check / cross icon + the tool
-// name, expandable to the raw result on demand. No raw content (ids / PII) is shown
-// until the user expands it.
-function ToolResult({ msg }: { msg: ChatMessage }) {
-  const [expanded, setExpanded] = useState(false)
-  const content = msg.content ?? ''
-  const isError = content.startsWith('Error:')
-  const rawName = msg.name && msg.name !== 'ok' && msg.name !== 'error' ? msg.name : ''
-  const label = rawName ? toolLabel(rawName) : '工具结果'
-
+// Transient standalone "思考中…" bubble — shown only at a turn's start, before any reply
+// block exists. Reuses the assistant bubble frame + avatar so it reads as the assistant
+// composing; once text streams the reply block takes over (with the indicator inline).
+function ThinkingBubble() {
   return (
-    <div className={`tool-result${isError ? ' tool-result--error' : ''}`}>
-      <button className="tool-result-header" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-        <span className="tool-result-status">
-          {isError ? (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          )}
-        </span>
-        {rawName ? (
-          <Tooltip content={rawName} position="top">
-            <span className="tool-result-name">{label}</span>
-          </Tooltip>
-        ) : (
-          <span className="tool-result-name">{label}</span>
-        )}
-        <svg className={`tool-result-chev${expanded ? ' tool-result-chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {expanded && <pre className="tool-result-body">{content}</pre>}
+    <div className="msg-row msg-row--assistant">
+      <Avatar role="assistant" />
+      <div className="bubble bubble--assistant thinking-bubble" role="status" aria-live="polite">
+        <ThinkingDots />
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { upsertRecent, removeRecent, MAX_RECENT, cleanRecentTitle, displayName } from './recentFiles'
+import { upsertRecent, removeRecent, MAX_RECENT, cleanRecentTitle, displayName, realRecentTitle } from './recentFiles'
 import type { RecentFile } from './recentFiles'
 
 const f = (token: string, title: string, kind: RecentFile['kind'], seen: number): RecentFile =>
@@ -73,5 +73,44 @@ describe('cleanRecentTitle / displayName', () => {
   it('displayName reads the row title + kind', () => {
     expect(displayName(f('a', '飞书云文档', 'base', 1))).toBe('未命名多维表格')
     expect(displayName(f('a', '销售表 — 飞书表格', 'sheet', 1))).toBe('销售表')
+  })
+})
+
+describe('upsertRecent — never clobbers a real title with an unknown one', () => {
+  it('keeps the existing real title when the incoming title is empty (loading transient / closed tab)', () => {
+    // The bug: a tab reload briefly exposes "飞书云文档" → cleaned to '' → recorded, wiping the
+    // real name we already had. The fix: '' (unknown) must not overwrite a real title.
+    const files = [f('b', 'B', 'sheet', 5), f('a', 'A', 'doc', 1)]
+    const out = upsertRecent(files, { token: 'a', title: '', kind: 'doc' }, 99)
+    expect(out[0].token).toBe('a')   // re-focused → moved to the front
+    expect(out[0].title).toBe('A')   // real name preserved — NOT wiped to ''
+    expect(out[0].seen).toBe(99)
+    expect(out[1]).toEqual(f('b', 'B', 'sheet', 5))
+  })
+
+  it('a real incoming title still wins (reopening a stuck doc recovers its name)', () => {
+    const out = upsertRecent([f('a', '', 'doc', 1)], { token: 'a', title: 'Real', kind: 'doc' }, 99)
+    expect(out[0].title).toBe('Real')
+  })
+
+  it('two unknowns stay unknown (no real name available yet)', () => {
+    const out = upsertRecent([f('a', '', 'doc', 1)], { token: 'a', title: '', kind: 'doc' }, 99)
+    expect(out[0].title).toBe('')
+  })
+})
+
+describe('realRecentTitle', () => {
+  it('returns the cleaned real title', () => {
+    expect(realRecentTitle('季度复盘 - 飞书云文档')).toBe('季度复盘')
+  })
+  it('collapses empty / brand / loading strings to "" (no real name)', () => {
+    expect(realRecentTitle('')).toBe('')
+    expect(realRecentTitle('飞书云文档')).toBe('')
+    expect(realRecentTitle('加载中')).toBe('')
+  })
+  it('collapses our own placeholders to "" — so legacy entries get recovered instead of stuck', () => {
+    expect(realRecentTitle('未命名文档')).toBe('')
+    expect(realRecentTitle('未命名表格')).toBe('')
+    expect(realRecentTitle('未命名多维表格')).toBe('')
   })
 })

@@ -24,6 +24,7 @@ import { useAppSettings } from './hooks/useAppSettings'
 import { usePageContext } from './hooks/usePageContext'
 import { useWikiResolve, wikiToFeishu } from './hooks/useWikiResolve'
 import { useRecentFiles } from './hooks/useRecentFiles'
+import { useRecentTitleBackfill } from './hooks/useRecentTitleBackfill'
 import { useDocBinding, type AppTab } from './hooks/useDocBinding'
 import { decideAutoDefault } from './autoDefault'
 import './App.css'
@@ -54,6 +55,9 @@ export default function App() {
   const { ctx, setCtx, applyCtx } = usePageContext(settings, wikiCacheRef)
   const { resolveWikiKind, authExpired } = useWikiResolve(settings, ctx, setCtx, wikiCacheRef)
   const { recentFiles, ready: recentReady, recordRecent, removeFromRecent } = useRecentFiles(ctx.feishu, ctx.title)
+  // Recover real names for recent docs whose title is unknown (closed tab / reloaded mid-load):
+  // fetch the name from the Feishu API by token so the dropdown never shows a blank/placeholder row.
+  useRecentTitleBackfill({ recentFiles, ready: recentReady, recordRecent, settings })
 
   const [tab, setTab] = useState<AppTab>('chat')
   // Read the live tab inside the auto-default effect WITHOUT re-triggering it (no dep).

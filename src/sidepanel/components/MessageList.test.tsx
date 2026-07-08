@@ -83,53 +83,77 @@ describe('MessageList — markdown links are clickable', () => {
   })
 })
 
-describe('MessageList — tool result collapse', () => {
-  it('hides raw content until the header is clicked, then toggles', () => {
+describe('MessageList — tool chatter is fully hidden', () => {
+  it('renders neither a tool-result card nor its raw content (no card at all)', () => {
     const { container } = render(<MessageList messages={[mk({ role: 'tool', name: 'create_table', content: '{"app_token":"secret123"}' })]} />)
-    // Collapsed: no raw content shown
-    expect(screen.queryByText(/secret123/)).toBeNull()
-    fireEvent.click(container.querySelector('.tool-result-header')!)
-    expect(screen.getByText(/secret123/)).toBeTruthy()
-    // Click again collapses
-    fireEvent.click(container.querySelector('.tool-result-header')!)
+    expect(container.querySelector('.tool-result')).toBeNull()
+    expect(container.querySelector('.tool-call')).toBeNull()
     expect(screen.queryByText(/secret123/)).toBeNull()
   })
 
-  it('flags error results with the error style', () => {
-    const { container } = render(<MessageList messages={[mk({ role: 'tool', name: 'create_table', content: 'Error: boom' })]} />)
-    expect(container.querySelector('.tool-result--error')).toBeTruthy()
-  })
-})
-
-describe('MessageList — tool call indicator hides sensitive args', () => {
-  it('shows the tool name but not app_token', () => {
-    render(<MessageList messages={[mk({
+  it('renders no in-flight tool-call indicator (and never leaks its args)', () => {
+    const { container } = render(<MessageList messages={[mk({
       role: 'assistant', content: null,
       tool_calls: [{ id: 't1', type: 'function', function: { name: 'create_table', arguments: '{"app_token":"secretXYZ"}' } }],
     })]} />)
-    expect(screen.getByText('新建数据表')).toBeTruthy()
-    // The raw tool name is surfaced via the Tooltip (role="tooltip") instead of a native title attribute.
-    expect(screen.getByRole('tooltip', { name: 'create_table' })).toBeTruthy()
+    expect(container.querySelector('.tool-call')).toBeNull()
     expect(screen.queryByText(/secretXYZ/)).toBeNull()
+    // The friendly tool label isn't surfaced either — the whole step is hidden.
+    expect(screen.queryByText('新建数据表')).toBeNull()
   })
 
-  it('hides the calling indicator once its tool result has arrived (done state takes over)', () => {
+  it('still shows the assistant TEXT of a turn — only the tool steps are hidden', () => {
     const { container } = render(<MessageList messages={[
-      mk({ id: 'tc1', role: 'assistant', content: null,
-        tool_calls: [{ id: 't1', type: 'function', function: { name: 'create_table', arguments: '{}' } }] }),
-      mk({ id: 'tr1', role: 'tool', name: 'create_table', content: '{"ok":true}' }),
+      mk({ role: 'user', content: '加个字段' }),
+      mk({ role: 'assistant', content: '好的，我来加。' }),
+      mk({ role: 'tool', name: 'create_field', content: '{"field_id":"fldX"}' }),
+      mk({ role: 'assistant', content: '已加好「进度」字段。' }),
     ]} />)
-    // Only the result card renders; the in-flight "调用中" pill is suppressed once the result lands.
-    expect(container.querySelectorAll('.tool-call')).toHaveLength(0)
-    expect(container.querySelectorAll('.tool-result')).toHaveLength(1)
+    expect(screen.getByText('好的，我来加。')).toBeTruthy()
+    expect(screen.getByText(/已加好「进度」字段/)).toBeTruthy()
+    // The tool result body never reaches the DOM.
+    expect(container.querySelector('.tool-result')).toBeNull()
+    expect(screen.queryByText(/fldX/)).toBeNull()
+  })
+})
+
+describe('MessageList — 思考中… indicator', () => {
+  it('shows while streaming with no streaming text yet (before the first token)', () => {
+    render(<MessageList streaming messages={[mk({ role: 'user', content: '加个字段' })]} />)
+    expect(screen.getByText('思考中')).toBeTruthy()
   })
 
-  it('keeps the calling indicator while a tool is still in-flight (no result yet)', () => {
-    const { container } = render(<MessageList messages={[
-      mk({ id: 'tc1', role: 'assistant', content: null,
-        tool_calls: [{ id: 't1', type: 'function', function: { name: 'create_table', arguments: '{}' } }] }),
+  it('hides once an assistant bubble is actively streaming text', () => {
+    render(<MessageList streaming messages={[
+      mk({ role: 'user', content: '加个字段' }),
+      mk({ role: 'assistant', content: '正在', isStreaming: true }),
     ]} />)
-    expect(container.querySelectorAll('.tool-call')).toHaveLength(1)
+    expect(screen.queryByText('思考中')).toBeNull()
+  })
+
+  it('hides when not streaming', () => {
+    render(<MessageList messages={[mk({ role: 'user', content: '加个字段' })]} />)
+    expect(screen.queryByText('思考中')).toBeNull()
+  })
+
+  it('shows again between rounds (streaming, prior bubble finalized, no active text)', () => {
+    // Round 1 text is done (isStreaming:false); tools now run; round 2 hasn't started → gap.
+    render(<MessageList streaming messages={[
+      mk({ role: 'user', content: '加个字段' }),
+      mk({ role: 'assistant', content: '我先查一下结构。', isStreaming: false }),
+    ]} />)
+    expect(screen.getByText('思考中')).toBeTruthy()
+  })
+
+  it('renders the between-rounds indicator INSIDE the reply bubble — one bubble, not two', () => {
+    // A mid-turn thinking gap must not interrupt the answer with a separate bubble: the
+    // indicator lives inside the existing reply block, so the whole turn reads as one bubble.
+    const { container } = render(<MessageList streaming messages={[
+      mk({ role: 'user', content: '加个字段' }),
+      mk({ role: 'assistant', content: '我先查一下结构。', isStreaming: false }),
+    ]} />)
+    expect(screen.getByText('思考中')).toBeTruthy()
+    expect(container.querySelectorAll('.bubble--assistant')).toHaveLength(1)
   })
 })
 

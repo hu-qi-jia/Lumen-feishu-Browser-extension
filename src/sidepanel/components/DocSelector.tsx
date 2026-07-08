@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SessionKind } from '../../shared/types'
 import type { RecentFile } from '../recentFiles'
+import { displayName } from '../recentFiles'
 import Dropdown from './Dropdown'
 import Tooltip from './Tooltip'
 import { KindIcon } from './icons'
@@ -114,6 +115,7 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
         <div className="doc-selector-group">
           <div className="doc-selector-group-label">最近打开</div>
           {recentFiles.map((d) => {
+            const name = displayName(d)
             const selected = mode === 'pin' && activeToken === d.token
             return (
               <div
@@ -122,15 +124,15 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
               >
                 <button
                   className="doc-selector-item-main"
-                  onClick={() => { onPickDoc(d.token, d.title, d.kind); setOpen(false) }}
+                  onClick={() => { onPickDoc(d.token, name, d.kind); setOpen(false) }}
                   type="button"
                 >
                   <span className="doc-selector-item-icon" aria-hidden="true">
                     <KindIcon kind={displayKind(d)} />
                   </span>
                   <span className="doc-selector-item-text">
-                    <Tooltip content={d.title} position="right">
-                      <span className="doc-selector-item-title">{d.title}</span>
+                    <Tooltip content={name} position="right">
+                      <span className="doc-selector-item-title">{name}</span>
                     </Tooltip>
                   </span>
                 </button>
@@ -140,7 +142,7 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
                       className="doc-selector-item-remove"
                       onClick={(e) => { e.stopPropagation(); onRemoveRecent(d.token) }}
                       type="button"
-                      aria-label={`从最近打开中移除 ${d.title}`}
+                      aria-label={`从最近打开中移除 ${name}`}
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />

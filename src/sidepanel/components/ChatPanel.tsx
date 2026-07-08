@@ -380,6 +380,7 @@ export default function ChatPanel({
         messages={messages}
         onExample={disabled || streaming ? undefined : handleSend}
         kind={context.feishu?.kind}
+        streaming={streaming}
       />
 
       {/* One-click 撤销 for the assistant's last record deletion — shown right here in the
