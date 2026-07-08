@@ -17,7 +17,7 @@ const AUTO_CONFIRM_TIP = '开启后，删除文档内的行 / 字段 / 内容块
 const TRANSLATION_TIP = 'Bing 翻译使用免费接口，无需配置；AI 翻译使用已配置的模型，速度较慢但质量更高。翻译结果会缓存，重复刷新不会重复调用。'
 const REGISTRY_TIP = '留空使用内置模版。填写任意可访问的地址（HTTPS，或 http://localhost 本地测试），「场景」Tab 即可拉取。支持单文件 bundle（一个 .json 内含全部模版）或 index.json + 多文件两种格式。'
 
-/** 通用 tab：自动确认、GitHub Trending翻译、场景模版、模板库地址、本地经验。 */
+/** 通用 tab：删除自动确认、GitHub Trending翻译、本地经验、场景模版、模板库地址。 */
 export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
   // News translation engine — stored in news_settings_v1 (separate from AppSettings), so
   // it's loaded/saved independently and takes effect immediately.
@@ -39,9 +39,9 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
   return (
     <>
-      {/* ── 自动确认 ── */}
+      {/* ── 删除自动确认 ── */}
       <SettingsSection
-        title={titleHelp('自动确认', AUTO_CONFIRM_TIP)}
+        title={titleHelp('删除自动确认', AUTO_CONFIRM_TIP)}
         action={
           <FormSwitch
             checked={form.autoConfirm === true}
@@ -65,6 +65,34 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
         />
       </SettingsSection>
 
+      {/* ── 本地经验 ── */}
+      <SettingsSection
+        title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}
+        action={
+          <span className="section-inline-actions">
+            <FormSwitch
+              checked={form.learnFromHistory !== false}
+              disabled={policyLocks.has('learnFromHistory')}
+              onChange={(checked) => patch({ learnFromHistory: checked })}
+            />
+            <Tooltip content="清空学到的经验" position="bottom">
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="清空学到的经验"
+                onClick={() => void handleClearRecipes()}
+              >
+                <TrashIcon />
+              </button>
+            </Tooltip>
+          </span>
+        }
+      >
+        {policyLocks.has('learnFromHistory') && (
+          <p className="field-hint">（由企业策略锁定）</p>
+        )}
+      </SettingsSection>
+
       {/* ── 场景模版 ── */}
       <SettingsSection title="场景模版">
         <p className="field-hint">
@@ -81,25 +109,6 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
           placeholder="https://… 或 http://localhost:8787/registry.json"
         />
       </SettingsSection>
-
-      {/* ── 本地经验 ── */}
-      <SettingsSection
-        title={titleHelp('本地经验', `每次任务成功后，仅在本机把「做了什么 + 下次怎么做最稳」提炼成一条经验（不含表格/文档数据），下次遇到相似任务自动参考、少走弯路。最多积累 300 条，已积累 ${recipeN ?? '…'} 条。`)}
-        action={
-          <FormSwitch
-            checked={form.learnFromHistory !== false}
-            disabled={policyLocks.has('learnFromHistory')}
-            onChange={(checked) => patch({ learnFromHistory: checked })}
-          />
-        }
-      >
-        {policyLocks.has('learnFromHistory') && (
-          <p className="field-hint">（由企业策略锁定）</p>
-        )}
-        <button className="btn-secondary" onClick={() => void handleClearRecipes()} style={{ alignSelf: 'flex-start' }}>
-          清空学到的经验
-        </button>
-      </SettingsSection>
     </>
   )
 }
@@ -109,9 +118,32 @@ function titleHelp(title: string, tip: string) {
     <>
       {title}
       <Tooltip content={tip} position="bottom">
-        <span className="help-icon" aria-label="帮助">?</span>
+        <span className="help-icon" aria-label="帮助">
+          <InfoIcon />
+        </span>
       </Tooltip>
     </>
+  )
+}
+
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
   )
 }
 

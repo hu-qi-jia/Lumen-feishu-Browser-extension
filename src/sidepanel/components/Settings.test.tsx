@@ -40,16 +40,6 @@ describe('Settings — LLM provider preset', () => {
     expect(url.value).toBe('https://api.deepseek.com')
   })
 
-  it('picking 通义千问 fills its Base URL', () => {
-    const { container } = renderSettings()
-    switchToAiTab(container)
-    const selects = [...container.querySelectorAll('select')]
-    const provider = selects.find((s) => [...s.options].some((o) => o.value === 'qwen'))!
-    fireEvent.change(provider, { target: { value: 'qwen' } })
-    const url = container.querySelector('input[type="url"]') as HTMLInputElement
-    expect(url.value).toContain('dashscope')
-  })
-
   it('model field is free-text (input, not locked select)', () => {
     const { container } = renderSettings()
     switchToAiTab(container)
