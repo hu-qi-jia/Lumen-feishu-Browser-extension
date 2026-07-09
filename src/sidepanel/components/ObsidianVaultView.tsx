@@ -77,18 +77,14 @@ export default function ObsidianVaultView({ settings }: Props) {
 
   return (
     <div className="kb-vault" data-testid="kb-vault-view">
-      <div className="sc-field">
-        <div className="kb-vault-head">
-          <span className="kb-vault-name">{settings.obsidianVaultName || 'Obsidian'}</span>
-          <Tooltip content="新建笔记" position="bottom">
-            <button className="kb-head-btn" onClick={() => setCreating(true)} type="button" aria-label="新建笔记"><IconPlus /></button>
-          </Tooltip>
-        </div>
+      <div className="kb-vault-head">
+        <span className="kb-vault-name">{settings.obsidianVaultName || 'Obsidian'}</span>
+        <Tooltip content="新建笔记" position="bottom">
+          <button className="kb-head-btn" onClick={() => setCreating(true)} type="button" aria-label="新建笔记"><IconPlus /></button>
+        </Tooltip>
       </div>
 
-      <div className="sc-field">
-        <SearchBox value={query} onChange={setQuery} onSearch={runSearch} placeholder="搜索笔记…  (Ctrl+K)" ariaLabel="搜索笔记" inputRef={searchInput} />
-      </div>
+      <SearchBox value={query} onChange={setQuery} onSearch={runSearch} placeholder="搜索笔记…  (Ctrl+K)" ariaLabel="搜索笔记" inputRef={searchInput} />
 
       <SegmentedTabs
         options={[

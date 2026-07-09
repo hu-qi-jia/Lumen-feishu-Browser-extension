@@ -94,7 +94,7 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
       {(!loading && mode === 'edit') || isNew ? (
         <div className="kb-detail-edit">
           {isNew && (
-            <input className="form-input kb-title-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="笔记标题" />
+            <input className="kb-title-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="笔记标题" />
           )}
           <textarea
             className="kb-editor"

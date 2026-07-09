@@ -5,12 +5,14 @@
 .kb-head-btn svg { width: 16px; height: 16px; }
 .kb-head-btn:disabled { opacity: .5; cursor: not-allowed; }
 .kb-detail-body, .kb-detail-edit { padding: 12px; overflow: auto; }
-.kb-detail-edit { display: flex; flex-direction: column; flex: 1; gap: 8px; }
+.kb-detail-edit { display: flex; flex-direction: column; flex: 1; gap: 12px; }
 /* Ghost editor: no border/background so it uses the full panel space. */
 .kb-editor { flex: 1; width: 100%; resize: none; border: none; background: transparent; color: var(--color-text); font-family: var(--font-mono, monospace); font-size: 12.5px; line-height: 1.6; outline: none; }
 .kb-editor::placeholder { color: var(--color-text-placeholder); }
 .kb-detail-foot { display: flex; gap: 8px; width: 100%; }
 .kb-detail-foot .btn { flex: 1; }
-.kb-error { color: var(--color-warning-strong); font-size: 12px; }
-.kb-muted { color: var(--color-text-secondary); font-size: 12px; }
-.kb-title-input { margin-bottom: 0; }
+.kb-error { color: var(--color-warning-strong); font-size: 12px; padding: 0 12px; }
+.kb-muted { color: var(--color-text-secondary); font-size: 12px; padding: 0 12px; }
+.kb-title-input { width: 100%; border: none; background: transparent; color: var(--color-text); font-size: 16px; font-weight: 600; outline: none; padding: 0; }
+.kb-title-input::placeholder { color: var(--color-text-placeholder); }
+

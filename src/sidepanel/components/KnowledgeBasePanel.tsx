@@ -51,7 +51,7 @@ export default function KnowledgeBasePanel({ settings, onBack, onGoToSettings }:
           <div className="sc-error-box" data-testid="kb-gate">
             <div className="sc-error-title">尚未连接 Obsidian 知识库</div>
             <div className="sc-error-msg">请在设置中完成 Obsidian Local REST API 配置。</div>
-            <Button variant="primary" onClick={onGoToSettings}>去设置完成配置</Button>
+            <Button variant="primary" block onClick={onGoToSettings}>去设置完成配置</Button>
           </div>
         )}
       </div>
