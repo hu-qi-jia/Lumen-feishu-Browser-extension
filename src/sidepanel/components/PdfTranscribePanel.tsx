@@ -131,8 +131,11 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       const doc = target.token
       const v = await listBlocks(token, doc)
       const root = (v.items as Array<{ block_id?: string; children?: string[] }>).find((b) => b.block_id === doc)
-      if (!root?.children) throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
-      await insertContentBlocks(token, doc, markdownToBlocks(editMd), root.children.length)
+      // The page block must exist — otherwise the link isn't a Feishu doc. But a BLANK doc's page
+      // block comes back without a `children` array (or with `[]`); that's a valid empty document,
+      // not an error — insert at index 0 (the start). Only the truly-missing-root case throws.
+      if (!root) throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
+      await insertContentBlocks(token, doc, markdownToBlocks(editMd), root.children?.length ?? 0)
       setInfo(`已写入「${target.title}」末尾。`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

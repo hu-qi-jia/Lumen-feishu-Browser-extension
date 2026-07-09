@@ -181,6 +181,23 @@ describe('PdfTranscribePanel', () => {
     expect(mockInsertContent).not.toHaveBeenCalled()
   })
 
+  it('writes to a BLANK doc (page block with no children array) at index 0', async () => {
+    // A brand-new empty Feishu doc returns its page block (block_id === doc) WITHOUT a `children`
+    // array. The old guard treated this as "can't determine end position" and refused to write.
+    mockExtract.mockResolvedValue('# T'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
+    mockResolveToken.mockResolvedValue('USER_TOKEN')
+    mockListBlocks.mockResolvedValue({ items: [{ block_id: 'CURDOC', block_type: 1 }] })
+    mockInsertContent.mockResolvedValue({ blocks_inserted: 1 })
+    render(<PdfTranscribePanel settings={DEFAULT_SETTINGS} context={ctx()} disabled={false} recentFiles={[]} onBack={() => {}} />)
+    pickFile(); fireEvent.click(screen.getByText('转换'))
+    await waitFor(() => expect(screen.getByTestId('pdf-preview')).toBeTruthy())
+    fireEvent.click(screen.getByText('添加到文档'))
+    await waitFor(() => expect(mockInsertContent).toHaveBeenCalled())
+    expect(mockInsertContent).toHaveBeenCalledWith('USER_TOKEN', 'CURDOC', expect.any(Array), 0)
+    expect(screen.queryByText(/无法确定文档末尾位置/)).toBeNull()
+    await waitFor(() => expect(screen.getByText(/已写入/)).toBeTruthy())
+  })
+
   it('preserves raw markdown when AI polish fails', async () => {
     mockExtract.mockResolvedValue('raw text here'); mockDetect.mockReturnValue({ likelyScan: false, reason: '' })
     mockPolish.mockRejectedValue(new Error('boom'))
