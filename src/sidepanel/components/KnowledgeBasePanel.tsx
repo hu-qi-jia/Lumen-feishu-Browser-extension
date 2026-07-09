@@ -4,7 +4,7 @@ import { pingObsidian } from '../../shared/obsidian/api'
 import TopBar from './TopBar'
 import ObsidianVaultView from './ObsidianVaultView'
 import Button from './Button'
-import './KnowledgeBasePanel.css'
+import './ScenarioPanel.css'
 
 interface Props {
   settings: AppSettings
@@ -38,9 +38,9 @@ export default function KnowledgeBasePanel({ settings, onBack, onGoToSettings }:
   return (
     <div className="scenario-panel view-enter" key="kb">
       <TopBar title="知识库" onBack={onBack} />
-      <div className="kb-body">
+      <div className="sc-detail-body">
         {conn === 'loading' && (
-          <div className="kb-loading" data-testid="kb-loading">连接 Obsidian 中…</div>
+          <div className="sc-detail-desc" style={{ textAlign: 'center', padding: '24px 0' }} data-testid="kb-loading">连接 Obsidian 中…</div>
         )}
         {conn === 'connected' && (
           <ObsidianVaultView
@@ -48,8 +48,9 @@ export default function KnowledgeBasePanel({ settings, onBack, onGoToSettings }:
           />
         )}
         {conn === 'disconnected' && (
-          <div className="kb-gate" data-testid="kb-gate">
-            <p className="kb-gate-msg">尚未连接 Obsidian 知识库。</p>
+          <div className="sc-error-box" data-testid="kb-gate">
+            <div className="sc-error-title">尚未连接 Obsidian 知识库</div>
+            <div className="sc-error-msg">请在设置中完成 Obsidian Local REST API 配置。</div>
             <Button variant="primary" onClick={onGoToSettings}>去设置完成配置</Button>
           </div>
         )}

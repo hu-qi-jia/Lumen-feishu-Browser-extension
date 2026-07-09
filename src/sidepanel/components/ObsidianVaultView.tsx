@@ -76,23 +76,27 @@ export default function ObsidianVaultView({ settings }: Props) {
 
   return (
     <div className="kb-vault" data-testid="kb-vault-view">
-      <div className="kb-vault-head">
-        <span className="kb-vault-name">{settings.obsidianVaultName || 'Obsidian'}</span>
-        <Tooltip content="新建笔记" position="bottom">
-          <button className="kb-head-btn" onClick={() => setCreating(true)} type="button" aria-label="新建笔记"><IconPlus /></button>
-        </Tooltip>
+      <div className="sc-field">
+        <div className="kb-vault-head">
+          <span className="kb-vault-name">{settings.obsidianVaultName || 'Obsidian'}</span>
+          <Tooltip content="新建笔记" position="bottom">
+            <button className="kb-head-btn" onClick={() => setCreating(true)} type="button" aria-label="新建笔记"><IconPlus /></button>
+          </Tooltip>
+        </div>
       </div>
 
-      <SearchBox value={query} onChange={setQuery} onSearch={runSearch} placeholder="搜索笔记…  (Ctrl+K)" ariaLabel="搜索笔记" inputRef={searchInput} />
-
-      <div className="kb-tabs">
-        <button className={`kb-tab${tab === 'recent' ? ' kb-tab--active' : ''}`} onClick={() => { setTab('recent'); loadRecent() }} type="button">最近</button>
-        <button className={`kb-tab${tab === 'search' ? ' kb-tab--active' : ''}`} onClick={() => setTab('search')} type="button">搜索</button>
+      <div className="sc-field">
+        <SearchBox value={query} onChange={setQuery} onSearch={runSearch} placeholder="搜索笔记…  (Ctrl+K)" ariaLabel="搜索笔记" inputRef={searchInput} />
       </div>
 
-      {error && <div className="kb-error">{error}</div>}
-      {loading && <div className="kb-muted">载入中…</div>}
-      {!loading && !error && rows.length === 0 && <div className="kb-muted">{tab === 'search' ? '无匹配笔记' : '仓库为空'}</div>}
+      <div className="sc-target-opts">
+        <button className={`sc-target-opt${tab === 'recent' ? ' sc-target-opt--active' : ''}`} onClick={() => { setTab('recent'); loadRecent() }} type="button">最近</button>
+        <button className={`sc-target-opt${tab === 'search' ? ' sc-target-opt--active' : ''}`} onClick={() => setTab('search')} type="button">搜索</button>
+      </div>
+
+      {error && <div className="sc-refresh-err">{error}</div>}
+      {loading && <div className="sc-empty">载入中…</div>}
+      {!loading && !error && rows.length === 0 && <div className="sc-empty">{tab === 'search' ? '无匹配笔记' : '仓库为空'}</div>}
 
       <ul className="kb-list">
         {rows.map((r) => {
