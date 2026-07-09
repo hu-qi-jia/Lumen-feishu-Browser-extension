@@ -79,10 +79,11 @@
   font-size: 11px;
   cursor: pointer;
   padding: 0;
-  text-decoration: underline;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: opacity .15s;
 }
+.btn-link:hover { opacity: .7; }
 
 /* ── Test / verify button (outline style) ──
    For "测试连接" / "飞书授权" actions that sit beside a status line. */

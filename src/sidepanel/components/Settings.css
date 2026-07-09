@@ -321,7 +321,7 @@
 
 .help-toggle-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
@@ -330,9 +330,9 @@
 
 /* ── Help box ── */
 .help-box {
-  background: var(--color-info-bg);
-  border: 1px solid var(--color-info-border);
-  border-radius: var(--radius);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   padding: 10px 12px;
   font-size: 11px;
   line-height: 1.6;
@@ -349,10 +349,11 @@
 }
 .help-steps li { margin-bottom: 2px; }
 .help-code {
-  background: var(--color-code-bg);
-  color: var(--color-code-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   padding: 6px 8px;
-  border-radius: 5px;
+  border-radius: 4px;
   font-family: monospace;
   font-size: 11px;
   white-space: pre-wrap;
@@ -360,7 +361,7 @@
   margin: 2px 0;
 }
 .help-note {
-  color: var(--color-warning);
+  color: var(--color-text-secondary);
   font-style: italic;
   font-size: 11px;
 }
@@ -368,8 +369,8 @@
 /* ── Code block + copy button ── */
 .code-block {
   position: relative;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 0;
 }
@@ -380,7 +381,7 @@
   font-family: monospace;
   font-size: 11px;
   line-height: 1.5;
-  color: #e0e0e0;
+  color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -402,15 +403,15 @@
   padding: 0;
   border: none;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #bbb;
+  background: transparent;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: background .15s, color .15s;
   z-index: 1;
 }
 .code-block__copy:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: var(--color-border);
+  color: var(--color-text);
 }
 .code-block__copy svg {
   width: 14px;
@@ -420,12 +421,10 @@
 /* ── Test connection ── */
 .test-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 2px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
-
 .test-result {
   font-size: 11px;
   font-weight: 500;
@@ -599,6 +598,16 @@
   font-size: 11.5px;
   line-height: 1.6;
   color: var(--color-text);
+}
+
+/* App Secret input row: input + show/hide toggle */
+.secret-input-row {
+  display: flex;
+  gap: 6px;
+}
+.secret-input-row .form-input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Feishu auth button row (two buttons side-by-side) ── */

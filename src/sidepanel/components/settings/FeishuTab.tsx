@@ -9,7 +9,7 @@ import {
 } from '../../../shared/config'
 import { clearUserToken, getTenantAccessToken, saveUserToken } from '../../../shared/feishu/auth'
 import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '../../../shared/feishu/appSecret'
-import { getUserAppId, hasUserAppCreds, saveUserAppCreds } from '../../../shared/feishu/userAppCreds'
+import { getUserAppId, getUserAppSecret, hasUserAppCreds, saveUserAppCreds } from '../../../shared/feishu/userAppCreds'
 import {
   authorizeFeishuUser,
   fetchUserOpenId,
@@ -21,13 +21,6 @@ import CodeBlock from '../CodeBlock'
 import Tooltip from '../Tooltip'
 import FeishuSteps from './FeishuSteps'
 import type { SettingsTabProps } from './types'
-
-/** 脱敏：保留前4后4，中间用 * 填充。 */
-function maskSecret(s: string): string {
-  if (!s) return ''
-  if (s.length <= 8) return '*'.repeat(s.length)
-  return s.slice(0, 4) + '*'.repeat(s.length - 8) + s.slice(-4)
-}
 
 const PERMISSION_SCOPES = `{
   "scopes": {
@@ -117,7 +110,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
   // "Bring your own app" — public / store build ships no creds.
   const [byoAppId, setByoAppId] = useState('')
   const [byoSecret, setByoSecret] = useState('')
-  const [byoSecretFocused, setByoSecretFocused] = useState(false)
+  const [byoSecretVisible, setByoSecretVisible] = useState(false)
   const [byoSaved, setByoSaved] = useState(false)
   const [byoMsg, setByoMsg] = useState('')
 
@@ -127,9 +120,13 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
     if (HAS_ENCRYPTED_SECRET) void isAppSecretLocked().then(setSecretLocked)
     if (!HAS_BUILTIN_CREDS)
       void (async () => {
-        const id = await getUserAppId()
+        const [id, secret, saved] = await Promise.all([
+          getUserAppId(),
+          getUserAppSecret(),
+          hasUserAppCreds(),
+        ])
         if (id) setByoAppId(id)
-        const saved = await hasUserAppCreds()
+        if (secret) setByoSecret(secret)
         setByoSaved(saved)
       })()
   }, [])
@@ -250,7 +247,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
     () => [
       {
         title: '自建飞书应用',
-        description: '本版本不内置凭据，请填你自己的',
+        description: '请到飞书开发平台-开发者后台创建企业自建应用',
         content: (
           <div className="field-group byo-box">
             {builtinBadge}
@@ -265,15 +262,24 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                   />
                 </FormField>
                 <FormField label="APP Secret">
-                  <input
-                    className="form-input"
-                    type="text"
-                    value={byoSecretFocused ? byoSecret : maskSecret(byoSecret)}
-                    onChange={(e) => setByoSecret(e.target.value)}
-                    onFocus={() => setByoSecretFocused(true)}
-                    onBlur={() => setByoSecretFocused(false)}
-                    placeholder={byoSaved ? '已保存，如需更新再填' : '输入 App Secret'}
-                  />
+                  <div className="secret-input-row">
+                    <FormInput
+                      type={byoSecretVisible ? 'text' : 'password'}
+                      value={byoSecret}
+                      onChange={(e) => setByoSecret(e.target.value)}
+                      placeholder={byoSaved ? '已保存，如需更新可修改' : '输入 App Secret'}
+                    />
+                    <Tooltip content={byoSecretVisible ? '隐藏' : '显示'} position="top">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setByoSecretVisible((v) => !v)}
+                        aria-label={byoSecretVisible ? '隐藏' : '显示'}
+                      >
+                        {byoSecretVisible ? '隐藏' : '显示'}
+                      </Button>
+                    </Tooltip>
+                  </div>
                 </FormField>
                 <Button
                   variant="primary"
@@ -290,7 +296,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         ),
       },
       {
-        title: '开放平台配置',
+        title: '应用配置',
         description: '登记重定向 URL 并开通权限',
         content: (
           <div className="feishu-config-help">
@@ -309,7 +315,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         ),
       },
       {
-        title: '飞书 Feishu 鉴权',
+        title: '飞书鉴权',
         description: '授权账号或填入 user_access_token',
         content: (
           <div className="field-group">
@@ -386,9 +392,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
             {showTokenHelp && (
               <div className="help-box">
                 <p>在浏览器打开飞书网页版，F12 → Console 执行：</p>
-                <pre className="help-code">
-                  {"window.larkSuite?.globalState?.userInfo?.accessToken"}
-                </pre>
+                <CodeBlock code="window.larkSuite?.globalState?.userInfo?.accessToken" />
                 <p>
                   或查看任意 API 请求的 <code>Authorization: Bearer &lt;token&gt;</code> 请求头。
                 </p>
@@ -480,7 +484,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       builtinBadge,
       byoAppId,
       byoSecret,
-      byoSecretFocused,
+      byoSecretVisible,
       byoSaved,
       byoMsg,
       redirectUrl,
