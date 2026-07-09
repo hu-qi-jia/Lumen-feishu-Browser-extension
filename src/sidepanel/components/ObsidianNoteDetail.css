@@ -1,4 +1,5 @@
 .kb-detail { display: flex; flex-direction: column; height: 100%; }
+.kb-detail .topbar { padding-left: 12px; }
 .kb-detail-actions { display: flex; gap: 2px; }
 .kb-head-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-sm); cursor: pointer; }
 .kb-head-btn:hover:not(:disabled) { color: var(--color-primary); background: var(--color-primary-soft); }
