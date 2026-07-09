@@ -4,7 +4,7 @@ import type { RecentFile } from '../recentFiles'
 import { resolveToken } from '../../shared/feishu/auth'
 import { polishMarkdown } from '../../shared/ai/mdPolish'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '../../shared/feishu/docx'
-import { cleanMarkdown } from '../../shared/mdClean'
+import { cleanMarkdown, normalizeHeadingLevels } from '../../shared/mdClean'
 import { loadPdfs, savePdf, deletePdf, type SavedPdf } from '../pdfHistory'
 import TopBar from './TopBar'
 import Button from './Button'
@@ -85,7 +85,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       const scan = detectScan(md)
       if (scan.likelyScan) { setError(scan.reason); setPhase('error'); return }
       // editMd = 默认清理（断行修复 + 压缩空行）后的干净稿。
-      setEditMd(cleanMarkdown(md)); setView('preview'); setPhase('done')
+      setEditMd(cleanMarkdown(normalizeHeadingLevels(md))); setView('preview'); setPhase('done')
       const id = crypto.randomUUID()
       setActivePdfId(id)
       setPdfs(await savePdf({ id, fileName, markdown: md, createdAt: Date.now() }))
@@ -146,7 +146,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     // History items saved before the PAGE_BREAK strip could still carry HTML comments —
     // scrub them so neither the editor nor the preview shows literal <!-- PAGE_BREAK -->.
     const md = p.markdown.replace(/<!--[\s\S]*?-->/g, '')
-    setFileName(p.fileName); setEditMd(cleanMarkdown(md))
+    setFileName(p.fileName); setEditMd(cleanMarkdown(normalizeHeadingLevels(md)))
     setActivePdfId(p.id)
     pickedFile.current = null; setError(''); setInfo('已载入历史记录。')
     setPhase('done'); setHistoryOpen(false)
