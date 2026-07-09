@@ -1,4 +1,4 @@
 .segmented-tabs { display: inline-flex; gap: 2px; padding: 2px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); align-self: flex-start; }
-.segmented-tab { padding: 3px 12px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-secondary); font-size: 11px; line-height: 1; cursor: pointer; transition: color .12s, background .12s; }
+.segmented-tab { padding: 6px 14px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-secondary); font-size: 11px; line-height: 1; cursor: pointer; transition: color .12s, background .12s; }
 .segmented-tab:hover:not(.segmented-tab--active) { color: var(--color-text); }
 .segmented-tab--active { background: var(--color-bg); color: var(--color-text); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
