@@ -296,6 +296,12 @@ export async function runAgent(
   ])
 
   const baseURL = assertSafeBaseUrl(llmCfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
+  // Agent 工具调用循环深度集成 OpenAI Chat Completions 格式（tool_calls / function calling）。
+  // Anthropic 原生 Messages 格式不兼容此协议——选择 Anthropic 格式时，请填写 OpenAI 兼容端点
+  // （如代理 / one-api / Anthropic 的兼容层）。格式不匹配时直接报错，避免静默失败。
+  if (llmCfg.format === 'anthropic') {
+    throw new Error('当前选择了 Anthropic Messages 格式，Agent 工具调用仅支持 OpenAI 兼容端点。请在「API 协议」切换为 OpenAI 格式，或填写兼容端点地址。')
+  }
   const client = new OpenAI({
     baseURL,
     apiKey: llmCfg.apiKey,

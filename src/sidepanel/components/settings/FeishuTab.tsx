@@ -110,7 +110,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
   // "Bring your own app" — public / store build ships no creds.
   const [byoAppId, setByoAppId] = useState('')
   const [byoSecret, setByoSecret] = useState('')
-  const [byoSecretVisible, setByoSecretVisible] = useState(false)
   const [byoSaved, setByoSaved] = useState(false)
   const [byoMsg, setByoMsg] = useState('')
 
@@ -262,24 +261,12 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                   />
                 </FormField>
                 <FormField label="APP Secret">
-                  <div className="secret-input-row">
-                    <FormInput
-                      type={byoSecretVisible ? 'text' : 'password'}
-                      value={byoSecret}
-                      onChange={(e) => setByoSecret(e.target.value)}
-                      placeholder={byoSaved ? '已保存，如需更新可修改' : '输入 App Secret'}
-                    />
-                    <Tooltip content={byoSecretVisible ? '隐藏' : '显示'} position="top">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setByoSecretVisible((v) => !v)}
-                        aria-label={byoSecretVisible ? '隐藏' : '显示'}
-                      >
-                        {byoSecretVisible ? '隐藏' : '显示'}
-                      </Button>
-                    </Tooltip>
-                  </div>
+                  <FormInput
+                    type="password"
+                    value={byoSecret}
+                    onChange={(e) => setByoSecret(e.target.value)}
+                    placeholder={byoSaved ? '已保存，如需更新可修改' : '输入 App Secret'}
+                  />
                 </FormField>
                 <Button
                   variant="primary"
@@ -484,7 +471,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       builtinBadge,
       byoAppId,
       byoSecret,
-      byoSecretVisible,
       byoSaved,
       byoMsg,
       redirectUrl,

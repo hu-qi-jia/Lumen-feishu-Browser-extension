@@ -107,6 +107,8 @@ export interface AppSettings {
    *  proxy, the default) or 'manual' (the openai* fields above). Ignored when not a managed build,
    *  or when the build locks managed (VITE_LLM_LOCK_MANAGED). */
   llmSource?: 'managed' | 'manual'
+  /** API 协议格式：'openai'（Chat Completions，默认）或 'anthropic'（Messages）。 */
+  llmFormat?: 'openai' | 'anthropic'
   /** Obsidian Local REST API base URL (loopback only). Default http://127.0.0.1:27123. */
   obsidianBaseUrl?: string
   /** Default folder for new KB notes created without an explicit target (empty = vault root). */
@@ -166,6 +168,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   templateRegistryUrl: '',
   learnFromHistory: true,
   autoConfirm: false,
+  llmFormat: 'openai',
   obsidianBaseUrl: 'http://127.0.0.1:27123',
   obsidianInboxPath: '',
   obsidianExcludePaths: '',

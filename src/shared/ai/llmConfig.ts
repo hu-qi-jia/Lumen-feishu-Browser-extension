@@ -5,7 +5,7 @@ import { getEffectiveAppId } from '../feishu/managedAppId'
 import { encryptField, decryptField } from '../crypto'
 import { storageGet, storageSet } from '../storage'
 
-export interface LlmConfig { baseUrl: string; apiKey: string; model: string }
+export interface LlmConfig { baseUrl: string; apiKey: string; model: string; format: 'openai' | 'anthropic' }
 
 const CACHE_KEY = '_llm_managed_v1'
 let mem: LlmConfig | null = null // in-memory cache for this SW/page session
@@ -40,7 +40,7 @@ export async function fetchManagedLlmConfig(settings: AppSettings): Promise<LlmC
       ? '你的账号不属于本企业，无法获取大模型配置。'
       : '获取企业大模型配置失败：请确认已用本企业飞书账号授权、且在应用可用范围内。')
   }
-  const cfg: LlmConfig = { baseUrl: j.base_url, apiKey: j.api_key, model: j.model || '' }
+  const cfg: LlmConfig = { baseUrl: j.base_url, apiKey: j.api_key, model: j.model || '', format: 'openai' }
   mem = cfg
   // Mem-only mode (VITE_LLM_NO_PERSIST): never write the company key to disk — re-fetch next session.
   if (!BUILD_CONFIG.llmNoPersist) {
@@ -70,7 +70,7 @@ export async function resolveLlmConfig(settings: AppSettings): Promise<LlmConfig
     if (!inflight) inflight = fetchManagedLlmConfig(settings).finally(() => { inflight = null })
     return inflight
   }
-  return { baseUrl: settings.openaiBaseUrl, apiKey: settings.openaiApiKey, model: settings.openaiModel }
+  return { baseUrl: settings.openaiBaseUrl, apiKey: settings.openaiApiKey, model: settings.openaiModel, format: settings.llmFormat ?? 'openai' }
 }
 
 /** Forget the cached managed config — call on an LLM 401 (key rotated) or a manual "refresh". */

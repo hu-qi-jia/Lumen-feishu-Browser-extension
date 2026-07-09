@@ -57,7 +57,7 @@ export async function buildBackup(opts: { includeSecrets: boolean; exportedAt: s
   const settings: Record<string, unknown> = {
     openaiBaseUrl: s.openaiBaseUrl, openaiModel: s.openaiModel, templateRegistryUrl: s.templateRegistryUrl,
     feishuOwnerOpenId: s.feishuOwnerOpenId, learnFromHistory: s.learnFromHistory,
-    autoConfirm: s.autoConfirm, llmSource: s.llmSource,
+    autoConfirm: s.autoConfirm, llmSource: s.llmSource, llmFormat: s.llmFormat,
   }
   if (opts.includeSecrets) {
     settings.openaiApiKey = s.openaiApiKey ? await decryptField(s.openaiApiKey) : ''
@@ -120,7 +120,7 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
       openaiBaseUrl: pickStr('openaiBaseUrl'), openaiModel: pickStr('openaiModel'),
       templateRegistryUrl: pickStr('templateRegistryUrl'), feishuOwnerOpenId: pickStr('feishuOwnerOpenId'),
       learnFromHistory: pick('learnFromHistory'),
-      autoConfirm: pick('autoConfirm'), llmSource: pick('llmSource'),
+      autoConfirm: pick('autoConfirm'), llmSource: pick('llmSource'), llmFormat: pick('llmFormat'),
     }
     if (typeof ns.openaiApiKey === 'string' && ns.openaiApiKey) next.openaiApiKey = await encryptField(ns.openaiApiKey)
     if (typeof ns.feishuAccessToken === 'string' && ns.feishuAccessToken) next.feishuAccessToken = await encryptField(ns.feishuAccessToken)

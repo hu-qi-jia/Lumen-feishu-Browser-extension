@@ -1,8 +1,5 @@
-import OpenAI from 'openai'
 import type { AppSettings } from '../types'
-import { assertSafeBaseUrl } from '../providers'
-import { BUILD_CONFIG } from '../config'
-import { resolveLlmConfig } from './llmConfig'
+import { chatComplete } from './llm'
 
 /** 单块最大字符数（约 ~4k token，留足上下文余量）。 */
 const POLISH_MAX_CHARS = 12000
@@ -42,25 +39,14 @@ export function chunkMarkdown(md: string, maxChars = POLISH_MAX_CHARS): string[]
 }
 
 /**
- * 纯文本润色：复用 vision.ts 的调用模式（resolveLlmConfig + assertSafeBaseUrl + OpenAI）。
+ * 纯文本润色：复用 chatComplete（自动适配 OpenAI / Anthropic 格式）。
  * 文本进、文本出，无需视觉模型。长文档自动分块、逐块润色后用空行拼接。失败由上层降级到 rawMd。
  */
 export async function polishMarkdown(settings: AppSettings, rawMd: string): Promise<string> {
-  const cfg = await resolveLlmConfig(settings)
-  const baseURL = assertSafeBaseUrl(cfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
-  const client = new OpenAI({ baseURL, apiKey: cfg.apiKey, dangerouslyAllowBrowser: true })
   const chunks = chunkMarkdown(rawMd)
   const out: string[] = []
   for (const chunk of chunks) {
-    const resp = await client.chat.completions.create({
-      model: cfg.model,
-      stream: false,
-      messages: [
-        { role: 'system', content: POLISH_PROMPT },
-        { role: 'user', content: chunk },
-      ],
-    })
-    const text = resp.choices[0]?.message?.content?.trim() ?? ''
+    const text = await chatComplete(settings, chunk, POLISH_PROMPT)
     if (!text) throw new Error('模型未返回内容。')
     out.push(text)
   }

@@ -33,14 +33,14 @@ describe('llmConfig — 企业托管 vs 个人手动', () => {
 
   it('手动模式 → 使用用户自己的设置', async () => {
     const cfg = await resolveLlmConfig(settings({ llmSource: 'manual' }))
-    expect(cfg).toEqual({ baseUrl: 'http://manual', apiKey: 'mk', model: 'mm' })
+    expect(cfg).toEqual({ baseUrl: 'http://manual', apiKey: 'mk', model: 'mm', format: 'openai' })
   })
 
   it('托管模式 → 用用户 token 向代理换取企业配置并缓存', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ base_url: 'http://co', api_key: 'cok', model: 'com' }) }))
     vi.stubGlobal('fetch', fetchMock)
     const cfg = await resolveLlmConfig(settings())
-    expect(cfg).toEqual({ baseUrl: 'http://co', apiKey: 'cok', model: 'com' })
+    expect(cfg).toEqual({ baseUrl: 'http://co', apiKey: 'cok', model: 'com', format: 'openai' })
     const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, { body: string }])[1].body)
     expect(body).toMatchObject({ grant_type: 'llm_config', user_access_token: 'utok' }) // 证明身份的是用户自己的 token
     await resolveLlmConfig(settings())            // 第二次走缓存

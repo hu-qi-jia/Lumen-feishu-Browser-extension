@@ -1,11 +1,8 @@
-import OpenAI from 'openai'
 import type { AppSettings } from '../types'
-import { assertSafeBaseUrl } from '../providers'
-import { BUILD_CONFIG } from '../config'
 import { TYPE_LABEL } from '../smartfill/coerce'
 import type { FillField } from '../smartfill/types'
 import { stripFences } from './text'
-import { resolveLlmConfig } from './llmConfig'
+import { chatComplete } from './llm'
 import { redactSensitive } from './redact'
 
 /**
@@ -50,15 +47,7 @@ export function buildPrompt(input: InferInput): string {
 }
 
 export async function inferFills(settings: AppSettings, input: InferInput): Promise<Map<string, unknown>> {
-  const cfg = await resolveLlmConfig(settings)
-  const baseURL = assertSafeBaseUrl(cfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
-  const client = new OpenAI({ baseURL, apiKey: cfg.apiKey, dangerouslyAllowBrowser: true })
-  const resp = await client.chat.completions.create({
-    model: cfg.model,
-    stream: false,
-    messages: [{ role: 'user', content: buildPrompt(input) }],
-  })
-  let out = (resp.choices[0]?.message?.content ?? '').trim()
+  let out = await chatComplete(settings, buildPrompt(input))
   if (!out) throw new Error('模型未返回内容。')
   out = stripFences(out)
   let parsed: { fills?: Array<{ key?: unknown; value?: unknown }> }

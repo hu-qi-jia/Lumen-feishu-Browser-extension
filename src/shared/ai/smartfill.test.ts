@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockCreate = vi.fn()
-vi.mock('openai', () => ({ default: class { chat = { completions: { create: mockCreate } } } }))
+const mockChat = vi.fn()
+vi.mock('./llm', () => ({ chatComplete: mockChat }))
 
 const { inferFills, buildPrompt } = await import('./smartfill')
 const { DEFAULT_SETTINGS } = await import('../types')
@@ -14,7 +14,7 @@ const input = {
   rows: [{ key: 'r0', cells: { 公司: '未来教育', 职位: '老师' } }],
   instruction: '按公司推断',
 }
-const reply = (content: string) => mockCreate.mockResolvedValue({ choices: [{ message: { content } }] })
+const reply = (content: string) => mockChat.mockResolvedValue(content)
 
 describe('buildPrompt', () => {
   it('includes target field, option list + no-invent rule, source fields, instruction, and the stable-key contract', () => {
@@ -29,7 +29,7 @@ describe('buildPrompt', () => {
 })
 
 describe('inferFills', () => {
-  beforeEach(() => mockCreate.mockReset())
+  beforeEach(() => mockChat.mockReset())
 
   it('parses {fills:[{key,value}]} into a key→value map', async () => {
     reply(JSON.stringify({ fills: [{ key: 'r0', value: '金融' }] }))

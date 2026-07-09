@@ -13,6 +13,7 @@ import type { SettingsTabProps } from './types'
 export default function AiTab({ form, patch, set }: SettingsTabProps) {
   // ── LLM provider preset ──
   const provider = providerForBaseUrl(form.openaiBaseUrl)
+  const llmFormat = form.llmFormat ?? 'openai'
 
   // Endpoint safety hint: an error (blocked at send time) vs a soft warning for an
   // unknown but otherwise-valid https host — the user's chat/table data is sent here.
@@ -69,6 +70,17 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
 
         {!usingManagedLlm(form) && (
           <div className="model-config-fields">
+            <FormField label="API 协议">
+              <FormToggle
+                options={[
+                  { value: 'openai', label: 'OpenAI Chat Completions 格式' },
+                  { value: 'anthropic', label: 'Anthropic Messages 格式' },
+                ]}
+                value={llmFormat}
+                onChange={(v) => patch({ llmFormat: v as 'openai' | 'anthropic' })}
+              />
+            </FormField>
+
             <FormField
               label="Base URL"
               hint={baseUrlNote?.msg}
@@ -76,20 +88,20 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
             >
               <FormInput type="url"
                 value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
-                placeholder="https://api.deepseek.com" />
+                placeholder={llmFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.deepseek.com/v1'} />
             </FormField>
 
             <FormField label="API Key">
               <FormInput type="password"
                 value={form.openaiApiKey} onChange={set('openaiApiKey')}
-                placeholder="sk-…" />
+                placeholder={llmFormat === 'anthropic' ? 'sk-ant-…' : 'sk-…'} />
             </FormField>
 
             <FormField label="Model">
               <>
                 <FormInput type="text" list="model-suggestions"
                   value={form.openaiModel} onChange={set('openaiModel')}
-                  placeholder={provider.models[0] || 'deepseek-v4-pro'} />
+                  placeholder={llmFormat === 'anthropic' ? 'claude-sonnet-4-20250514' : (provider.models[0] || 'deepseek-v4-pro')} />
                 <datalist id="model-suggestions">
                   {provider.models.map((m) => <option key={m} value={m} />)}
                 </datalist>

@@ -59,6 +59,40 @@
   border-color: var(--color-primary);
 }
 
+/* ── Password input with eye-icon toggle ── */
+.form-input-wrap {
+  position: relative;
+  width: 100%;
+}
+.form-input--with-toggle {
+  padding-right: 32px;
+}
+.form-input-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.form-input-toggle:hover {
+  color: var(--color-text);
+}
+.form-input-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+
 /* ── Checkbox row (Feishu-style) ── */
 .form-checkbox-group {
   display: flex;
