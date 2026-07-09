@@ -45,7 +45,6 @@ export default function KnowledgeBasePanel({ settings, onBack, onGoToSettings }:
         {conn === 'connected' && (
           <ObsidianVaultView
             settings={{ ...settings, obsidianVaultName: vault || settings.obsidianVaultName }}
-            onDisconnected={onGoToSettings}
           />
         )}
         {conn === 'disconnected' && (

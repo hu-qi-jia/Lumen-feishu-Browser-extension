@@ -67,6 +67,10 @@ interface Props {
   recentFiles?: RecentFile[]
   /** Remove a file from the recent list (the × on a row). */
   onRemoveRecent?: (token: string) => void
+  /** Whether the active session's knowledge-base toggle is on (controls a chat tool gate). */
+  kbEnabled: boolean
+  /** Toggle the active session's knowledge-base flag. */
+  onToggleKb: (on: boolean) => void
 }
 
 export default function ChatPanel({
@@ -74,6 +78,7 @@ export default function ChatPanel({
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
   docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
+  kbEnabled, onToggleKb,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
   useEffect(() => { onStreamingChange?.(streaming) }, [streaming, onStreamingChange])
@@ -248,7 +253,7 @@ export default function ChatPanel({
           }
         },
         requestConfirmation,
-      }, baseCtx ?? undefined, ac.signal)
+      }, baseCtx ?? undefined, ac.signal, kbEnabled)
       // A deletion this turn left the Feishu page stale (it caches) — reload it so the result shows
       // without a manual refresh. Only when the undo stash advanced THIS turn (a delete happened).
       void loadDeleteUndo().then((u) => { if (u && u.at !== undoAtBefore) reloadActiveTab() })
@@ -459,6 +464,8 @@ export default function ChatPanel({
         stagedSelection={stagedSelection}
         onStagedConsumed={onStagedConsumed}
         workDocToken={workDocToken}
+        kbEnabled={kbEnabled}
+        onToggleKb={onToggleKb}
       />
 
       {pendingConfirm && (

@@ -4,6 +4,7 @@ import type { SessionsApi } from '../sessions/useSessions'
 import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../sessions/logic'
 import { KindIcon, GeneralIcon, IconTrash } from './icons'
 import SideDrawer from './SideDrawer'
+import SearchBox from './SearchBox'
 import Tooltip from './Tooltip'
 import ConfirmDialog from './ConfirmDialog'
 import './SessionDrawer.css'
@@ -113,26 +114,13 @@ export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind
 
   return (
     <SideDrawer title="历史会话" onClose={onClose}>
-      <div className="drawer-search">
-        <svg className="drawer-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          className="drawer-search-input"
-          placeholder="搜索会话标题或内容"
+      <div className="drawer-search-wrap">
+        <SearchBox
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="搜索会话"
+          onChange={(v) => setQuery(v)}
+          placeholder="搜索会话标题或内容"
+          ariaLabel="搜索会话"
         />
-        {query && (
-          <button className="drawer-search-clear" onClick={() => setQuery('')} type="button" aria-label="清除搜索">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        )}
       </div>
 
       <div className="drawer-list">

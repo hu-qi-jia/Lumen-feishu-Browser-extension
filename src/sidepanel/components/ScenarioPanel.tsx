@@ -6,7 +6,7 @@ import { executeTemplate } from '../../shared/templates/engine'
 import { fetchRemoteTemplates, mergeTemplates, getCacheInfo, clearRegistryCache } from '../../shared/templates/registry'
 import { resolveToken } from '../../shared/feishu/auth'
 import { safeImageSrc, openUrlInNewTab } from '../../shared/url'
-import { CLIP_ENABLED } from '../../shared/config'
+import { CLIP_ENABLED, HAS_KNOWLEDGE_BASE } from '../../shared/config'
 import { TemplateCardSkeleton } from './Skeleton'
 import HubCard from './HubCard'
 import DataVizPanel from './DataVizPanel'
@@ -14,6 +14,7 @@ import AISitePanel from './AISitePanel'
 import SmartFillPanel from './SmartFillPanel'
 import SlidesPanel from './SlidesPanel'
 import PdfTranscribePanel from './PdfTranscribePanel'
+import KnowledgeBasePanel from './KnowledgeBasePanel'
 import type { RecentFile } from '../recentFiles'
 import TopBar from './TopBar'
 import Button from './Button'
@@ -28,6 +29,9 @@ interface Props {
   settings: AppSettings
   context: PageContext
   disabled: boolean
+  /** Open the settings tab — forwarded to KnowledgeBasePanel's gate so an unconnected
+   *  vault routes the user to setup instead of showing an inline connect form. */
+  onGoToSettings: () => void
   /** Signals an in-flight template build so the host can freeze nav that would unmount us
    *  mid-build (switching tab destroys this panel's local progress/result state). */
   onBusyChange?: (busy: boolean) => void
@@ -46,6 +50,7 @@ type View =
   | { mode: 'smartfill' }
   | { mode: 'slides' }
   | { mode: 'pdfTranscribe' }
+  | { mode: 'knowledgeBase' }
   | { mode: 'gallery' }
   | { mode: 'detail'; template: ScenarioTemplate }
   | { mode: 'progress'; template: ScenarioTemplate; steps: ProgressStep[]; error?: string; inputs?: Record<string, string> }
@@ -69,9 +74,10 @@ const HUB_ICONS: Record<string, React.ReactNode> = {
   download: Svg(<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>),
   camera: Svg(<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>),
   file: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></>),
+  book: Svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
 }
 
-export default function ScenarioPanel({ settings, context, disabled, onBusyChange, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
+export default function ScenarioPanel({ settings, context, disabled, onGoToSettings, onBusyChange, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [view, setView] = useState<View>({ mode: 'hub' })
   const [templates, setTemplates] = useState<ScenarioTemplate[]>(BUILTIN_TEMPLATES)
   const [search, setSearch] = useState('')
@@ -206,6 +212,20 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
               </div>
             </div>
           )}
+
+          {HAS_KNOWLEDGE_BASE && (
+            <div className="sc-hub-group">
+              <div className="sc-hub-section">知识库</div>
+              <div className="sc-hub-grid">
+                <HubCard
+                  icon={HUB_ICONS.book}
+                  title="知识库"
+                  desc="把 Obsidian 仓库接入，可被助手检索与读写"
+                  onClick={() => setView({ mode: 'knowledgeBase' })}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -229,6 +249,10 @@ export default function ScenarioPanel({ settings, context, disabled, onBusyChang
 
   if (view.mode === 'pdfTranscribe') {
     return <PdfTranscribePanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
+  }
+
+  if (view.mode === 'knowledgeBase') {
+    return <KnowledgeBasePanel settings={settings} onBack={() => setView({ mode: 'hub' })} onGoToSettings={onGoToSettings} />
   }
 
   if (view.mode === 'gallery') {

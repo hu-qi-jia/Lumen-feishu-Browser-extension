@@ -4,6 +4,7 @@ import { loadPolicy, policyLockedKeys } from '../../shared/enterprisePolicy'
 import GeneralTab from './settings/GeneralTab'
 import AiTab from './settings/AiTab'
 import FeishuTab from './settings/FeishuTab'
+import KnowledgeBaseTab from './settings/KnowledgeBaseTab'
 import BackupTab from './settings/BackupTab'
 import AppearanceTab from './settings/AppearanceTab'
 import SettingsTabs from './SettingsTabs'
@@ -16,6 +17,7 @@ const SETTINGS_TABS = [
   { id: 'general', label: '通用' },
   { id: 'ai', label: '模型配置' },
   { id: 'feishu', label: '飞书配置' },
+  { id: 'knowledgeBase', label: '知识库' },
   { id: 'backup', label: '数据与备份' },
   { id: 'appearance', label: '外观' },
 ] as const
@@ -94,6 +96,8 @@ export default function Settings({
         )}
 
         {tab === 'feishu' && <FeishuTab form={form} patch={patch} set={set} />}
+
+        {tab === 'knowledgeBase' && <KnowledgeBaseTab form={form} patch={patch} set={set} />}
 
         {tab === 'backup' && <BackupTab />}
 

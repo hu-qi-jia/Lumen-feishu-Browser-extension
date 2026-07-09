@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
+import { DEFAULT_SETTINGS } from '../types'
+import { HAS_KNOWLEDGE_BASE } from '../config'
 import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex, attachmentToMetaData, buildSystemPrompt } from './agent'
 
 describe('toolsForContext — exposes only the current resource\'s tools (+ core)', () => {
@@ -413,5 +415,36 @@ describe('attachmentToMetaData — 附件 → 文本元数据（喂给 LLM）', 
   })
   it('未知/缺数据 → null', () => {
     expect(attachmentToMetaData({ id: 'x', type: 'image', name: 'a', mimeType: '', size: 0 } as any)).toBe(null) // 无 dataUrl
+  })
+})
+
+describe('知识库只读工具', () => {
+  it('toolsForContext：kbEnabled 关时不带 KB 工具；开时带两个', () => {
+    const off = toolsForContext('doc').map((t) => t.function.name)
+    expect(off).not.toContain('search_knowledge_base')
+    const on = toolsForContext('doc', { kbEnabled: true }).map((t) => t.function.name)
+    if (HAS_KNOWLEDGE_BASE) {
+      expect(on).toContain('search_knowledge_base')
+      expect(on).toContain('read_knowledge_note')
+    } else {
+      expect(on).not.toContain('search_knowledge_base') // 商店构建关
+    }
+  })
+
+  it('executeTool search_knowledge_base → 调 searchVault', async () => {
+    // agent.ts 静态 import '../obsidian/api' 已在文件加载时绑定真实模块；
+    // 需 resetModules + doMock 后动态 import，才能让 agent 内部解析到 mock。
+    vi.resetModules()
+    const mockSearch = vi.fn().mockResolvedValue([{ path: 'a.md', score: 1 }])
+    vi.doMock('../obsidian/api', () => ({ searchVault: mockSearch, readNote: vi.fn() }))
+    const { executeTool } = await import('./agent')
+    const out = await executeTool('search_knowledge_base', { query: 'kw' }, 'tok', {} as never, { ...DEFAULT_SETTINGS })
+    expect(mockSearch).toHaveBeenCalled()
+    expect(String(out)).toContain('a.md')
+  })
+
+  it('buildSystemPrompt：kbEnabled 时含知识库段', () => {
+    const p = buildSystemPrompt({} as never, { ...DEFAULT_SETTINGS } as AppSettings, undefined, true)
+    if (HAS_KNOWLEDGE_BASE) expect(p).toContain('知识库')
   })
 })

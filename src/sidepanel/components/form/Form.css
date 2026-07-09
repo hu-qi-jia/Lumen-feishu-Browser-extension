@@ -59,6 +59,31 @@
   border-color: var(--color-primary);
 }
 
+/* ── Textarea (multi-line) ──
+   Mirrors .form-input's border + hover + focus; taller by default and
+   vertically resizable. The KB note editor adds monospace + extra height. */
+.form-textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.5;
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.form-textarea:hover {
+  border-color: var(--color-primary);
+}
+.form-textarea:focus {
+  border-color: var(--color-primary);
+}
+
 /* ── Password input with eye-icon toggle ── */
 .form-input-wrap {
   position: relative;

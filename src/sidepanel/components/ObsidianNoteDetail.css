@@ -1,0 +1,16 @@
+.kb-detail { display: flex; flex-direction: column; height: 100%; }
+.kb-detail-actions { display: flex; gap: 2px; }
+.kb-head-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-sm); cursor: pointer; }
+.kb-head-btn:hover:not(:disabled) { color: var(--color-primary); background: var(--color-primary-soft); }
+.kb-head-btn svg { width: 16px; height: 16px; }
+.kb-head-btn:disabled { opacity: .5; cursor: not-allowed; }
+.kb-detail-body, .kb-detail-edit { padding: 12px; overflow: auto; }
+/* Body editor: FormTextArea provides border/radius/padding/focus; this just
+   makes it taller + monospace for markdown source. */
+.kb-editor { min-height: 300px; font-family: var(--font-mono, monospace); font-size: 12.5px; }
+/* Cancel/Save use the shared <Button>; the row spans the input width above. */
+.kb-detail-foot { display: flex; gap: 8px; margin-top: 8px; width: 100%; }
+.kb-detail-foot .btn { flex: 1; }
+.kb-error { color: var(--color-warning-strong); font-size: 12px; }
+.kb-muted { color: var(--color-text-secondary); font-size: 12px; }
+.kb-title-input { margin-bottom: 8px; }

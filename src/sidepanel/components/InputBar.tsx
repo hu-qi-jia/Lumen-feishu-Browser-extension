@@ -2,7 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardE
 import type { Attachment, DocSelectionPayload } from '../../shared/types'
 import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText } from '../../shared/attachments'
 import { preloadSkills, type Skill } from '../../shared/ai/skills'
+import { HAS_KNOWLEDGE_BASE } from '../../shared/config'
 import Tooltip from './Tooltip'
+import FormSwitch from './form/FormSwitch'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
@@ -37,10 +39,14 @@ interface Props {
    *  are hidden AND excluded from sends — a reference staged from doc A is only relevant while
    *  the work doc is A; it reappears when the user switches back. Images/files are doc-agnostic. */
   workDocToken?: string | null
+  /** 本会话知识库开关态（来自 active session.kbEnabled）。 */
+  kbEnabled: boolean
+  /** 切换本会话知识库。 */
+  onToggleKb: (on: boolean) => void
 }
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken },
+  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken, kbEnabled, onToggleKb },
   ref,
 ) {
   // Per-doc draft: typed text is scoped to the working doc, mirroring how selection chips are
@@ -295,11 +301,11 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               </button>
             </Tooltip>
             <div className="tools-menu-wrap" ref={skillsWrapRef}>
-              <Tooltip content={skills.length ? '技能建议' : '暂无可用技能'}>
+              <Tooltip content={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : (skills.length ? '技能建议' : '暂无可用技能')}>
                 <button
                   className="btn-tools"
                   onClick={() => setSkillsOpen((v) => !v)}
-                  disabled={blocked || skills.length === 0}
+                  disabled={blocked || (!HAS_KNOWLEDGE_BASE && skills.length === 0)}
                   type="button"
                   tabIndex={-1}
                 >
@@ -311,6 +317,14 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               </Tooltip>
               {skillsOpen && (
                 <div className="tools-menu">
+                  {HAS_KNOWLEDGE_BASE && (
+                    <div className="tools-menu-item tools-menu-item--toggle">
+                      <FormSwitch checked={kbEnabled} onChange={onToggleKb}>
+                        <span className="tools-menu-title">知识库</span>
+                      </FormSwitch>
+                    </div>
+                  )}
+                  {HAS_KNOWLEDGE_BASE && skills.length > 0 && <div className="tools-menu-divider" />}
                   {skills.slice(0, 6).map((s) => (
                     <button
                       key={s.skillId}

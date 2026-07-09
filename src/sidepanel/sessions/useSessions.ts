@@ -40,6 +40,8 @@ export interface SessionsApi {
    *  Upgrades an unresolved 'wiki' session to its real type (base/sheet/doc) once resolved,
    *  so the history drawer can show the right doc-type icon without a visit. */
   stampKind: (appToken: string, kind: SessionKind) => void
+  /** Toggle knowledge-base tools for a session (chat 工具下拉的「知识库」开关). */
+  setKbEnabled: (sessionId: string, on: boolean) => void
 }
 
 /**
@@ -295,10 +297,18 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
     persistIndex(stampKindPure(indexRef.current, appToken, kind))
   }, [persistIndex])
 
+  const setKbEnabled = useCallback((sessionId: string, on: boolean) => {
+    const idx = indexRef.current
+    persistIndex({
+      ...idx,
+      sessions: idx.sessions.map((s) => (s.id === sessionId ? { ...s, kbEnabled: on } : s)),
+    })
+  }, [persistIndex])
+
   const activeSession = index.sessions.find((s) => s.id === index.activeId) ?? null
 
   return {
     ready, index, activeSession, messages,
-    setMessages, setMessagesFor, switchTo, createSession, removeSession, removeSessionsByAppToken, renameSession, rebindSession, resolveTitle, stampKind,
+    setMessages, setMessagesFor, switchTo, createSession, removeSession, removeSessionsByAppToken, renameSession, rebindSession, resolveTitle, stampKind, setKbEnabled,
   }
 }

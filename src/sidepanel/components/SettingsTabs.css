@@ -75,8 +75,10 @@
   transition: transform .2s cubic-bezier(.4, 0, .2, 1);
 }
 
+/* No "selected look" on hover — hovering a non-active tab keeps its resting
+   secondary color; only the active tab (underline + bold) reads as selected. */
 .settings-tab--underline:hover {
-  color: var(--color-text);
+  color: var(--color-text-secondary);
   background: none;
 }
 

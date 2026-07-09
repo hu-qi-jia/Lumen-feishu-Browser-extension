@@ -476,14 +476,16 @@
 
 /* ── Feishu config stepper ── */
 .feishu-tab {
-  --step-dot-size: 22px;
-  --step-line-width: 2px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+/* Step sizing lives on the component root so <FeishuSteps> renders
+   identically in any wrapper (Feishu config tab AND KB config tab). */
 .feishu-steps {
+  --step-dot-size: 22px;
+  --step-line-width: 2px;
   display: flex;
   flex-direction: column;
   gap: 0;

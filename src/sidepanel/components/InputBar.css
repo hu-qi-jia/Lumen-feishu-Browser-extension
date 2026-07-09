@@ -191,6 +191,10 @@
 }
 .tools-menu-item:hover { background: var(--color-surface); }
 
+.tools-menu-item--toggle { display: flex; align-items: center; }
+
+.tools-menu-divider { height: 1px; background: var(--color-border); margin: 4px 0; }
+
 .tools-menu-title {
   font-size: 12px;
   font-weight: 600;

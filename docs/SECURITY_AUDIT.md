@@ -348,9 +348,9 @@
   （`transformManifest`）｜ `http.ts`/`api.ts` 出站守卫
 - **私有化**：所有飞书 host 由**单一基础域名**派生（`open.<域名>`/`accounts.<域名>`/
   `<租户>.<域名>`），`VITE_FEISHU_BASE_DOMAIN` 一处配置；API 路径与调用完全一致。
-- **出站锁定（双重）**：助手只访问两类端点——飞书 + 大模型。
-  - 代码层：`isFeishuOutboundAllowed` 只放行基础域名的子域(+代理)，`feishuReq`/`req` 强制；大模型由 `assertSafeBaseUrl` 把关。
-  - CSP 层：`vite.config` 按 env 把 `connect-src`/`host_permissions`/`content_scripts` 锁成 `*.<域名>` + 钉死的大模型 host；设了 `VITE_OPENAI_ALLOWED_HOSTS` 时**去掉 `https:` 通配 → 纯内网**。
+- **出站锁定（双重）**：助手访问三类端点——飞书 + 大模型 + **Obsidian-loopback**（见 M12，仅本机回环，第三组严格隔离）。
+  - 代码层：`isFeishuOutboundAllowed` 只放行基础域名的子域(+代理)，`feishuReq`/`req` 强制；大模型由 `assertSafeBaseUrl` 把关；Obsidian 由 `isObsidianOutboundAllowed` 把关（loopback）。
+  - CSP 层：`vite.config` 按 env 把 `connect-src`/`host_permissions`/`content_scripts` 锁成 `*.<域名>` + 钉死的大模型 host；设了 `VITE_OPENAI_ALLOWED_HOSTS` 时**去掉 `https:` 通配 → 纯内网**。Obsidian 额外放行 `http://127.0.0.1:*`/`http://localhost:*`（见 M12，仅 loopback）。
 - **测试**：`config.test.ts`（子域放行/后缀仿冒拒绝/端点派生），并实测私有化构建 `connect-src` 仅含内网 host。
 
 ### M8 ✅ 网页剪藏（Web Clipper）— 手势门控、不破坏出站锁定
@@ -409,6 +409,23 @@
 - **测试**：`smartfill/coerce.test.ts`（类型/选项校验）、`ai/smartfill.test.ts`（提示词含选项+禁新建+key 契约、解析、拒非 JSON）、
   `smartfill/data.test.ts`（Base/Sheet 源解析）、`smartfill/plan.test.ts`（只填空白 / 覆盖 / 非法选项跳过 / 弃填上报 / 写键映射 /
   **按实际确认计数、去重**）。
+
+### M12 ✅ Obsidian 知识库 — 第三出站组（仅 loopback）
+- **位置**：`shared/config.ts`（`isObsidianOutboundAllowed` + `HAS_KNOWLEDGE_BASE`）｜ `shared/obsidian/http.ts`（`obsidianFetch`）｜
+  `shared/network.ts`（CIDR loopback/私网校验，复用）｜ `shared/obsidian/auth.ts`（`saveObsidianToken`/`getObsidianToken`）｜
+  `manifest.json` + `vite.config.ts`（host_permissions / CSP `connect-src`）｜ `shared/ai/agent.ts`（chat KB 工具注入/执行）
+- **威胁**：接入本地 Obsidian（`obsidian-local-rest-api` 插件）= 新增一个网络出口，必须**物理上漏不到公网**，且 API Key 不得泄露。
+- **第三组严格隔离**：Obsidian 是继「飞书 / 大模型」之后的**第三组**出站，**绝不复用 `feishuFetch`**（其域守卫会拒 loopback）；
+  专设 `obsidianFetch`，**先过 `isObsidianOutboundAllowed` 守卫再 fetch**，带 `Authorization: Bearer <token>`；写操作不重试（与飞书写操作一致）。
+- **loopback-only（双重）**：
+  - 代码层 `isObsidianOutboundAllowed`：URL host:port 必须**精确等于**用户配的 `obsidianBaseUrl`；且该 host 必须是 **loopback/私网**（复用 `network.ts` CIDR 允许名单）。v1 只允许 loopback → 这条链路物理上不达公网。
+  - CSP 层：`connect-src` 追加 `http://127.0.0.1:* http://localhost:*`；`host_permissions` 追加 `http://127.0.0.1:*/*`、`http://localhost:*/*`。**这是为本地集成开的、仅 loopback 的口子**。
+  - 为何走 HTTP(27123) 不走 HTTPS(27124)：插件用自签名证书，Chrome 119+ 对 localhost 自签证书直接拦截且 UI 无法加例外，扩展也无跳过 TLS 校验的 API → 只能 HTTP（PNA 已在 Plan 1 冒烟验证：侧栏进程直连 `GET http://127.0.0.1:27123/` 可达）。
+- **Key 加密**：API Key 经 `crypto.ts` AES-256-GCM 加密，存**独立键 `_obsidian_token_v1`**（与飞书 token 同级），**绝不进 `AppSettings` blob、绝不进明文包**；接入/改连接在设置页「知识库」tab，测试连接成功即存 Key，端点/inbox/exclude/vault 随设置批量保存。
+- **chat 工具只读**：会话级开关 `session.kbEnabled`（默认关）开启后，`toolsForContext` 仅注入**两个只读工具** `search_knowledge_base` / `read_knowledge_note`（调 `searchVault`/`readNote`）；**不注入任何写工具**（create/update/delete 留后续计划）。工具结果走既有 `redactSensitive(truncateToolResult(...))`，与飞书工具同一截断/脱敏通道。
+- **隐私知情同意**：设置页明示「检索到的笔记内容会发往你配置的 LLM 以供回答」。
+- **门控**：`HAS_KNOWLEDGE_BASE`（`VITE_KNOWLEDGE_BASE`，默认开），商店构建可整组关闭。
+- **测试**：`obsidian/http`/`config` 守卫与 CIDR 单测；`agent.test.ts`（kbEnabled 关/开的工具集、executeTool 两分支）；UI 行为测试覆盖设置 tab 三态、Hub 门禁、扁平列表/详情。
 
 ### L5-legacy ⚪ （历史）app_secret 默认进包 — 个人模式仍接受
 - **位置**：构建注入 `VITE_FEISHU_APP_SECRET`

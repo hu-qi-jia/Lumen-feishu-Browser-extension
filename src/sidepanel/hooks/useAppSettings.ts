@@ -37,6 +37,10 @@ export function useAppSettings(): AppSettingsApi {
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
         llmSource: (stored.llmSource as AppSettings['llmSource']) ?? undefined,
+        obsidianBaseUrl: stored.obsidianBaseUrl ?? DEFAULT_SETTINGS.obsidianBaseUrl,
+        obsidianInboxPath: stored.obsidianInboxPath ?? DEFAULT_SETTINGS.obsidianInboxPath,
+        obsidianExcludePaths: stored.obsidianExcludePaths ?? DEFAULT_SETTINGS.obsidianExcludePaths,
+        obsidianVaultName: stored.obsidianVaultName ?? DEFAULT_SETTINGS.obsidianVaultName,
       }
       // Enterprise central policy (applied over the just-loaded base). FAIL-CLOSED: on a
       // policy build, until the real policy is known (no cache / proxy down) we force the
@@ -66,6 +70,11 @@ export function useAppSettings(): AppSettingsApi {
         learnFromHistory: s.learnFromHistory !== false,
         autoConfirm: s.autoConfirm === true,
         llmSource: s.llmSource, // managed/manual choice must persist (was dropped → switch never stuck)
+        // Obsidian 接入（非密钥；API Key 走独立加密键 _obsidian_token_v1，不在此 blob）
+        obsidianBaseUrl: s.obsidianBaseUrl,
+        obsidianInboxPath: s.obsidianInboxPath,
+        obsidianExcludePaths: s.obsidianExcludePaths,
+        obsidianVaultName: s.obsidianVaultName,
       },
     })
     setSettings(s)

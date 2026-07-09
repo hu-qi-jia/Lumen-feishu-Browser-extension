@@ -1166,3 +1166,39 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
     },
   },
 ]
+
+/** 只读知识库工具（chat 会话开启「知识库」时注入）。写入工具留后续计划。 */
+export const KNOWLEDGE_TOOLS: ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'search_knowledge_base',
+      description:
+        '在用户已连接的 Obsidian 知识库中全文检索笔记。返回匹配笔记的路径与片段（非整篇）。' +
+        '用户问及个人笔记/知识库/过往记录时调用；引用时注明笔记路径。',
+      parameters: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: { type: 'string', description: '检索关键词或短语' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_knowledge_note',
+      description:
+        '读取 Obsidian 知识库中指定路径笔记的完整正文（Markdown）。' +
+        '先用 search_knowledge_base 拿到路径，再按需读全文。大笔记会被截断。',
+      parameters: {
+        type: 'object',
+        required: ['path'],
+        properties: {
+          path: { type: 'string', description: 'vault 内相对路径，如 "Inbox/想法.md"' },
+        },
+      },
+    },
+  },
+]

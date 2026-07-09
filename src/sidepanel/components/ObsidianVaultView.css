@@ -1,0 +1,22 @@
+.kb-vault { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.kb-vault-head { display: flex; align-items: center; justify-content: space-between; }
+.kb-vault-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
+.kb-head-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-sm); cursor: pointer; }
+.kb-head-btn:hover { color: var(--color-primary); background: var(--color-primary-soft); }
+.kb-head-btn svg { width: 16px; height: 16px; }
+
+.kb-tabs { display: flex; gap: 4px; }
+.kb-tab { background: none; border: none; color: var(--color-text-secondary); font-size: 12px; padding: 4px 8px; border-radius: var(--radius-sm); cursor: pointer; }
+.kb-tab:hover { background: var(--color-surface); }
+.kb-tab--active { color: var(--color-primary); background: var(--color-primary-soft); }
+
+.kb-error { color: var(--color-warning-strong); font-size: 12px; }
+.kb-muted { color: var(--color-text-secondary); font-size: 12px; padding: 16px 4px; text-align: center; }
+
+/* 扁平列表行（对齐 .drawer-row：透明边、hover 浅底、active primary-soft） */
+.kb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.kb-row { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; cursor: pointer; }
+.kb-row:hover { background: var(--color-surface); }
+.kb-row:active { background: var(--color-primary-soft); }
+.kb-row-title { font-size: 12.5px; font-weight: 600; color: var(--color-text); }
+.kb-row-path, .kb-row-snip, .kb-row-time { font-size: 10.5px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

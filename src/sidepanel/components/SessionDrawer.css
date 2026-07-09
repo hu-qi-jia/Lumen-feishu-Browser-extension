@@ -108,6 +108,10 @@
 }
 
 /* ── Search box ───────────────────────────────────────────────────────────── */
+/* New wrapper — just outer margin. Adopts the shared SearchBox (Task 2). The
+   legacy .drawer-search* rules below are kept (unused) so nothing else that might
+   reference them regresses; they're harmless. */
+.drawer-search-wrap { margin: 8px 10px 4px; }
 .drawer-search {
   display: flex;
   align-items: center;

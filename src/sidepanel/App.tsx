@@ -420,9 +420,14 @@ export default function App() {
                   stagedSelection={stagedSelection}
                   onStagedConsumed={() => setStagedSelection(null)}
                   workDocToken={workDocToken}
+                  kbEnabled={sessions.activeSession?.kbEnabled === true}
+                  onToggleKb={(on: boolean) => {
+                    const id = sessions.activeSession?.id
+                    if (id) sessions.setKbEnabled(id, on)
+                  }}
                 />
               ) : (
-                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} />
+                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} onGoToSettings={() => setTab('settings')} />
               )}
             </div>
           </main>

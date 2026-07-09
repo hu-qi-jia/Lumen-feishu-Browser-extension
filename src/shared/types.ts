@@ -146,6 +146,8 @@ export interface SessionMeta {
   /** Truncated first user message — a one-line preview so the flat list reads at a glance
    *  and powers search without loading message bodies. Set once (never overwritten). */
   preview?: string
+  /** 本会话是否启用知识库（chat 工具开关）。缺省 false（旧会话无此键）。 */
+  kbEnabled?: boolean
 }
 
 export interface SessionIndex {

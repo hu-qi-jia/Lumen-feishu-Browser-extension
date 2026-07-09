@@ -178,4 +178,22 @@ describe('useSessions', () => {
     // Messages survive the rebind.
     expect(result.current.messages.map((m) => m.content)).toContain('thread on A')
   })
+
+  it('setKbEnabled toggles kbEnabled on the active session and persists it in meta', async () => {
+    const { result } = renderSessions(null)
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    const id = result.current.activeSession!.id
+    expect(id).toBeTruthy()
+
+    // Default: no kbEnabled key (undefined → falsy).
+    expect(result.current.activeSession?.kbEnabled).toBeUndefined()
+
+    act(() => result.current.setKbEnabled(id, true))
+    expect(result.current.activeSession?.kbEnabled).toBe(true)
+    // Reflected in the index meta too.
+    expect(result.current.index.sessions.find((s) => s.id === id)?.kbEnabled).toBe(true)
+
+    act(() => result.current.setKbEnabled(id, false))
+    expect(result.current.activeSession?.kbEnabled).toBe(false)
+  })
 })

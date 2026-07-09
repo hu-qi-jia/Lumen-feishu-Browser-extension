@@ -23,7 +23,7 @@ Chrome **MV3** 扩展「飞书文档AI助手」：在飞书 多维表格/电子�
 1. **只用用户身份操作**：`auth.ts resolveToken` 绝不回退 tenant（创建 Base 等场景用 tenant 身份，但创建后强制 transfer_owner 转交用户，操作仍只以 user 身份）。
 2. **文件级删除一律拒绝**：`agent.ts isFileLevelDelete` 拦 `delete_table`/`delete_sheet` + 通用 API 的 DELETE + POST `move_to_trash`；内容删除（行/字段/block/去重）走确认门（`DESTRUCTIVE_TOOLS`）。
 3. **通用 API 白名单**：`assertApiCallAllowed`/`API_BLOCKED`（禁 im/通讯录/权限/所有权）。
-4. **出站只走** `feishuReq`/`feishuFetch`（出站守卫+重试+私有化版本回退），大模型走 `assertSafeBaseUrl`。`auth.ts getTenantAccessToken` 换 token 的请求虽直接 `fetch`，也过了 `isFeishuOutboundAllowed` 守卫。
+4. **出站只走** `feishuReq`/`feishuFetch`（出站守卫+重试+私有化版本回退），大模型走 `assertSafeBaseUrl`。`auth.ts getTenantAccessToken` 换 token 的请求虽直接 `fetch`，也过了 `isFeishuOutboundAllowed` 守卫。**Obsidian 知识库是第三组（仅 loopback）**：走 `obsidianFetch` + `isObsidianOutboundAllowed`（host:port 须精确等于 `obsidianBaseUrl` 且为 loopback/私网），**绝不复用 `feishuFetch`**；API Key 在独立加密键 `_obsidian_token_v1`（不进 AppSettings blob、不进明文包）；详见 `docs/SECURITY_AUDIT.md` M12。
 5. **沙箱隔离**：生成代码在 opaque origin + `connect-src:'none'`，别加 `allow-same-origin`。
 6. **secret 不进明文包**（加密 `appSecretEnc` 或代理 `oauthProxyUrl`）；个人构建允许明文 `VITE_FEISHU_APP_SECRET` 进包作便利档，商店构建强制清空。
 7. **写操作不自动重试**（`robustFetch` 只重试 GET）；私有化部署下 `feishuFetch` 遇 404 会回退旧版本路径重发，因 404=未执行故对写安全。
