@@ -352,6 +352,10 @@ export async function runAgent(
   let totalToolCalls = 0
   // Per-turn idempotency for create-once tools — see CREATE_ONCE_TOOLS.
   const executedCreates = new Map<string, unknown>()
+  // Per-turn list_fields cache so a batch of update_field (e.g. N column renames) shares ONE
+  // list_fields fetch instead of N (was N×2 API calls). Invalidated on create_field/delete_field
+  // for that table. Keyed `fields:${app}:${tableId}`. Optional everywhere → no-op when absent.
+  const fieldsCache = new Map<string, unknown>()
   // Per-turn blind-retry guard for destructive calls: signatures (name + raw args JSON) of
   // destructive calls that ERRORED this turn. An EXACT repeat is the model "trying the same
   // thing harder" — pointless, and it would re-pop a confirm card for an already-doomed op
@@ -454,14 +458,18 @@ export async function runAgent(
       tool_calls: rawToolCalls,
     })
 
-    // If this whole round is independent READS, kick them off CONCURRENTLY now; the loop below then
-    // just awaits the already-running promises (in order, preserving message sequencing + callbacks).
+    // Kick off every READ-ONLY call in this round CONCURRENTLY up front — even when the round
+    // also mixes in writes. Reads are independent + side-effect-free, so running them in parallel
+    // with each other (writes still run serially below, after their confirm gate) only removes
+    // latency. The model sequences a dependent read→write across SEPARATE rounds, so a read emitted
+    // in the same round as a write is, by construction, not meant to observe that write's result.
     const preReads = new Map<string, Promise<unknown>>()
-    if (rawToolCalls.length > 1 && rawToolCalls.every((c) => READ_ONLY_TOOLS.has(c.function.name))) {
+    if (rawToolCalls.length > 1) {
       for (const c of rawToolCalls) {
+        if (!READ_ONLY_TOOLS.has(c.function.name)) continue // writes stay serial in the loop below
         let a: Record<string, unknown> = {}
         try { a = JSON.parse(c.function.arguments) as Record<string, unknown> } catch { /* malformed */ }
-        const p = runToolWithFallback(c.function.name, a, context, settings, [])
+        const p = runToolWithFallback(c.function.name, a, context, settings, [], fieldsCache)
         p.catch(() => {}) // mark handled now; the real await + error handling happens in the loop
         preReads.set(c.id, p)
       }
@@ -565,7 +573,7 @@ export async function runAgent(
           }
         } else {
           // Use the concurrently-started read if we kicked one off above; else run it now.
-          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings, latestAttachments))
+          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings, latestAttachments, fieldsCache))
         }
         // Remember successful create-once results so an exact repeat is deduped.
         // (Reached only when the call succeeded — a thrown error skips to catch.)
@@ -575,8 +583,9 @@ export async function runAgent(
         // Redact PII from tool results too (the agent's main data channel) when enabled — covers the
         // copy sent to the LLM, replayed in history, and shown in the (collapsed) tool view alike.
         // 字符串结果（如 read_knowledge_note 的 markdown）直通，避免被 JSON.stringify 再包一层
-        // 引号+转义成不可读的 "...\\n..." 串；对象/数组照常 pretty-print。
-        const raw = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+        // 引号+转义；对象/数组用**紧凑 JSON**（不缩进）——8k 字符上限下省下缩进 token，多塞真数据，
+        // 模型解析 JSON 无需缩进。
+        const raw = typeof data === 'string' ? data : JSON.stringify(data)
         result = redactSensitive(truncateToolResult(raw))
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
@@ -789,11 +798,12 @@ async function runToolWithFallback(
   args: Record<string, unknown>,
   context: PageContext,
   settings?: AppSettings,
-  attachments?: Attachment[]
+  attachments?: Attachment[],
+  turnCache?: Map<string, unknown>
 ): Promise<unknown> {
   const token = await resolveToken(settings ?? ({} as AppSettings))
   try {
-    return await executeTool(name, args, token, context, settings, attachments)
+    return await executeTool(name, args, token, context, settings, attachments, turnCache)
   } catch (err) {
     if (isPermissionError(err)) {
       throw new Error(
@@ -805,7 +815,7 @@ async function runToolWithFallback(
     // catches cases the proactive (pre-expiry) refresh missed — the real auto-renew safety net.
     if (isTokenExpiredError(err)) {
       const fresh = await forceRefreshUserToken()
-      if (fresh) return await executeTool(name, args, fresh, context, settings, attachments)
+      if (fresh) return await executeTool(name, args, fresh, context, settings, attachments, turnCache)
       throw new Error('飞书登录已过期，且自动续期失败（refresh_token 可能已失效，约 30 天）。请到「设置 → 用飞书账号授权」重新授权一次。')
     }
     throw err
@@ -818,7 +828,9 @@ export async function executeTool(
   token: string,
   context: PageContext,
   settings?: AppSettings,
-  attachments?: Attachment[]
+  attachments?: Attachment[],
+  /** Per-turn cache (e.g. list_fields for update_field backfill). Optional → no-op when absent. */
+  turnCache?: Map<string, unknown>
 ): Promise<unknown> {
   // Backstop for the file-level-delete block (primary check is in the agent loop) — the
   // assistant must never delete a whole table/spreadsheet/document/file by any path.
@@ -942,10 +954,25 @@ export async function executeTool(
       return API.listFields(token, app!, tableId!)
 
     case 'create_field':
+      turnCache?.delete(`fields:${app}:${tableId}`) // structure changed → drop cached field list
       return API.createField(token, app!, tableId!, parseField(args))
 
-    case 'list_records':
-      return API.listRecords(token, app!, tableId!, pageSize)
+    case 'list_records': {
+      // 分页 + 导航字段前置：把 total/has_more/next_page_token 排在 items 之前——大表一页超过
+      // 8000 字符被截断时也不丢"还有没有下一页"的把手（同 list_blocks 的 summarizeDocument）。
+      const data = await API.listRecords(token, app!, tableId!, pageSize, args.page_token as string | undefined) as {
+        items?: unknown[]; has_more?: boolean; page_token?: string; total?: number
+      }
+      const items = data.items ?? []
+      return {
+        total: data.total,
+        page_size: pageSize,
+        has_more: data.has_more === true,
+        next_page_token: data.has_more ? data.page_token : undefined,
+        count: items.length,
+        items,
+      }
+    }
 
     case 'create_record':
       return API.createRecord(token, app!, tableId!, args.fields as Record<string, unknown>)
@@ -972,9 +999,12 @@ export async function executeTool(
     case 'update_field': {
       // Feishu's update-field API requires both field_name and type. The LLM
       // usually supplies only the changed parts, so backfill from the current field.
-      const current = (await API.listFields(token, app!, tableId!)) as {
+      // Per-turn cache → N renames share ONE list_fields call (was N×2). See fieldsCache in runAgent.
+      const fieldsCacheKey = `fields:${app}:${tableId}`
+      const current = (turnCache?.get(fieldsCacheKey) ?? await API.listFields(token, app!, tableId!)) as {
         items?: Array<{ field_id: string; field_name: string; type: number; property?: API.FeishuField['property'] }>
       }
+      turnCache?.set(fieldsCacheKey, current)
       const existing = current.items?.find((f) => f.field_id === fieldId)
       if (!existing) throw new Error(`字段不存在: ${fieldId ?? '(未提供 field_id)'}`)
       const update: API.FeishuField = {
@@ -992,18 +1022,30 @@ export async function executeTool(
     }
 
     case 'delete_field':
+      turnCache?.delete(`fields:${app}:${tableId}`) // structure changed → drop cached field list
       return API.deleteField(token, app!, tableId!, fieldId!)
 
     case 'delete_table':
       return API.deleteTable(token, app!, tableId!)
 
-    case 'search_records':
-      return API.searchRecords(
+    case 'search_records': {
+      const data = await API.searchRecords(
         token, app!, tableId!,
         args.filter as string | undefined,
         pageSize,
-        args.view_id as string | undefined
-      )
+        args.view_id as string | undefined,
+        args.page_token as string | undefined
+      ) as { items?: unknown[]; has_more?: boolean; page_token?: string; total?: number }
+      const items = data.items ?? []
+      return {
+        total: data.total,
+        page_size: pageSize,
+        has_more: data.has_more === true,
+        next_page_token: data.has_more ? data.page_token : undefined,
+        count: items.length,
+        items,
+      }
+    }
 
     case 'batch_update_records':
       return API.batchUpdateRecords(
@@ -1734,7 +1776,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制用 copy_document（一次调用保真）；
 	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
   - **用户上传的图片**会在其消息里以「【附件：图片 <文件名>（attachment_id: <id>）】」形式给出。insert_image / replace_image 的 attachment_id 就填这个 id（原样照抄），不要瞎编。
-  - **用户消息里的「引用文档片段」**是用户在文档里选中后加入会话的内容（带文档名/标题/段落/选中内容）。这是用户想让你修改的目标：用 list_blocks 拉全文，按"选中的内容"文本匹配定位到块、就地改写；位置拿不准就用 ask_user 确认，不要瞎改无关段落。
+  - **用户消息里的「引用文档片段」**是用户在文档里选中后加入会话的内容（带文档名/标题/段落/选中内容）。这是用户想让你修改的目标：用 list_blocks 拉全文，按"选中的内容"文本匹配定位到块、就地改写；位置拿不准就在回复里用自然语言问用户确认（**没有 ask_user 工具，别幻觉调用**），不要瞎改无关段落。
   - **insert_image / replace_image 只动图片**：调用它们时**只**插入/替换图片块本身，**不要**在同一轮里另外调用 \`add_document_content\` 去加标题、说明、图注、文件名或任何文字（那会留下一段删不掉的多余文字）。用户明确说"加个说明/配文/标题叫XX"时才加文字，否则只插图。
   - **insert_image 插到顶部用 anchor.type=top**：用户说"插到顶部/最前面/开头/第一张"时，anchor 必须是 \`{type:'top'}\`（插到所有已有内容之前，含已有的顶部图片）。**不要**拿第一段标题/文字当锚点再"插到后面"——那会把图片落到顶部下方第一行文字下面。只有"插在某标题/某段之后/节末/文末"才用 heading/text/section_end/end。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用

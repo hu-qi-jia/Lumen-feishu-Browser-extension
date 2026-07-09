@@ -207,7 +207,7 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'list_records',
-      description: 'List records in a table.',
+      description: 'List one page of records in a table. Returns {total, has_more, next_page_token, count, items}. When has_more=true, pass next_page_token as page_token to fetch the next page (do not improvise another way). page_size default 20, max 100.',
       parameters: {
         type: 'object',
         required: ['app_token', 'table_id'],
@@ -215,6 +215,7 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
           app_token: { type: 'string' },
           table_id: { type: 'string' },
           page_size: { type: 'integer', description: 'Max 100, default 20' },
+          page_token: { type: 'string', description: '上一页返回的 next_page_token；has_more=true 时用它取下一页，直到 has_more=false' },
         },
       },
     },
@@ -371,7 +372,7 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'search_records',
-      description: 'Search records in a table with a filter expression. Returns matching records with their IDs.',
+      description: 'Search records in a table with a filter expression. Returns {total, has_more, next_page_token, count, items} with each record ID. When has_more=true, pass next_page_token as page_token to fetch the next page.',
       parameters: {
         type: 'object',
         required: ['app_token', 'table_id'],
@@ -384,6 +385,7 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
           },
           page_size: { type: 'integer', description: 'Max 100' },
           view_id: { type: 'string', description: 'Optional: restrict to a specific view' },
+          page_token: { type: 'string', description: '上一页返回的 next_page_token；has_more=true 时取下一页' },
         },
       },
     },

@@ -473,3 +473,64 @@ describe('知识库只读工具', () => {
     }
   })
 })
+
+describe('记录读取与字段缓存', () => {
+  it('executeTool list_records：重排为分页把手前置（has_more/next_page_token 在 items 前），透传 page_token', async () => {
+    vi.resetModules()
+    const mockListRecords = vi.fn().mockResolvedValue({
+      items: [{ record_id: 'r1' }, { record_id: 'r2' }],
+      has_more: true, page_token: 'NEXT', total: 50,
+    })
+    vi.doMock('../feishu/api', () => ({ listRecords: mockListRecords }))
+    const { executeTool } = await import('./agent')
+    const out = await executeTool(
+      'list_records', { app_token: 'a', table_id: 't', page_token: 'CUR' },
+      'tok', {} as never, { ...DEFAULT_SETTINGS },
+    ) as Record<string, unknown>
+    // 透传上一页游标
+    expect(mockListRecords).toHaveBeenCalledWith('tok', 'a', 't', 20, 'CUR')
+    const keys = Object.keys(out)
+    // 导航字段排在 items 之前 → 截断也不丢"下一页"把手
+    expect(keys.indexOf('has_more')).toBeLessThan(keys.indexOf('items'))
+    expect(keys.indexOf('next_page_token')).toBeLessThan(keys.indexOf('items'))
+    expect(out.has_more).toBe(true)
+    expect(out.next_page_token).toBe('NEXT')
+    expect(out.total).toBe(50)
+    expect(out.count).toBe(2)
+  })
+
+  it('executeTool update_field：同表多次调用共享一次 list_fields（turnCache）', async () => {
+    vi.resetModules()
+    const mockListFields = vi.fn().mockResolvedValue({
+      items: [{ field_id: 'fld1', field_name: '原名', type: 1 }],
+    })
+    const mockUpdateField = vi.fn().mockResolvedValue({ field_id: 'fld1' })
+    vi.doMock('../feishu/api', () => ({ listFields: mockListFields, updateField: mockUpdateField }))
+    const { executeTool } = await import('./agent')
+    const cache = new Map<string, unknown>()
+    const call = (name: string) => executeTool(
+      'update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: name },
+      'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache,
+    )
+    await call('新名')
+    await call('又改名')
+    // 两次改名只读一次字段表（N×2 → N+1）；写仍然各一次
+    expect(mockListFields).toHaveBeenCalledTimes(1)
+    expect(mockUpdateField).toHaveBeenCalledTimes(2)
+  })
+
+  it('executeTool create_field 使同表 update_field 的字段缓存失效', async () => {
+    vi.resetModules()
+    const mockListFields = vi.fn().mockResolvedValue({ items: [{ field_id: 'fld1', field_name: 'n', type: 1 }] })
+    const mockCreateField = vi.fn().mockResolvedValue({ field_id: 'fld2' })
+    const mockUpdateField = vi.fn().mockResolvedValue({ field_id: 'fld1' })
+    vi.doMock('../feishu/api', () => ({ listFields: mockListFields, createField: mockCreateField, updateField: mockUpdateField }))
+    const { executeTool } = await import('./agent')
+    const cache = new Map<string, unknown>()
+    await executeTool('update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: 'x' }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)
+    await executeTool('create_field', { app_token: 'a', table_id: 't', field_name: '新列', type: 1 }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)
+    await executeTool('update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: 'y' }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)
+    // 结构变化后缓存被清 → list_fields 再读一次
+    expect(mockListFields).toHaveBeenCalledTimes(2)
+  })
+})
