@@ -47,7 +47,11 @@ export default function Markdown({ children }: { children: string }) {
       const m = line.match(/^(#{1,6})\s+(.*)$/)!
       const level = m[1].length
       const txt = m[2]
-      if (level <= 2) {
+      // Distinguish three levels so a doc's title (#) doesn't look identical to its sections (##).
+      // Feishu docx only has heading1–3, so 4–6 clamp to h3 — matching the inserted document.
+      if (level === 1) {
+        elements.push(<h1 key={i} className="md-h1">{inlineFormat(txt)}</h1>)
+      } else if (level === 2) {
         elements.push(<h2 key={i} className="md-h2">{inlineFormat(txt)}</h2>)
       } else {
         elements.push(<h3 key={i} className="md-h3">{inlineFormat(txt)}</h3>)

@@ -8,9 +8,17 @@ afterEach(cleanup)
 describe('Markdown', () => {
   it('renders headings, paragraphs, lists', () => {
     render(<Markdown>{'# 标题\n正文\n- 项 A\n- 项 B'}</Markdown>)
-    expect(screen.getByText('标题').tagName).toBe('H2')
+    expect(screen.getByText('标题').tagName).toBe('H1')
     expect(screen.getByText('正文').tagName).toBe('P')
     expect(screen.getByText('项 A').tagName).toBe('LI')
+  })
+  it('distinguishes h1 / h2 / h3 (title vs section vs subsection)', () => {
+    // # and ## used to collapse to the same .md-h2 — verify they now render at distinct levels so a
+    // doc title doesn't look identical to its sections.
+    const { container } = render(<Markdown>{'# 文档标题\n## 第一节\n### 子节'}</Markdown>)
+    expect(container.querySelector('h1.md-h1')?.textContent).toBe('文档标题')
+    expect(container.querySelector('h2.md-h2')?.textContent).toBe('第一节')
+    expect(container.querySelector('h3.md-h3')?.textContent).toBe('子节')
   })
   it('renders h4–h6 as h3 (no literal # leaks)', () => {
     const { container } = render(<Markdown>{'#### 深\n##### 更深\n###### 最深'}</Markdown>)
