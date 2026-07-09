@@ -169,18 +169,22 @@ export async function listBlocks(token: string, documentId: string, cap = 2000) 
   }
 }
 
-/** 文本块/标题块的文本 key（飞书 docx）：text→'text'，heading(3/4/5)→'heading1'/'heading2'/'heading3'。 */
-function blockTextKey(blockType: number): string | null {
-  if (blockType === 2) return 'text'
-  if (blockType >= 3 && blockType <= 5) return `heading${blockType - 2}`
-  return null
-}
-/** 读取一个块的纯文本（text/heading 块），其余块类型返回 ''。 */
+/** 飞书 docx 里所有「文本类」块的 payload key：正文 / 各级标题 / 有序无序列表 / 引用 / 代码 / 待办。
+ *  这些块的 value 形如 { elements: [{ text_run: { content } }] }。按 **key 存在性** 读取，不依赖
+ *  block_type 数字——本仓读侧(BLOCK_TYPE_NAMES)与写侧(BLOCK_TYPE)的 type 编号本就不一致，按 key
+ *  读最稳，且顺带让列表/引用/代码块也能被读出（旧版只认 text/heading，列表项一律读成空串）。 */
+const TEXT_BLOCK_KEYS = ['text', 'heading1', 'heading2', 'heading3', 'heading4', 'heading5', 'heading6', 'bullet', 'ordered', 'code', 'quote', 'todo'] as const
+
+/** 读取任意「文本类」块的纯文本；非文本块（表格/图片/分割线/iframe/callout 容器等）返回 ''。
+ *  summarizeRootChildren / summarizeDocument / resolveSelectionContext 共用。 */
 function readBlockText(block: Record<string, unknown>): string {
-  const key = blockTextKey(block.block_type as number)
-  if (!key) return ''
-  const el = block[key] as { elements?: Array<{ text_run?: { content?: string } }> } | undefined
-  return (el?.elements ?? []).map((e) => e?.text_run?.content ?? '').join('')
+  for (const k of TEXT_BLOCK_KEYS) {
+    const el = block[k] as { elements?: Array<{ text_run?: { content?: string } }> } | undefined
+    if (el && Array.isArray(el.elements)) {
+      return el.elements.map((e) => e?.text_run?.content ?? '').join('')
+    }
+  }
+  return ''
 }
 
 /** 飞书 block_type → 短名（给 summarizeRootChildren 的索引清单用，让人一眼看懂每行是什么块）。 */
@@ -217,6 +221,88 @@ export function summarizeRootChildren(
       t: blockTypeName((b.block_type as number) ?? 0),
       s: readBlockText(b).slice(0, 40),
     })),
+  }
+}
+
+/**
+ * 纯：把文档压成「紧凑、带全文、可分页可搜索的根块大纲」交给 LLM——一个工具读遍任意大小的文档。
+ *
+ * 为什么：飞书 list_blocks 返回的是整棵嵌套树的原始 JSON（每块的 elements/text_run/style 全展开），
+ * 任何稍大的文档都远超工具结果字符上限（MAX_TOOL_RESULT_CHARS），被截断后模型既看不到总块数也看
+ * 不到后半篇，只能在 get_document_content / list_blocks / feishu_api_call 之间反复横跳、逐块补查
+ * （极慢且不收敛）。本函数把根级块压成紧凑大纲，并提供两个收敛把手：
+ *   - 分页：start 从结果列表第 N 条开始，limit/charBudget 控制单页大小；返回 has_more +
+ *     next_start_index 告诉模型下一页从哪起——长文档按 next_start_index 顺序翻页即可，确定性收敛。
+ *   - 定位：query 按文本子串过滤（大小写不敏感、去首尾空格），一次调用找到"目录 / 某标题"所在块。
+ *
+ * 返回字段顺序刻意把导航信息（count / start_index / has_more / next_start_index / matched_count）
+ * 全排在 outline 之前：即使整页仍超字符上限被全局截断，模型也总能看到"总数 + 当前位置 + 还有没有
+ * 更多 + 下一页起点"，只丢 outline 尾部（截断发生在完整的 }, 边界，不留半条记录）。
+ *
+ * 大纲只含文档根的直接子块；嵌套块（callout 内段落、表格内部单元格）不在其中，需深入时用
+ * feishu_api_call 指定 block_id。每条 i 是该块在根子块中的绝对 0 基索引（= 插入/删除用的 index）。
+ */
+export function summarizeDocument(
+  items: unknown[],
+  documentId: string,
+  opts: { start?: number; limit?: number; charBudget?: number; query?: string } = {},
+): {
+  document_id: string
+  root_children_count: number
+  start_index: number
+  has_more: boolean
+  next_start_index?: number
+  matched_count?: number
+  outline: Array<{ i: number; type: string; id: string; text: string }>
+} {
+  const start = Math.max(0, Math.floor(opts.start ?? 0))
+  const limit = Math.max(1, Math.floor(opts.limit ?? 80))
+  // Compact-char budget per page, kept well under MAX_TOOL_RESULT_CHARS so a whole page (with the
+  // nav fields) fits without the global truncator cutting the outline tail (which would make
+  // next_start_index skip those cut entries). Text-heavy pages render near 1:1 compact→pretty.
+  const charBudget = Math.max(1, Math.floor(opts.charBudget ?? 6000))
+  const query = opts.query?.trim().toLowerCase()
+
+  const root = (items as Record<string, unknown>[])
+    .filter((b) => b.parent_id === documentId)
+    .sort((a, b) => ((a.index as number) ?? 0) - ((b.index as number) ?? 0))
+  // Absolute root-child index per block (object-ref keyed → O(1)). Lets a `query`-filtered page
+  // still report each entry's TRUE root index (the one insert/delete/index use), not its position
+  // in the filtered list.
+  const rootIndexOf = new Map<Record<string, unknown>, number>()
+  root.forEach((b, idx) => rootIndexOf.set(b, idx))
+
+  const source = query ? root.filter((b) => readBlockText(b).toLowerCase().includes(query)) : root
+
+  const outline: Array<{ i: number; type: string; id: string; text: string }> = []
+  let chars = 0
+  let pos = start
+  for (; pos < source.length; pos++) {
+    if (outline.length >= limit) break
+    const b = source[pos]
+    const entry = {
+      i: rootIndexOf.get(b) ?? 0,
+      type: blockTypeName((b.block_type as number) ?? 0),
+      id: String(b.block_id ?? ''),
+      text: readBlockText(b),
+    }
+    const entryChars = JSON.stringify(entry).length
+    // Stop at the char budget, but always keep >= 1 entry (a single huge block still returns itself).
+    if (outline.length > 0 && chars + entryChars > charBudget) break
+    outline.push(entry)
+    chars += entryChars
+  }
+  const hasMore = pos < source.length
+  return {
+    document_id: documentId,
+    // count is ALWAYS the true unfiltered total.
+    root_children_count: root.length,
+    start_index: start,
+    has_more: hasMore,
+    // next_start_index pages through `source` (filtered if query, else root) — pass it back as start.
+    next_start_index: hasMore ? start + outline.length : undefined,
+    ...(query !== undefined ? { matched_count: source.length } : {}),
+    outline,
   }
 }
 

@@ -419,32 +419,57 @@ describe('attachmentToMetaData — 附件 → 文本元数据（喂给 LLM）', 
 })
 
 describe('知识库只读工具', () => {
-  it('toolsForContext：kbEnabled 关时不带 KB 工具；开时带两个', () => {
-    const off = toolsForContext('doc').map((t) => t.function.name)
-    expect(off).not.toContain('search_knowledge_base')
+  it('toolsForContext：默认（不传 / true）带 KB 工具；显式 false 才关', () => {
+    const def = toolsForContext('doc').map((t) => t.function.name)
     const on = toolsForContext('doc', { kbEnabled: true }).map((t) => t.function.name)
+    const off = toolsForContext('doc', { kbEnabled: false }).map((t) => t.function.name)
     if (HAS_KNOWLEDGE_BASE) {
+      // 默认开：undefined 不再被当成关（修 App.tsx `=== true` 把 undefined 当关的回归）
+      expect(def).toContain('search_knowledge_base')
+      expect(def).toContain('list_knowledge_notes')
+      expect(def).toContain('read_knowledge_note')
       expect(on).toContain('search_knowledge_base')
-      expect(on).toContain('read_knowledge_note')
+      expect(off).not.toContain('search_knowledge_base') // 仅显式 false 关闭
     } else {
-      expect(on).not.toContain('search_knowledge_base') // 商店构建关
+      expect(def).not.toContain('search_knowledge_base') // 商店构建关
+      expect(on).not.toContain('search_knowledge_base')
     }
   })
 
-  it('executeTool search_knowledge_base → 调 searchVault', async () => {
+  it('executeTool search_knowledge_base → 调 searchVault，返回结构化数组（非预序列化串）', async () => {
     // agent.ts 静态 import '../obsidian/api' 已在文件加载时绑定真实模块；
     // 需 resetModules + doMock 后动态 import，才能让 agent 内部解析到 mock。
     vi.resetModules()
     const mockSearch = vi.fn().mockResolvedValue([{ path: 'a.md', score: 1 }])
-    vi.doMock('../obsidian/api', () => ({ searchVault: mockSearch, readNote: vi.fn() }))
+    vi.doMock('../obsidian/api', () => ({ searchVault: mockSearch, readNote: vi.fn(), recentNotes: vi.fn() }))
     const { executeTool } = await import('./agent')
     const out = await executeTool('search_knowledge_base', { query: 'kw' }, 'tok', {} as never, { ...DEFAULT_SETTINGS })
     expect(mockSearch).toHaveBeenCalled()
-    expect(String(out)).toContain('a.md')
+    // 返回的是数组本身（由 loop 统一序列化）；不能是双重转义的 JSON 字符串
+    expect(Array.isArray(out)).toBe(true)
+    expect(JSON.stringify(out)).toContain('a.md')
+    expect(JSON.stringify(out)).not.toContain('\\"path\\"') // 不是被再包一层转义的串
   })
 
-  it('buildSystemPrompt：kbEnabled 时含知识库段', () => {
-    const p = buildSystemPrompt({} as never, { ...DEFAULT_SETTINGS } as AppSettings, undefined, true)
-    if (HAS_KNOWLEDGE_BASE) expect(p).toContain('知识库')
+  it('executeTool list_knowledge_notes → 调 recentNotes', async () => {
+    vi.resetModules()
+    const mockRecent = vi.fn().mockResolvedValue([{ path: 'Inbox/x.md', mtime: 1 }])
+    vi.doMock('../obsidian/api', () => ({ searchVault: vi.fn(), readNote: vi.fn(), recentNotes: mockRecent }))
+    const { executeTool } = await import('./agent')
+    const out = await executeTool('list_knowledge_notes', {}, 'tok', {} as never, { ...DEFAULT_SETTINGS })
+    expect(mockRecent).toHaveBeenCalled()
+    expect(Array.isArray(out)).toBe(true)
+    expect(JSON.stringify(out)).toContain('Inbox/x.md')
+  })
+
+  it('buildSystemPrompt：默认 / true 含知识库段；显式 false 不含', () => {
+    const pDef = buildSystemPrompt({} as never, { ...DEFAULT_SETTINGS } as AppSettings, undefined)
+    const pOff = buildSystemPrompt({} as never, { ...DEFAULT_SETTINGS } as AppSettings, undefined, false)
+    if (HAS_KNOWLEDGE_BASE) {
+      // 用 list_knowledge_notes 作块标记——静态前缀里的"拒绝例外"也会提到 search_knowledge_base /
+      // "知识库"，但不会提到 list_knowledge_notes（它只出现在动态 KB 块里）。
+      expect(pDef).toContain('list_knowledge_notes')
+      expect(pOff).not.toContain('list_knowledge_notes')
+    }
   })
 })

@@ -43,10 +43,18 @@ describe.runIf(LIVE)('document tools (live)', () => {
     expect(r.content).toContain('电子表格')
   }, 30_000)
 
-  it('list_blocks shows the inserted blocks', async () => {
-    const r = (await call('list_blocks', { document_id: docId })) as { items?: unknown[] }
-    console.log('block count:', r.items?.length)
-    expect((r.items?.length ?? 0)).toBeGreaterThanOrEqual(4) // page block + 3 inserted
+  it('list_blocks returns a compact outline of the root blocks', async () => {
+    const r = (await call('list_blocks', { document_id: docId })) as {
+      root_children_count?: number
+      outline?: Array<{ i: number; type: string; id: string; text: string }>
+    }
+    console.log('root children:', r.root_children_count, JSON.stringify(r.outline))
+    // The 3 inserted blocks (h1 + text + bullet) are root children; the page block is the root,
+    // not a child, so it isn't counted. (Tool now ships a compact outline, not the raw items tree.)
+    expect((r.root_children_count ?? 0)).toBeGreaterThanOrEqual(3)
+    // outline carries full text — incl. the bullet item (readBlockText generalization reads lists).
+    expect(r.outline?.some((b) => b.text.includes('项目周报'))).toBe(true)
+    expect(r.outline?.some((b) => b.text.includes('电子表格 8 个接口'))).toBe(true)
   }, 30_000)
 
   it('create_doc_from_markdown builds a formatted doc', async () => {

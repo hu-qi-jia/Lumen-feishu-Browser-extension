@@ -420,7 +420,7 @@ export default function App() {
                   stagedSelection={stagedSelection}
                   onStagedConsumed={() => setStagedSelection(null)}
                   workDocToken={workDocToken}
-                  kbEnabled={sessions.activeSession?.kbEnabled === true}
+                  kbEnabled={sessions.activeSession?.kbEnabled !== false}
                   onToggleKb={(on: boolean) => {
                     const id = sessions.activeSession?.id
                     if (id) sessions.setKbEnabled(id, on)

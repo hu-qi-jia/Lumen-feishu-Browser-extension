@@ -970,11 +970,29 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'list_blocks',
-      description: '列出文档的所有块（block），含每个块的 block_id、类型、层级。用于定位要修改/删除的位置。',
+      description:
+        '读取文档结构：返回根块大纲 root_children_count（根块总数 N）+ outline（每条 {i 绝对索引, type, id, text 全文}）' +
+        '+ has_more / next_start_index（分页把手）。支持分页与定位，一个工具读遍任意大小文档——长文档按 ' +
+        'next_start_index 翻页直到 has_more=false；定位某节传 query。要改/删/插块时用 outline 里的 i 当 index、' +
+        'id 当 block_id。不要为看全文而改用 get_document_content / feishu_api_call 反复横跳。',
       parameters: {
         type: 'object',
         required: ['document_id'],
-        properties: { document_id: { type: 'string' } },
+        properties: {
+          document_id: { type: 'string' },
+          start_index: {
+            type: 'integer',
+            description: '从第几个根块开始读（0 基，默认 0）。has_more=true 时，把返回的 next_start_index 填这里取下一页，直到 has_more=false。',
+          },
+          limit: {
+            type: 'integer',
+            description: '本页最多返回多少个根块（默认 80；同时受单页字符预算约束，文本长的块会提前截页）。',
+          },
+          query: {
+            type: 'string',
+            description: '按文本子串过滤根块（大小写不敏感）。一步定位"目录 / 某标题 / 某关键词"所在块——返回 matched_count + 命中块的绝对索引 i 与 id。',
+          },
+        },
       },
     },
   },
@@ -1167,7 +1185,7 @@ export const FEISHU_TOOLS: ChatCompletionTool[] = [
   },
 ]
 
-/** 只读知识库工具（chat 会话开启「知识库」时注入）。写入工具留后续计划。 */
+/** 只读知识库工具（构建启用知识库时默认注入；写入工具留后续计划）。 */
 export const KNOWLEDGE_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
@@ -1175,7 +1193,8 @@ export const KNOWLEDGE_TOOLS: ChatCompletionTool[] = [
       name: 'search_knowledge_base',
       description:
         '在用户已连接的 Obsidian 知识库中全文检索笔记。返回匹配笔记的路径与片段（非整篇）。' +
-        '用户问及个人笔记/知识库/过往记录时调用；引用时注明笔记路径。',
+        '用户问及个人笔记 / 知识库 / 过往记录，或点名某主题时调用——即使该主题与飞书无关（编程、指令文档等），' +
+        '只要可能在知识库里就先查。引用时注明笔记路径。',
       parameters: {
         type: 'object',
         required: ['query'],
@@ -1188,10 +1207,25 @@ export const KNOWLEDGE_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'list_knowledge_notes',
+      description:
+        '列出用户 Obsidian 知识库中最近修改的笔记（仅路径 + 时间，不含正文）。' +
+        '用户问"我有哪些笔记 / 最近写了什么"，或 search 没命中、想浏览可用笔记时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: '返回条数，默认 30，最大 100', minimum: 1, maximum: 100 },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'read_knowledge_note',
       description:
         '读取 Obsidian 知识库中指定路径笔记的完整正文（Markdown）。' +
-        '先用 search_knowledge_base 拿到路径，再按需读全文。大笔记会被截断。',
+        '先用 search_knowledge_base / list_knowledge_notes 拿到路径，再按需读全文。大笔记会被截断。',
       parameters: {
         type: 'object',
         required: ['path'],
