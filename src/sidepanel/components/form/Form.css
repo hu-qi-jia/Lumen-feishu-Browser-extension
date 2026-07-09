@@ -57,7 +57,6 @@
 .form-input:focus,
 .field-input:focus {
   border-color: var(--color-primary);
-  box-shadow: var(--ring);
 }
 
 /* ── Checkbox row (Feishu-style) ── */

@@ -17,9 +17,88 @@ import {
 } from '../../../shared/feishu/oauth'
 import { FormField, FormInput } from '../form'
 import Button from '../Button'
+import CodeBlock from '../CodeBlock'
 import Tooltip from '../Tooltip'
 import FeishuSteps from './FeishuSteps'
 import type { SettingsTabProps } from './types'
+
+/** 脱敏：保留前4后4，中间用 * 填充。 */
+function maskSecret(s: string): string {
+  if (!s) return ''
+  if (s.length <= 8) return '*'.repeat(s.length)
+  return s.slice(0, 4) + '*'.repeat(s.length - 8) + s.slice(-4)
+}
+
+const PERMISSION_SCOPES = `{
+  "scopes": {
+    "tenant": [
+      "admin:app.visibility",
+      "base:app:copy",
+      "base:app:create",
+      "base:app:read",
+      "base:app:update",
+      "base:block:create",
+      "base:block:delete",
+      "base:block:read",
+      "base:block:update",
+      "base:history:read",
+      "base:workspace:list",
+      "bitable:app",
+      "bitable:app:readonly",
+      "contact:contact.base:readonly",
+      "contact:department.base:readonly",
+      "contact:user.assign_info:read",
+      "contact:user.base:readonly",
+      "contact:user.basic_profile:readonly",
+      "contact:user.department:readonly",
+      "contact:user.dotted_line_leader_info.read",
+      "contact:user.email:readonly",
+      "contact:user.employee:readonly",
+      "contact:user.employee_id:readonly",
+      "contact:user.employee_number:read",
+      "contact:user.gender:readonly",
+      "contact:user.id:readonly",
+      "contact:user.job_family:readonly",
+      "contact:user.job_level:readonly",
+      "contact:user.phone:readonly",
+      "contact:user.subscription_ids:write",
+      "contact:user.user_geo",
+      "docx:document",
+      "docx:document.block:convert",
+      "docx:document:create",
+      "docx:document:readonly",
+      "docx:document:write_only",
+      "drive:drive",
+      "drive:drive.metadata:readonly",
+      "drive:drive.search:readonly",
+      "drive:drive:readonly",
+      "drive:drive:version",
+      "drive:drive:version:readonly",
+      "sheets:spreadsheet",
+      "sheets:spreadsheet.meta:read",
+      "sheets:spreadsheet.meta:write_only",
+      "sheets:spreadsheet:create",
+      "sheets:spreadsheet:read",
+      "sheets:spreadsheet:readonly",
+      "sheets:spreadsheet:write_only",
+      "slides:presentation:create",
+      "slides:presentation:read",
+      "slides:presentation:update",
+      "slides:presentation:write_only",
+      "wiki:wiki",
+      "wiki:wiki:readonly"
+    ],
+    "user": [
+      "docx:document",
+      "docx:document.block:convert",
+      "docx:document:create",
+      "docx:document:readonly",
+      "docx:document:write_only",
+      "offline_access",
+      "wiki:wiki"
+    ]
+  }
+}`
 
 /** 飞书 tab：分步骤引导完成自建应用 → 后台配置 → 鉴权 → 测试连接。 */
 export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
@@ -38,6 +117,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
   // "Bring your own app" — public / store build ships no creds.
   const [byoAppId, setByoAppId] = useState('')
   const [byoSecret, setByoSecret] = useState('')
+  const [byoSecretFocused, setByoSecretFocused] = useState(false)
   const [byoSaved, setByoSaved] = useState(false)
   const [byoMsg, setByoMsg] = useState('')
 
@@ -183,23 +263,23 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                   onChange={(e) => setByoAppId(e.target.value)}
                   placeholder="App ID：cli_xxxxxxxxxxxx"
                 />
-                <FormInput
-                  type="password"
-                  value={byoSecret}
+                <input
+                  className="form-input"
+                  type="text"
+                  value={byoSecretFocused ? byoSecret : maskSecret(byoSecret)}
                   onChange={(e) => setByoSecret(e.target.value)}
+                  onFocus={() => setByoSecretFocused(true)}
+                  onBlur={() => setByoSecretFocused(false)}
                   placeholder={byoSaved ? 'App Secret（已保存，如需更新再填）' : 'App Secret'}
                 />
-                <div className="test-row" style={{ marginTop: 6 }}>
-                  <button
-                    className="btn-test"
-                    type="button"
-                    onClick={() => void saveByoCreds()}
-                    disabled={!byoAppId.trim() || !byoSecret.trim()}
-                  >
-                    保存应用凭据
-                  </button>
-                  {byoSaved && <span className="test-result test-result--ok">已配置</span>}
-                </div>
+                <Button
+                  variant="primary"
+                  block
+                  onClick={() => void saveByoCreds()}
+                  disabled={!byoAppId.trim() || !byoSecret.trim()}
+                >
+                  保存应用凭据
+                </Button>
                 {byoMsg && <span className="field-hint">{byoMsg}</span>}
               </>
             )}
@@ -210,21 +290,18 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         title: '开放平台配置',
         description: '登记重定向 URL 并开通权限',
         content: (
-          <div className="help-box">
-            <p>在飞书后台「安全设置 → 重定向 URL」登记（须完全一致，含末尾斜杠）：</p>
-            {redirectUrl ? <pre className="help-code">{redirectUrl}</pre> : null}
-            <p>
-              权限管理开通（勾<b>用户身份</b>）：<code>offline_access</code> + 按需{' '}
-              <code>bitable:app</code> <code>docx:document</code>{' '}
-              <code>sheets:spreadsheet</code> <code>drive:drive</code>{' '}
-              <code>wiki:wiki</code> <code>contact:user.base:readonly</code>；并把自己加入「可用范围」、发布应用。
+          <div className="feishu-config-help">
+            <p className="feishu-config-text">
+              在飞书后台「安全设置 → 重定向 URL」登记（须完全一致，含末尾斜杠）：
             </p>
-            {HAS_BUILTIN_CREDS && oauthRedirectUrl() && (
-              <p className="help-note">
-                首次需在飞书开放平台「安全设置 → 重定向 URL」添加：
-                <code>{oauthRedirectUrl()}</code>
-              </p>
-            )}
+            {redirectUrl && <CodeBlock code={redirectUrl} />}
+            <p className="feishu-config-text">
+              权限管理开通（勾<b>用户身份</b>），权限范围参考下方代码块：
+            </p>
+            <CodeBlock code={PERMISSION_SCOPES} scrollable />
+            <p className="feishu-config-text">
+              并把自己加入「可用范围」、发布应用。
+            </p>
           </div>
         ),
       },
@@ -323,7 +400,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
               placeholder={HAS_BUILTIN_CREDS ? '留空则使用内置凭据' : 'u-xxxxxxxxxxxxxxxxxxxxxxxx'}
             />
 
-            <FormField label="你的 open_id（新建多维表格归属）">
+            <FormField label="open_id">
               <FormInput
                 type="text"
                 value={form.feishuOwnerOpenId}
@@ -332,11 +409,11 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
               />
             </FormField>
 
-            <div className="test-row">
+            <div className="feishu-btn-row">
               {(HAS_BUILTIN_CREDS || byoSaved) && (
-                <button className="btn-test" onClick={authorize} disabled={authing}>
-                  {authing ? '授权中…' : '用飞书账号授权'}
-                </button>
+                <Button variant="primary" block onClick={authorize} disabled={authing}>
+                  {authing ? '授权中…' : '飞书账户授权'}
+                </Button>
               )}
               <Tooltip
                 content={
@@ -346,25 +423,26 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
                 }
                 position="top"
               >
-                <button
-                  className="btn-test"
+                <Button
+                  variant="secondary"
+                  block
                   onClick={fillOpenIdFromToken}
                   disabled={authing || !form.feishuAccessToken.trim()}
                 >
-                  {authing ? '获取中…' : '用 token 取 open_id'}
-                </button>
+                  {authing ? '获取中…' : 'token取open_id'}
+                </Button>
               </Tooltip>
-              {authResult && (
-                <span
-                  className={`test-result ${authResult.ok ? 'test-result--ok' : 'test-result--err'}`}
-                >
-                  {authResult.msg}
-                </span>
-              )}
             </div>
+            {authResult && (
+              <span
+                className={`test-result ${authResult.ok ? 'test-result--ok' : 'test-result--err'}`}
+              >
+                {authResult.msg}
+              </span>
+            )}
             <p className="field-hint">
               授权失败时，可改用右边：在上方「user_access_token」粘贴你的 token（见「如何获取?」），
-              再点【用 token 取 open_id】——无需登记重定向 URL。
+              再点【token取open_id】——无需登记重定向 URL。
             </p>
             <p className="field-hint">
               用「内置凭据 / tenant」身份新建的多维表格默认归应用所有、不在你的云空间显示。
@@ -379,9 +457,9 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         content: (
           <div className="field-group">
             <div className="test-row">
-              <button className="btn-test" onClick={testFeishu} disabled={testing || !feishuReady}>
+              <Button variant="secondary" onClick={testFeishu} disabled={testing || !feishuReady}>
                 {testing ? '测试中…' : '测试飞书连接'}
-              </button>
+              </Button>
               {testResult && (
                 <span
                   className={`test-result ${testResult.ok ? 'test-result--ok' : 'test-result--err'}`}
@@ -399,6 +477,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       builtinBadge,
       byoAppId,
       byoSecret,
+      byoSecretFocused,
       byoSaved,
       byoMsg,
       redirectUrl,

@@ -6,7 +6,7 @@
   background: var(--color-bg, #fff); color: var(--color-text); outline: none;
   transition: border-color .15s, box-shadow .15s; font-family: inherit;
 }
-.as-input:focus, .as-url:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.as-input:focus, .as-url:focus { border-color: var(--color-primary); }
 .as-input { height: auto; min-height: 36px; resize: vertical; padding: 8px 10px; line-height: 1.5; }
 .as-input::placeholder, .as-url::placeholder { color: var(--color-text-secondary); }
 .as-row { display: flex; gap: 8px; }
@@ -40,7 +40,7 @@
   background: var(--color-bg, #fff); color: var(--color-text); resize: vertical;
   outline: none; transition: border-color .15s, box-shadow .15s; font-family: inherit;
 }
-.as-plan-edit:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.as-plan-edit:focus { border-color: var(--color-primary); }
 
 .as-export { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .as-report {

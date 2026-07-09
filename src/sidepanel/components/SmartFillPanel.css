@@ -16,7 +16,7 @@
   box-sizing: border-box; outline: none;
   transition: border-color .15s, box-shadow .15s; font-family: inherit;
 }
-.sf-select:focus, .sf-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.sf-select:focus, .sf-input:focus { border-color: var(--color-primary); }
 .sf-input { height: auto; min-height: 36px; resize: vertical; padding: 8px 10px; line-height: 1.5; }
 .sf-select::placeholder, .sf-input::placeholder { color: var(--color-text-secondary); }
 .sf-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text); margin: 4px 2px; cursor: pointer; }

@@ -136,6 +136,6 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
 
 const ENGINE_OPTIONS: { value: TranslationEngine; label: string }[] = [
   { value: 'off', label: '关闭' },
-  { value: 'bing', label: 'Bing 翻译（默认）' },
-  { value: 'ai', label: 'AI 翻译（需配置模型密钥）' },
+  { value: 'bing', label: 'Bing翻译' },
+  { value: 'ai', label: 'AI翻译' },
 ]

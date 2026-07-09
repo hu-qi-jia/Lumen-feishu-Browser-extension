@@ -14,7 +14,7 @@
   resize: vertical; box-sizing: border-box; outline: none;
   transition: border-color .15s, box-shadow .15s; font-family: inherit;
 }
-.dv-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.dv-input:focus { border-color: var(--color-primary); }
 .dv-input::placeholder { color: var(--color-text-secondary); }
 .dv-btn {
   height: 36px; padding: 0 14px; font-size: 13px; font-weight: 500; border-radius: 8px;

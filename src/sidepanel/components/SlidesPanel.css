@@ -25,7 +25,7 @@
   background: var(--color-bg); color: var(--color-text); outline: none;
   transition: border-color .15s, box-shadow .15s; font-family: inherit; box-sizing: border-box;
 }
-.sl-req:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(51,112,255,.15); }
+.sl-req:focus { border-color: var(--color-primary); }
 .sl-req::placeholder { color: var(--color-text-secondary); }
 
 /* Action rows: buttons share width equally; min-width:0 lets them shrink below
