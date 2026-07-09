@@ -3,8 +3,9 @@ import type { AppSettings } from '../../shared/types'
 import { recentNotes, searchVault, type ObsidianNoteRow } from '../../shared/obsidian/api'
 import Tooltip from './Tooltip'
 import SearchBox from './SearchBox'
+import SegmentedTabs from './SegmentedTabs'
 import ObsidianNoteDetail from './ObsidianNoteDetail'
-import { IconPlus } from './icons'
+import { IconPlus, IconFileText } from './icons'
 import './ObsidianVaultView.css'
 
 interface Props {
@@ -89,10 +90,17 @@ export default function ObsidianVaultView({ settings }: Props) {
         <SearchBox value={query} onChange={setQuery} onSearch={runSearch} placeholder="搜索笔记…  (Ctrl+K)" ariaLabel="搜索笔记" inputRef={searchInput} />
       </div>
 
-      <div className="sc-target-opts">
-        <button className={`sc-target-opt${tab === 'recent' ? ' sc-target-opt--active' : ''}`} onClick={() => { setTab('recent'); loadRecent() }} type="button">最近</button>
-        <button className={`sc-target-opt${tab === 'search' ? ' sc-target-opt--active' : ''}`} onClick={() => setTab('search')} type="button">搜索</button>
-      </div>
+      <SegmentedTabs
+        options={[
+          { value: 'recent', label: '最近' },
+          { value: 'search', label: '搜索' },
+        ]}
+        value={tab}
+        onChange={(v) => {
+          setTab(v)
+          if (v === 'recent') loadRecent()
+        }}
+      />
 
       {error && <div className="sc-refresh-err">{error}</div>}
       {loading && <div className="sc-empty">载入中…</div>}
@@ -104,9 +112,15 @@ export default function ObsidianVaultView({ settings }: Props) {
           return (
             <li key={r.path}>
               <button className="kb-row" onClick={() => setActive(r.path)} type="button">
-                <span className="kb-row-title">{title}</span>
-                {r.path !== title && <span className="kb-row-path">{r.path}</span>}
-                {r.snippet && <span className="kb-row-snip">{r.snippet}</span>}
+                <IconFileText className="kb-row-icon" />
+                <span className="kb-row-meta">
+                  <span className="kb-row-title">{title}</span>
+                  {(r.path !== title || r.snippet) && (
+                    <span className="kb-row-sub">
+                      {r.snippet || r.path}
+                    </span>
+                  )}
+                </span>
                 {r.mtime && tab === 'recent' && <span className="kb-row-time">{relTime(r.mtime)}</span>}
               </button>
             </li>

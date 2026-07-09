@@ -5,7 +5,6 @@ import { sanitizeVaultPath } from '../../shared/obsidian/util'
 import Markdown from './Markdown'
 import TopBar from './TopBar'
 import Button from './Button'
-import { FormTextArea } from './form'
 import { IconEdit, IconTrash } from './icons'
 import './ObsidianNoteDetail.css'
 
@@ -97,7 +96,14 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
           {isNew && (
             <input className="form-input kb-title-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="笔记标题" />
           )}
-          <FormTextArea className="kb-editor" data-testid="kb-editor" value={draft} onChange={(e) => setDraft(e.target.value)} ariaLabel="笔记正文" />
+          <textarea
+            className="kb-editor"
+            data-testid="kb-editor"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-label="笔记正文"
+            placeholder="输入 Markdown 正文…"
+          />
           <div className="kb-detail-foot">
             {!isNew && <Button variant="secondary" onClick={() => { setDraft(body); setMode('view') }}>取消</Button>}
             <Button variant="primary" onClick={save} disabled={saving}>{saving ? '保存中…' : '保存'}</Button>
