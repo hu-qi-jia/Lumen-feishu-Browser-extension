@@ -1,11 +1,10 @@
 /* Action row under a completed agent reply — copy + retry, icon-only with hover tooltips.
-   Sits as the last child of .reply-block; a small negative margin snugs it closer to the
-   text than the reply-block's default 8px gap. */
+   Sits as the last child of .reply-block; aligned to the right. */
 .reply-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
-  margin-top: -4px;
 }
 .reply-action {
   display: inline-flex;
