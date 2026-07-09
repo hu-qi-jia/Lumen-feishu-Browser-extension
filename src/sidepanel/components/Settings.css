@@ -11,7 +11,7 @@
   justify-content: space-between;
   padding: 12px 14px;
   flex-shrink: 0;
-  background: var(--color-surface);
+  background: var(--color-bg);
 }
 .settings-header h2 { font-size: 14px; font-weight: 600; }
 
@@ -21,8 +21,8 @@
   padding: 16px 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  background: var(--color-surface);
+  gap: var(--settings-gap-section);
+  background: var(--color-bg);
 }
 
 /* Flat section: no card chrome, just a heading + stacked rows.
@@ -30,8 +30,8 @@
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 0 12px;
+  gap: var(--settings-gap-field);
+  padding: 0 0 var(--settings-pad-section);
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--color-border);
@@ -368,23 +368,19 @@
 /* ── Code block + copy button ── */
 .code-block {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 0;
-  background: var(--color-code-bg);
-  border: 1px solid var(--color-border);
+  background: #1a1a1a;
+  border: 1px solid #333;
   border-radius: 6px;
   padding: 0;
 }
 .code-block__pre {
-  flex: 1;
-  min-width: 0;
   margin: 0;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  padding-right: 40px;
   font-family: monospace;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--color-code-text);
+  color: #e0e0e0;
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -395,22 +391,30 @@
   word-break: normal;
 }
 .code-block__copy {
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin: 4px 6px 0 0;
-  padding: 2px 8px;
-  border: 1px solid var(--color-border);
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
   border-radius: 4px;
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-family: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  color: #bbb;
   cursor: pointer;
-  transition: border-color .15s, color .15s;
+  transition: background .15s, color .15s;
+  z-index: 1;
 }
 .code-block__copy:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.code-block__copy svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ── Test connection ── */
@@ -528,10 +532,10 @@
 .feishu-step__body {
   flex: 1;
   min-width: 0;
-  padding-bottom: 18px;
+  padding-bottom: var(--settings-pad-section);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--settings-gap-item);
 }
 
 .feishu-step:last-child .feishu-step__body {
@@ -561,7 +565,7 @@
 .feishu-step__content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--settings-gap-item);
 }
 
 /* Active step */
@@ -588,7 +592,7 @@
 .feishu-config-help {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--settings-gap-item);
 }
 .feishu-config-text {
   margin: 0;

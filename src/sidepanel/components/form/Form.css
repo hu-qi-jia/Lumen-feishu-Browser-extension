@@ -31,7 +31,7 @@
   color: var(--color-text-secondary);
   line-height: 1.5;
 }
-.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-group { display: flex; flex-direction: column; gap: var(--settings-gap-field); }
 .field-label-inline { font-size: 12px; font-weight: 500; color: var(--color-text); }
 
 /* ── Form input (text / password / url / select) ──

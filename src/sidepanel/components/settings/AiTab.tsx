@@ -43,7 +43,7 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
         {HAS_MANAGED_LLM && (() => {
           const managed = usingManagedLlm(form) // single source of truth (shared with the runtime)
           return (
-            <div className="field-label" style={{ gap: 6 }}>
+            <div className="field-label" style={{ gap: 6, fontWeight: 600 }}>
               <span>大模型配置来源</span>
               {BUILD_CONFIG.llmLockManaged ? (
                 <span className="field-hint">由企业统一下发并锁定（不可手动配置）。</span>

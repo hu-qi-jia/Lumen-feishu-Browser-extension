@@ -13,7 +13,7 @@
   justify-content: space-between;
   padding: 12px 14px;
   flex-shrink: 0;
-  background: var(--color-surface);
+  background: var(--color-bg);
 }
 .news-header h2 { font-size: 14px; font-weight: 600; }
 
@@ -21,7 +21,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 4px 0 14px;
-  background: var(--color-surface);
+  background: var(--color-bg);
 }
 
 /* ── Refresh bar ── */

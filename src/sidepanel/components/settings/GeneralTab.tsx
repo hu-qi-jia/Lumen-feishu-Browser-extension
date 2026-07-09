@@ -110,7 +110,6 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">翻译引擎</span>
-            <span className="settings-row-desc">GitHub 项目描述的翻译方式</span>
           </div>
           <span className="settings-row-control">
             <SettingsSelect

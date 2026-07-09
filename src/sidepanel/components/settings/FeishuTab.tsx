@@ -145,7 +145,6 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
     }
     await saveUserAppCreds(byoAppId.trim(), byoSecret.trim())
     setByoSaved(true)
-    setByoSecret('')
     setByoMsg('已保存（App Secret 已本机加密存储）。现在可继续下一步并「用飞书账号授权」。')
   }
 
@@ -257,21 +256,25 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
             {builtinBadge}
             {!HAS_BUILTIN_CREDS && (
               <>
-                <FormInput
-                  type="text"
-                  value={byoAppId}
-                  onChange={(e) => setByoAppId(e.target.value)}
-                  placeholder="App ID：cli_xxxxxxxxxxxx"
-                />
-                <input
-                  className="form-input"
-                  type="text"
-                  value={byoSecretFocused ? byoSecret : maskSecret(byoSecret)}
-                  onChange={(e) => setByoSecret(e.target.value)}
-                  onFocus={() => setByoSecretFocused(true)}
-                  onBlur={() => setByoSecretFocused(false)}
-                  placeholder={byoSaved ? 'App Secret（已保存，如需更新再填）' : 'App Secret'}
-                />
+                <FormField label="APP ID">
+                  <FormInput
+                    type="text"
+                    value={byoAppId}
+                    onChange={(e) => setByoAppId(e.target.value)}
+                    placeholder="cli_xxxxxxxxxxxx"
+                  />
+                </FormField>
+                <FormField label="APP Secret">
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={byoSecretFocused ? byoSecret : maskSecret(byoSecret)}
+                    onChange={(e) => setByoSecret(e.target.value)}
+                    onFocus={() => setByoSecretFocused(true)}
+                    onBlur={() => setByoSecretFocused(false)}
+                    placeholder={byoSaved ? '已保存，如需更新再填' : '输入 App Secret'}
+                  />
+                </FormField>
                 <Button
                   variant="primary"
                   block
@@ -457,7 +460,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         content: (
           <div className="field-group">
             <div className="test-row">
-              <Button variant="secondary" onClick={testFeishu} disabled={testing || !feishuReady}>
+              <Button variant="secondary" block onClick={testFeishu} disabled={testing || !feishuReady}>
                 {testing ? '测试中…' : '测试飞书连接'}
               </Button>
               {testResult && (

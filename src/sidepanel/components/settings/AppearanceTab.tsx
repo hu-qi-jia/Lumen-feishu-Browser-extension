@@ -26,7 +26,6 @@ export default function AppearanceTab({ accent, onAccentChange, theme, onThemeCh
         <div className="settings-row">
           <div className="settings-row-main">
             <span className="settings-row-title">外观模式</span>
-            <span className="settings-row-desc">选择浅色或深色界面</span>
           </div>
           <span className="settings-row-control">
             <SettingsSelect
@@ -41,12 +40,6 @@ export default function AppearanceTab({ accent, onAccentChange, theme, onThemeCh
 
       {/* ── 主题颜色 ── */}
       <SettingsSection title="主题颜色">
-        <div className="settings-row">
-          <div className="settings-row-main">
-            <span className="settings-row-title">强调色</span>
-            <span className="settings-row-desc">用于按钮、链接、开关等高亮元素</span>
-          </div>
-        </div>
         <div className="accent-grid">
           {ACCENT_PRESETS.map((p) => (
             <Tooltip key={p.hex} content={p.name} position="bottom">
