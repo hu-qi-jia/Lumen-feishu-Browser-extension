@@ -36,22 +36,21 @@
 .btn--primary {
   background: var(--color-primary);
   color: #fff;
-  border-color: transparent;
+  border-color: var(--color-primary);
 }
-.btn--primary:hover:not(:disabled) { filter: brightness(1.06); }
-.btn--primary:active:not(:disabled) { filter: brightness(.96); }
+.btn--primary:hover:not(:disabled) { border-color: var(--color-primary-hover); }
+.btn--primary:active:not(:disabled) { border-color: var(--color-primary-hover); }
 
 .btn--secondary:hover:not(:disabled) {
   border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 .btn--danger {
   background: #e5484d;
   color: #fff;
-  border-color: transparent;
+  border-color: #e5484d;
 }
-.btn--danger:hover:not(:disabled) { filter: brightness(1.06); }
+.btn--danger:hover:not(:disabled) { border-color: #c43a3f; }
 
 .btn--ghost {
   background: transparent;
@@ -59,8 +58,7 @@
   color: var(--color-text-secondary);
 }
 .btn--ghost:hover:not(:disabled) {
-  background: var(--color-surface-2);
-  color: var(--color-text);
+  border-color: var(--color-primary);
 }
 
 /* ── Loading spinner ────────────────────────────────────────────────────── */
@@ -96,8 +94,8 @@
   color: var(--color-primary);
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: border-color 0.15s;
   white-space: nowrap;
 }
-.btn-test:hover:not(:disabled) { background: var(--color-primary); color: white; }
+.btn-test:hover:not(:disabled) { border-color: var(--color-primary-hover); }
 .btn-test:disabled { opacity: 0.4; cursor: not-allowed; }

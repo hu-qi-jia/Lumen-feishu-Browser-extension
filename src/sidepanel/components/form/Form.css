@@ -50,6 +50,10 @@
   font-family: inherit;
   width: 100%;
 }
+.form-input:hover,
+.field-input:hover {
+  border-color: var(--color-primary);
+}
 .form-input:focus,
 .field-input:focus {
   border-color: var(--color-primary);
