@@ -62,7 +62,7 @@ export interface AgentCallbacks {
 }
 
 // Safety checkpoint: max tool calls per turn before stopping to ask the user to continue
-// (prevents runaway loops / mass operations). Default 30, tunable via VITE_MAX_TOOL_CALLS.
+// (prevents runaway loops / mass operations). Default 60, tunable via VITE_MAX_TOOL_CALLS.
 const MAX_TOOL_CALLS_PER_TURN = BUILD_CONFIG.maxToolCalls
 
 // Low temperature for the orchestration loop: tool SELECTION and ARG values (row indices, counts,
@@ -1699,6 +1699,8 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
 - 任何 ID/token —— \`app_token\` / \`table_id\` / \`field_id\` / \`view_id\` / \`record_id\` / \`dashboard_block_id\` 等 —— **一律由你自己调用 \`list_*\` / \`search_records\` 工具查出来**，**绝不要**要求用户提供、粘贴或"去查一下 block_id"。用户不是机器、查不到也不该查。
 - 典型：要复制仪表盘 → 先 \`list_dashboards\` 拿到 \`dashboard_block_id\`，再 \`copy_dashboard\`；要改/删字段 → 先 \`list_fields\` 拿 \`field_id\`；要批改记录 → 先 \`search_records\` 拿 \`record_id\`。
 - **一个回合内把需要的信息自己查齐再执行**，不要把任务半途丢回给用户、让 TA 去别处找信息再回来填——那样会丢上下文、体验很差。
+- **独立的只读查询放在同一轮一起发**：需要同时查多张表 / 多个字段 / 文档结构等**互不依赖**的信息时，**在同一条回复里一次性发出全部工具调用**（如 list_tables + list_fields + search_records、或 list_blocks + read_range）——系统会**并行执行**这些只读调用，远比一个一个串行查快得多。只有"后一步依赖前一步结果"时才分轮。
+- **list_blocks / list_records 一次拿够，不要反复翻页**：\`list_blocks\` 一次返回整篇文档的全部块 + \`root_children_count\`（根块总数 N）+ 带 0 基索引的 \`root_children\` 清单——**读一次就够**，后续插入/删除都按这次结果里的索引操作，**不要每写一步就重新 list_blocks**。\`list_records\` 默认只回第一页，需要多看记录时传 \`page_size: 100\`。
 - 只有**语义/决策**信息（建什么表、字段叫什么、选哪个方案、是否确认删除）才需要问用户。
 
 ## 1.5 拿不准就直接在回复里问
@@ -1748,7 +1750,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
 - \`update_field\` 修改单选/多选选项时，必须传入**完整** options 列表（含现有选项），否则会清空现有选项
 
 ## 6. 单轮调用上限
-- 每轮对话最多调用 20 个工具。超出前，先输出计划摘要并询问用户是否继续
+- 每轮对话最多调用 60 个工具——多数任务一次就能做完，正常推进即可，不要中途停下来问。只有任务特别大、确实会超过 60 次时，先简述已完成进度和剩余计划，提示用户回复「继续」即可带上下文接着执行。
 
 ## 7. 灵活能力（通用 API）与按评论改文档
 - **通用 API**：现有专用工具覆盖不了的需求，用 \`feishu_api_call\` 按飞书官方 API 文档自己构造请求直接调用（\`path\` 以 / 开头、相对 /open-apis，配 method/body/query）。优先用专用工具，专用工具没有的能力才用它。**注意：\`feishu_api_call\` 的 DELETE 请求一律被系统拦截（见 2.1 文件级删除），不要用它删任何东西；PUT/PATCH 等修改写入遵守第 2.2 条确认。**
