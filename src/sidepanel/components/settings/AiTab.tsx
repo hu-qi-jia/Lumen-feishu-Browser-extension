@@ -5,7 +5,7 @@ import {
   assertSafeBaseUrl,
   providerForBaseUrl,
 } from '../../../shared/providers'
-import { FormField, FormInput, FormToggle } from '../form'
+import { FormField, FormInput, FormSelect, FormToggle } from '../form'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
@@ -71,14 +71,13 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
         {!usingManagedLlm(form) && (
           <div className="model-config-fields">
             <FormField label="API 协议">
-              <FormToggle
-                options={[
-                  { value: 'openai', label: 'OpenAI Chat Completions 格式' },
-                  { value: 'anthropic', label: 'Anthropic Messages 格式' },
-                ]}
+              <FormSelect
                 value={llmFormat}
-                onChange={(v) => patch({ llmFormat: v as 'openai' | 'anthropic' })}
-              />
+                onChange={(e) => patch({ llmFormat: e.target.value as 'openai' | 'anthropic' })}
+              >
+                <option value="openai">OpenAI Chat Completions 格式</option>
+                <option value="anthropic">Anthropic Messages 格式</option>
+              </FormSelect>
             </FormField>
 
             <FormField
