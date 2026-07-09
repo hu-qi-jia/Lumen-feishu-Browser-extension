@@ -24,7 +24,7 @@ describe('InputBar 知识库开关', () => {
     expect(screen.getByText('知识库')).toBeTruthy()
   })
 
-  it('点击开关触发 onToggleKb(true)', () => {
+  it('点击知识库选项触发 onToggleKb(true)', () => {
     if (!HAS_KNOWLEDGE_BASE) return
     const toggle = vi.fn()
     render(
@@ -37,7 +37,7 @@ describe('InputBar 知识库开关', () => {
       />,
     )
     fireEvent.click(screen.getByText('Tools'))
-    fireEvent.click(screen.getByRole('switch'))
+    fireEvent.click(screen.getByText('知识库'))
     expect(toggle).toHaveBeenCalledWith(true)
   })
 })

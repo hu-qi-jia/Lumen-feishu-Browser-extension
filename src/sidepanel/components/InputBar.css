@@ -159,6 +159,8 @@
 }
 .btn-tools:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
 .btn-tools:disabled { opacity: .4; cursor: not-allowed; }
+.btn-tools--active { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-soft); }
+.btn-tools--active:hover:not(:disabled) { background: var(--color-primary-soft); }
 
 .tools-menu {
   position: absolute;
@@ -190,8 +192,12 @@
   transition: background .12s;
 }
 .tools-menu-item:hover { background: var(--color-surface); }
+.tools-menu-item--active { color: var(--color-primary); background: var(--color-primary-soft); }
+.tools-menu-item--active:hover { background: var(--color-primary-soft); }
 
 .tools-menu-item--toggle { display: flex; align-items: center; }
+
+.tools-menu-check { width: 12px; height: 12px; margin-right: 5px; vertical-align: -2px; }
 
 .tools-menu-divider { height: 1px; background: var(--color-border); margin: 4px 0; }
 

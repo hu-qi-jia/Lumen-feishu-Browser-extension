@@ -22,7 +22,12 @@ export default function KnowledgeBaseTab({ form, patch }: SettingsTabProps) {
   const [result, setResult] = useState<Result | null>(null)
   const [showAdv, setShowAdv] = useState(false)
 
-  useEffect(() => { getObsidianToken().then((t) => setHasStored(!!t)) }, [])
+  useEffect(() => {
+    getObsidianToken().then((t) => {
+      setHasStored(!!t)
+      if (t) setApiKey(t)
+    })
+  }, [])
 
   const canTest = !!apiKey.trim() || hasStored
 
@@ -58,7 +63,7 @@ export default function KnowledgeBaseTab({ form, patch }: SettingsTabProps) {
       title: '开启 HTTP server',
       description: (
         <>
-          Obsidian 设置 → Local REST API，打开「Enable non-encrypted (HTTP) server」
+          插件设置 → 打开「Enable non-encrypted (HTTP) server」
           <Tooltip content="扩展无法信任 HTTPS 的自签名证书，故走 HTTP（端口 27123）。流量仅在本机回环，API Key 仍加密存储。" position="right">
             <span className="kb-q" style={{ marginLeft: 4 }}>?</span>
           </Tooltip>
@@ -74,8 +79,8 @@ export default function KnowledgeBaseTab({ form, patch }: SettingsTabProps) {
             <FormInput type="url" value={form.obsidianBaseUrl ?? ''} onChange={(e) => patch({ obsidianBaseUrl: e.target.value })} placeholder="http://127.0.0.1:27123" />
           </FormField>
 
-          <FormField label="API Key" hint={hasStored ? '已保存，留空则沿用；填写则覆盖。' : '粘贴 Obsidian Local REST API 页面显示的 API Key。'}>
-            <FormInput type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={hasStored ? '••••••（已保存）' : '粘贴 API Key'} />
+          <FormField label="API Key" hint="粘贴 Obsidian Local REST API 页面显示的 API Key；已保存的 Key 可点击眼睛图标查看或编辑覆盖。">
+            <FormInput type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="粘贴 API Key" />
           </FormField>
         </div>
       ),

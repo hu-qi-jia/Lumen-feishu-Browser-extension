@@ -4,7 +4,7 @@ import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, p
 import { preloadSkills, type Skill } from '../../shared/ai/skills'
 import { HAS_KNOWLEDGE_BASE } from '../../shared/config'
 import Tooltip from './Tooltip'
-import FormSwitch from './form/FormSwitch'
+import { IconCheck } from './icons'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
@@ -303,7 +303,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
             <div className="tools-menu-wrap" ref={skillsWrapRef}>
               <Tooltip content={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : (skills.length ? '技能建议' : '暂无可用技能')}>
                 <button
-                  className="btn-tools"
+                  className={`btn-tools${kbEnabled ? ' btn-tools--active' : ''}`}
                   onClick={() => setSkillsOpen((v) => !v)}
                   disabled={blocked || (!HAS_KNOWLEDGE_BASE && skills.length === 0)}
                   type="button"
@@ -312,17 +312,22 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                   </svg>
-                  <span>Tools</span>
+                  <span>{kbEnabled ? '知识库' : 'Tools'}</span>
                 </button>
               </Tooltip>
               {skillsOpen && (
                 <div className="tools-menu">
                   {HAS_KNOWLEDGE_BASE && (
-                    <div className="tools-menu-item tools-menu-item--toggle">
-                      <FormSwitch checked={kbEnabled} onChange={onToggleKb}>
-                        <span className="tools-menu-title">知识库</span>
-                      </FormSwitch>
-                    </div>
+                    <button
+                      className={`tools-menu-item${kbEnabled ? ' tools-menu-item--active' : ''}`}
+                      onClick={() => { onToggleKb(!kbEnabled); setSkillsOpen(false) }}
+                      type="button"
+                    >
+                      <span className="tools-menu-title">
+                        {kbEnabled && <IconCheck className="tools-menu-check" />}
+                        知识库
+                      </span>
+                    </button>
                   )}
                   {HAS_KNOWLEDGE_BASE && skills.length > 0 && <div className="tools-menu-divider" />}
                   {skills.slice(0, 6).map((s) => (
