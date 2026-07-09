@@ -1,9 +1,5 @@
-.kb-tab { display: flex; flex-direction: column; gap: 14px; }
-.kb-tab-test { display: flex; align-items: center; gap: 10px; }
-.kb-tab-result { font-size: 12px; }
-.kb-tab-result--ok { color: var(--color-success-strong, var(--color-primary)); }
-.kb-tab-result--err { color: var(--color-warning-strong); }
-.kb-tab-adv { margin-top: -4px; }
+.kb-config-tab { display: flex; flex-direction: column; gap: 14px; }
+.kb-config-adv { margin-top: -4px; }
 .kb-link-btn { background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: 12px; padding: 0; }
 .kb-link-btn:hover { text-decoration: underline; }
 /* Tooltip trigger badge for the HTTP-server step — self-contained in the settings tab. */

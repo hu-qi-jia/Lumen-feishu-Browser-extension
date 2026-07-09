@@ -16,9 +16,10 @@ beforeEach(() => { mockPing.mockReset(); mockSaveToken.mockReset(); mockGetToken
 afterEach(cleanup)
 
 describe('KnowledgeBaseTab', () => {
-  it('渲染三步引导 + 端点/API Key 字段', () => {
+  it('渲染四步引导 + 端点/API Key 字段', () => {
     render(<KnowledgeBaseTab form={{ ...DEFAULT_SETTINGS } as AppSettings} patch={() => {}} set={() => () => {}} />)
     expect(screen.getByText('安装社区插件')).toBeTruthy()
+    expect(screen.getByText('测试连接')).toBeTruthy()
     expect(screen.getByPlaceholderText('http://127.0.0.1:27123')).toBeTruthy()
   })
   it('填 key + 测试连接成功 → 存 token + patch vault', async () => {
@@ -26,7 +27,7 @@ describe('KnowledgeBaseTab', () => {
     const patch = vi.fn()
     render(<KnowledgeBaseTab form={{ ...DEFAULT_SETTINGS } as AppSettings} patch={patch} set={() => () => {}} />)
     fireEvent.change(screen.getByPlaceholderText('粘贴 API Key'), { target: { value: 'k1' } })
-    fireEvent.click(screen.getByText('测试连接'))
+    fireEvent.click(screen.getByText('测试 Obsidian 连接'))
     await waitFor(() => expect(mockPing).toHaveBeenCalled())
     await waitFor(() => expect(mockSaveToken).toHaveBeenCalledWith('k1'))
     expect(patch).toHaveBeenCalledWith(expect.objectContaining({ obsidianVaultName: 'MyVault' }))
@@ -37,7 +38,7 @@ describe('KnowledgeBaseTab', () => {
     const patch = vi.fn()
     render(<KnowledgeBaseTab form={{ ...DEFAULT_SETTINGS } as AppSettings} patch={patch} set={() => () => {}} />)
     fireEvent.change(screen.getByPlaceholderText('粘贴 API Key'), { target: { value: 'k1' } })
-    fireEvent.click(screen.getByText('测试连接'))
+    fireEvent.click(screen.getByText('测试 Obsidian 连接'))
     await waitFor(() => expect(screen.getByText(/无法连接/)).toBeTruthy())
     expect(mockSaveToken).not.toHaveBeenCalled()
   })
