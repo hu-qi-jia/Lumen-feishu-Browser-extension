@@ -168,6 +168,12 @@
   flex-direction: column;
   gap: 12px;
 }
+/* Make the shared SettingsSelect dropdown match the width of surrounding text inputs. */
+.model-config-fields .engine-dropdown,
+.model-config-fields .engine-trigger {
+  width: 100%;
+  min-width: 100%;
+}
 
 /* .field-label / .field-hint / .field-group / .field-label-inline / .field-input
    now live in Form.css — they are shared by all settings tabs and other panels. */
