@@ -55,22 +55,6 @@
 .sk-row-btn--danger { color: #e5484d; }
 .sk-row-btn--danger:hover { background: rgba(229, 72, 77, .1); }
 
-/* Toggle switch (compact, replaces FormSwitch for inline rows) */
-.sk-row-toggle {
-  width: 34px; height: 18px; border-radius: 9px; padding: 2px;
-  border: none; background: var(--color-surface-2); cursor: pointer;
-  transition: background .2s ease;
-  position: relative; flex-shrink: 0;
-}
-.sk-row-toggle-dot {
-  display: block; width: 14px; height: 14px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12);
-  transform: translateX(0);
-  transition: transform .2s ease;
-}
-.sk-row-toggle--active { background: var(--color-primary); }
-.sk-row-toggle--active .sk-row-toggle-dot { transform: translateX(16px); }
-
 /* Toast */
 .sk-toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -129,3 +113,4 @@
   font-size: 13px; line-height: 1.6;
   max-height: 50vh; overflow-y: auto;
 }
+.sk-detail-preview-empty { color: var(--color-text-secondary); font-size: 12px; }

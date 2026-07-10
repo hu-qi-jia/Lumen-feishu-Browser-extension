@@ -6,6 +6,7 @@ import Markdown from '../chat/Markdown'
 import SkillEditor from './SkillEditor'
 import ListView from '../ui/ListView'
 import IconButton from '../ui/IconButton'
+import FormSwitch from '../ui/FormSwitch'
 import { IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
@@ -319,16 +320,6 @@ function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequ
           </>
         ) : (
           <>
-            <Tooltip content={skill.enabled ? '已启用' : '已禁用'} position="bottom">
-              <button
-                className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
-                onClick={onToggle}
-                type="button"
-                aria-label={skill.enabled ? '禁用' : '启用'}
-              >
-                <span className="sk-row-toggle-dot" />
-              </button>
-            </Tooltip>
             {!skill.builtIn && (
               <Tooltip content="编辑" position="bottom">
                 <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
@@ -343,6 +334,7 @@ function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequ
                 </button>
               </Tooltip>
             )}
+            <FormSwitch checked={skill.enabled} onChange={onToggle} />
           </>
         )}
       </div>
@@ -363,14 +355,7 @@ function SkillDetailView({ skill, onToggle }: { skill: UserSkill; onToggle: () =
             {skill.builtIn && <span className="sk-detail-scope">内置</span>}
           </div>
         </div>
-        <button
-          className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
-          onClick={onToggle}
-          type="button"
-          aria-label={skill.enabled ? '禁用' : '启用'}
-        >
-          <span className="sk-row-toggle-dot" />
-        </button>
+        <FormSwitch checked={skill.enabled} onChange={onToggle} />
       </div>
 
       <div className="sl-field">
@@ -397,7 +382,9 @@ function SkillDetailView({ skill, onToggle }: { skill: UserSkill; onToggle: () =
       <div className="sl-field">
         <label className="sl-label">指令正文</label>
         <div className="sk-detail-preview">
-          <Markdown>{skill.bodyMarkdown}</Markdown>
+          {skill.bodyMarkdown?.trim()
+            ? <Markdown>{skill.bodyMarkdown}</Markdown>
+            : <span className="sk-detail-preview-empty">（无指令正文）</span>}
         </div>
       </div>
     </div>

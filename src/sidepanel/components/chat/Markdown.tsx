@@ -8,7 +8,7 @@ export default function Markdown({ children }: { children: string }) {
   // HTML comments aren't visible content (pdf2md emits <!-- PAGE_BREAK --> between pages).
   // Strip them at the render layer so a stray marker can never show up as literal text,
   // even if it survived into the source (e.g. a history item saved before the extract-time strip).
-  const src = children.replace(/<!--[\s\S]*?-->/g, '')
+  const src = (children ?? '').replace(/<!--[\s\S]*?-->/g, '')
   const lines = src.split('\n')
   const elements: ReactNode[] = []
   let i = 0

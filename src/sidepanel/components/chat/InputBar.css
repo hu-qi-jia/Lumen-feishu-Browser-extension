@@ -230,7 +230,7 @@
 /* ── Slash skill picker ── */
 .slash-popup {
   display: flex; flex-direction: column;
-  max-height: 220px; overflow-y: auto;
+  max-height: 200px; overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-bg);
@@ -238,32 +238,19 @@
   padding: 3px;
 }
 .slash-item {
-  display: flex; align-items: flex-start; gap: 8px;
-  width: 100%; padding: 6px 8px;
-  border: none; border-radius: 7px;
+  width: 100%; padding: 5px 10px;
+  border: none; border-radius: 6px;
   background: none; cursor: pointer; text-align: left;
-  font-family: inherit; color: var(--color-text);
+  font-family: inherit; font-size: 12px; font-weight: 500; color: var(--color-text);
   transition: background .1s;
 }
 .slash-item--active { background: var(--color-surface); }
-.slash-item-icon {
-  width: 22px; height: 22px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 5px; color: #d48806; background: var(--color-surface);
-}
-.slash-item--active .slash-item-icon { background: var(--color-surface-2); }
-.slash-item-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.slash-item-title { font-size: 12px; font-weight: 600; }
-.slash-item-desc {
-  font-size: 11px; color: var(--color-text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 
 /* ── Skill chip in attachment list ── */
 .attachment-chip--skill {
-  background: #fffbe6;
-  border-color: #ffe58f;
-  color: #d48806;
+  background: #f0f5ff;
+  border-color: #adc6ff;
+  color: #2f54eb;
 }
-.attachment-chip--skill .attachment-remove { color: #d48806; }
-.attachment-chip--skill .attachment-remove:hover { color: #ad6800; }
+.attachment-chip--skill .attachment-remove { color: #2f54eb; }
+.attachment-chip--skill .attachment-remove:hover { color: #1d39c4; }

@@ -168,7 +168,7 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
         <div className="sk-editor-field">
           <label className="sl-label">指令预览</label>
           <div className="sk-editor-preview">
-            {validation.body.trim() ? <Markdown>{validation.body}</Markdown> : (
+            {validation.body?.trim() ? <Markdown>{validation.body}</Markdown> : (
               <span className="sk-editor-preview-empty">frontmatter 之后的指令正文会在这里渲染</span>
             )}
           </div>

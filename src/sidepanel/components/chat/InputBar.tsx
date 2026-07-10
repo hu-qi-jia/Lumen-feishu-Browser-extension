@@ -99,7 +99,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     ? '请先在设置中完成配置'
     : busy
       ? '生成中…'
-      : '描述你现在想做的事'
+      : '描述你想做的事，输入 / 调用技能'
 
   function resize() {
     const el = textareaRef.current
@@ -304,7 +304,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
           <div className="attachment-list">
             {selectedSkills.map((s) => (
               <div key={s.id} className="attachment-chip attachment-chip--skill">
-                <IconSparkle width={12} height={12} />
                 <span className="attachment-name">{s.name}</span>
                 <button
                   className="attachment-remove"
@@ -382,11 +381,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                 onMouseEnter={() => setSlashIndex(i)}
                 onClick={() => selectSkill(s)}
               >
-                <span className="slash-item-icon"><IconSparkle width={14} height={14} /></span>
-                <span className="slash-item-meta">
-                  <span className="slash-item-title">{s.name}</span>
-                  {s.description && <span className="slash-item-desc">{s.description}</span>}
-                </span>
+                {s.name}
               </button>
             ))}
           </div>
