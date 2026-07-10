@@ -4,6 +4,7 @@ import Button from '../ui/Button'
 import Tooltip from '../ui/Tooltip'
 import Markdown from '../chat/Markdown'
 import SkillEditor from './SkillEditor'
+import ListView from '../ui/ListView'
 import { IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
@@ -203,10 +204,11 @@ export default function SkillPanel({ onBack }: Props) {
           )}
 
           {!loading && skills.length > 0 && (
-            <div className="sk-flat-list">
-              {skills.map((s) => (
+            <ListView
+              items={skills}
+              keyExtractor={(s) => s.id}
+              renderItem={(s) => (
                 <SkillRow
-                  key={s.id}
                   skill={s}
                   confirmId={confirmId}
                   onView={() => setView({ mode: 'detail', skill: s })}
@@ -216,8 +218,8 @@ export default function SkillPanel({ onBack }: Props) {
                   onRequestDelete={() => setConfirmId(s.id)}
                   onCancelDelete={() => setConfirmId(null)}
                 />
-              ))}
-            </div>
+              )}
+            />
           )}
         </div>
 
@@ -299,12 +301,12 @@ interface SkillRowProps {
 function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequestDelete, onCancelDelete }: SkillRowProps) {
   const isConfirm = confirmId === skill.id
   return (
-    <div className="sk-flat-row">
-      <button className="sk-flat-row-main" type="button" onClick={onView} aria-label={`查看 ${skill.name}`}>
-        <span className="sk-flat-row-title">{skill.name}</span>
-        <span className="sk-flat-row-desc">{skill.description}</span>
+    <>
+      <button className="sk-row-main" type="button" onClick={onView} aria-label={`查看 ${skill.name}`}>
+        <span className="sk-row-title">{skill.name}</span>
+        <span className="sk-row-desc">{skill.description}</span>
       </button>
-      <div className="sk-flat-row-actions">
+      <div className="sk-row-actions">
         {isConfirm ? (
           <>
             <button className="sk-row-btn sk-row-btn--danger" onClick={onDelete} type="button" aria-label="确认删除">
@@ -343,7 +345,7 @@ function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequ
           </>
         )}
       </div>
-    </div>
+    </>
   )
 }
 

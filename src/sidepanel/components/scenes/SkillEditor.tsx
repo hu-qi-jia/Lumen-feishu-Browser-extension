@@ -3,6 +3,7 @@ import Markdown from '../chat/Markdown'
 import Button from '../ui/Button'
 import SegmentedTabs from '../ui/SegmentedTabs'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import { IconHelpCircle, IconFilePlus } from '../ui/icons'
 import { validateSkillMarkdown, slugConflict, type UserSkill } from '@/shared/ai/userSkills'
 import './SkillEditor.css'
@@ -119,20 +120,14 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
         />
         <div className="sk-editor-tools">
           <Tooltip content={showHelp ? '收起说明' : '格式说明'} position="bottom">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<IconHelpCircle />}
-              onClick={() => setShowHelp((v) => !v)}
-            />
+            <IconButton aria-label={showHelp ? '收起说明' : '格式说明'} onClick={() => setShowHelp((v) => !v)}>
+              <IconHelpCircle />
+            </IconButton>
           </Tooltip>
           <Tooltip content="插入模板" position="bottom">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<IconFilePlus />}
-              onClick={insertTemplate}
-            />
+            <IconButton aria-label="插入模板" onClick={insertTemplate}>
+              <IconFilePlus />
+            </IconButton>
           </Tooltip>
         </div>
       </div>

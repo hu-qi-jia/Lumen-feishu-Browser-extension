@@ -1,5 +1,5 @@
 import type { GitHubTrendingRepo } from '@/shared/news/types'
-import NewsList from './NewsList'
+import ListView from '../ui/ListView'
 import Tooltip from '../ui/Tooltip'
 
 interface Props {
@@ -41,16 +41,20 @@ function ForkIcon() {
  *  Layout: rank badge | owner/repo (hierarchical) + translated desc + star/fork meta. */
 export default function GitHubTab({ items, loading, error, onRetry }: Props) {
   return (
-    <NewsList
+    <ListView
       items={items}
       loading={loading}
       error={error}
       onRetry={onRetry}
       skeletonCount={6}
+      emptyTitle="暂无数据"
+      emptySubtitle="点击右上角刷新按钮立即拉取，或等待下一次定时刷新。"
+      errorTitle="刷新失败"
+      errorSubtitle="未能获取最新榜单，稍后将自动重试。"
       renderItem={(r) => {
         const [owner, repo] = splitFullName(r.fullName)
         return (
-          <a key={r.url} className="news-card" href={r.url} target="_blank" rel="noreferrer noopener">
+          <a className="news-card-link" href={r.url} target="_blank" rel="noreferrer noopener">
             <span className={`news-rank${r.rank <= 3 ? ` news-rank--${r.rank}` : ''}`}>{r.rank}</span>
             <div className="news-card-body">
               <span className="news-card-title">

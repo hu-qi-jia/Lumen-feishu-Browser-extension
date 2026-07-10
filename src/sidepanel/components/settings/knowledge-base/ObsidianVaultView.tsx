@@ -5,6 +5,7 @@ import Tooltip from '../../ui/Tooltip'
 import SearchBox from '../../ui/SearchBox'
 import SegmentedTabs from '../../ui/SegmentedTabs'
 import ObsidianNoteDetail from './ObsidianNoteDetail'
+import ListView from '../../ui/ListView'
 import { IconPlus, IconFileText } from '../../ui/icons'
 import IconButton from '../../ui/IconButton'
 import './ObsidianVaultView.css'
@@ -100,30 +101,30 @@ export default function ObsidianVaultView({ settings }: Props) {
       />
 
       {error && <div className="sc-refresh-err">{error}</div>}
-      {loading && <div className="sc-empty">载入中…</div>}
-      {!loading && !error && rows.length === 0 && <div className="sc-empty">{tab === 'search' ? '无匹配笔记' : '仓库为空'}</div>}
 
-      <ul className="kb-list">
-        {rows.map((r) => {
+      <ListView
+        items={rows}
+        loading={loading}
+        keyExtractor={(r) => r.path}
+        emptyTitle={tab === 'search' ? '无匹配笔记' : '仓库为空'}
+        renderItem={(r) => {
           const title = r.path.split('/').pop() || r.path
           return (
-            <li key={r.path}>
-              <button className="kb-row" onClick={() => setActive(r.path)} type="button">
-                <IconFileText className="kb-row-icon" />
-                <span className="kb-row-meta">
-                  <span className="kb-row-title">{title}</span>
-                  {(r.path !== title || r.snippet) && (
-                    <span className="kb-row-sub">
-                      {r.snippet || r.path}
-                    </span>
-                  )}
-                </span>
-                {r.mtime && tab === 'recent' && <span className="kb-row-time">{relTime(r.mtime)}</span>}
-              </button>
-            </li>
+            <button className="kb-row" onClick={() => setActive(r.path)} type="button">
+              <IconFileText className="kb-row-icon" />
+              <span className="kb-row-meta">
+                <span className="kb-row-title">{title}</span>
+                {(r.path !== title || r.snippet) && (
+                  <span className="kb-row-sub">
+                    {r.snippet || r.path}
+                  </span>
+                )}
+              </span>
+              {r.mtime && tab === 'recent' && <span className="kb-row-time">{relTime(r.mtime)}</span>}
+            </button>
           )
-        })}
-      </ul>
+        }}
+      />
     </div>
   )
 }
