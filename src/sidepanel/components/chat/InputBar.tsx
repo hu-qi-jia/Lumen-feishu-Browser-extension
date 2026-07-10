@@ -4,7 +4,7 @@ import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, p
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
-import { IconTools } from '../ui/icons'
+import { IconPlus, IconUpload, IconBook, IconSparkle } from '../ui/icons'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
@@ -61,13 +61,13 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     setDrafts((prev) => (prev[draftKey] === t ? prev : { ...prev, [draftKey]: t }))
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
-  const [skillsOpen, setSkillsOpen] = useState(false)
+  const [plusOpen, setPlusOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textRef = useRef('')
   textRef.current = text
   const lastInsertedRef = useRef('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const skillsWrapRef = useRef<HTMLDivElement>(null)
+  const plusWrapRef = useRef<HTMLDivElement>(null)
 
   // Preload skills when resource kind changes
   useEffect(() => {
@@ -225,13 +225,13 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
 
   // Close skills menu on outside click
   useEffect(() => {
-    if (!skillsOpen) return
+    if (!plusOpen) return
     function onDown(e: MouseEvent) {
-      if (skillsWrapRef.current && !skillsWrapRef.current.contains(e.target as Node)) setSkillsOpen(false)
+      if (plusWrapRef.current && !plusWrapRef.current.contains(e.target as Node)) setPlusOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [skillsOpen])
+  }, [plusOpen])
 
   return (
     <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
@@ -286,42 +286,47 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               onChange={onFileChange}
               tabIndex={-1}
             />
-            <Tooltip content="添加附件">
-              <button
-                className="btn-icon"
-                onClick={openFilePicker}
-                disabled={blocked}
-                type="button"
-                tabIndex={-1}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
-            </Tooltip>
-            <div className="tools-menu-wrap" ref={skillsWrapRef}>
-              <Tooltip content={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : (skills.length ? '技能建议' : '暂无可用技能')}>
+            <div className="tools-menu-wrap" ref={plusWrapRef}>
+              <Tooltip content="添加附件、工具">
                 <button
-                  className={`btn-icon${kbEnabled ? ' btn-icon--active' : ''}`}
-                  onClick={() => setSkillsOpen((v) => !v)}
-                  disabled={blocked || (!HAS_KNOWLEDGE_BASE && skills.length === 0)}
+                  className={`btn-icon${plusOpen ? ' btn-icon--active' : ''}`}
+                  onClick={() => setPlusOpen((v) => !v)}
+                  disabled={blocked}
                   type="button"
-                  aria-label={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : '技能建议'}
+                  aria-label="添加附件、工具"
                   tabIndex={-1}
                 >
-                  <IconTools width={16} height={16} />
+                  <IconPlus width={16} height={16} />
                 </button>
               </Tooltip>
-              {skillsOpen && (
+              {plusOpen && (
                 <div className="tools-menu" role="menu">
+                  <button
+                    className="tools-menu-item tools-menu-item--row"
+                    onClick={() => { openFilePicker(); setPlusOpen(false) }}
+                    disabled={blocked}
+                    type="button"
+                    role="menuitem"
+                  >
+                    <span className="tools-menu-icon tools-menu-icon--upload">
+                      <IconUpload width={18} height={18} />
+                    </span>
+                    <span className="tools-menu-label">
+                      <span className="tools-menu-title">添加附件</span>
+                      <span className="tools-menu-desc">CSV、TSV、图片、文本</span>
+                    </span>
+                  </button>
+                  {(HAS_KNOWLEDGE_BASE || skills.length > 0) && <div className="tools-menu-divider" />}
                   {HAS_KNOWLEDGE_BASE && (
                     <div
                       className="tools-menu-row tools-menu-row--toggle"
                       role="menuitemcheckbox"
                       aria-checked={kbEnabled}
-                      onClick={() => { onToggleKb(!kbEnabled); setSkillsOpen(false) }}
+                      onClick={() => { onToggleKb(!kbEnabled); setPlusOpen(false) }}
                     >
+                      <span className="tools-menu-icon tools-menu-icon--kb">
+                        <IconBook width={18} height={18} />
+                      </span>
                       <span className="tools-menu-label">
                         <span className="tools-menu-title">知识库</span>
                         <span className="tools-menu-desc">引用已连接的知识库作答</span>
@@ -331,21 +336,26 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                       </span>
                     </div>
                   )}
-                  {HAS_KNOWLEDGE_BASE && skills.length > 0 && <div className="tools-menu-divider" />}
+                  {skills.length > 0 && HAS_KNOWLEDGE_BASE && <div className="tools-menu-divider" />}
                   {skills.length > 0 && (
                     <div className="tools-menu-section" role="group" aria-label="技能建议">
                       {skills.slice(0, 6).map((s) => (
                         <button
                           key={s.skillId}
-                          className="tools-menu-item"
-                          onClick={() => { insert(s.lesson || s.intent); setSkillsOpen(false) }}
+                          className="tools-menu-item tools-menu-item--row"
+                          onClick={() => { insert(s.lesson || s.intent); setPlusOpen(false) }}
                           type="button"
                           role="menuitem"
                         >
-                          <span className="tools-menu-title">{s.intent}</span>
-                          {s.lesson && s.lesson !== s.intent && (
-                            <span className="tools-menu-desc">{s.lesson}</span>
-                          )}
+                          <span className="tools-menu-icon tools-menu-icon--skill">
+                            <IconSparkle width={16} height={16} />
+                          </span>
+                          <span className="tools-menu-label">
+                            <span className="tools-menu-title">{s.intent}</span>
+                            {s.lesson && s.lesson !== s.intent && (
+                              <span className="tools-menu-desc">{s.lesson}</span>
+                            )}
+                          </span>
                         </button>
                       ))}
                     </div>
