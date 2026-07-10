@@ -1,5 +1,6 @@
 import { IconChevronLeft } from './icons'
 import IconButton from './IconButton'
+import './BackButton.css'
 
 interface Props {
   onClick: () => void
@@ -7,7 +8,7 @@ interface Props {
 
 export default function BackButton({ onClick }: Props) {
   return (
-    <IconButton onClick={onClick} aria-label="返回">
+    <IconButton className="back-btn" onClick={onClick} aria-label="返回">
       <IconChevronLeft />
     </IconButton>
   )
