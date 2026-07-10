@@ -106,9 +106,13 @@
 }
 .sk-editor-errors li { font-size: 11.5px; color: #c43a3f; line-height: 1.5; }
 
-/* Bottom actions */
+/* Bottom actions — two buttons share the full width, aligning with the textarea above */
 .sk-editor-actions {
-  display: flex; justify-content: flex-end; gap: 8px;
+  display: flex; gap: 8px;
   padding-top: 6px;
   border-top: 1px solid var(--color-border);
 }
+.sk-editor-actions .btn { flex: 1; }
+/* Tooltip wraps the save button in a <span>; let it stretch too */
+.sk-editor-actions .tooltip { flex: 1; display: flex; }
+.sk-editor-actions .tooltip .btn { width: 100%; flex: none; }

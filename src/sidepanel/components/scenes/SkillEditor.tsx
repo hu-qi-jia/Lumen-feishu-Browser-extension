@@ -189,9 +189,9 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
       )}
 
       <div className="sk-editor-actions">
-        <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
+        <Button variant="secondary" onClick={onClose}>取消</Button>
         <Tooltip content={canSave ? '保存（Ctrl+S）' : '请先修复上方的校验问题'} position="top">
-          <Button variant="primary" size="sm" disabled={!canSave} onClick={() => onSave(md)}>
+          <Button variant="primary" block disabled={!canSave} onClick={() => onSave(md)}>
             保存
           </Button>
         </Tooltip>
