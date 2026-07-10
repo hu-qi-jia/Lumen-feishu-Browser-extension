@@ -29,6 +29,24 @@ function pinnedFeishu(p: PinnedDoc): NonNullable<PageContext['feishu']> {
   return { isBase: false, kind: 'doc', documentId: p.token }
 }
 
+/** Build a Feishu resource context for a session's bound doc — used when the live tab isn't
+ *  that doc (e.g. the user switched to a non-doc page while the session is held on it).
+ *  Prefers the shared wiki cache so a wiki-wrapped doc resolves to its real kind/token. */
+function sessionFeishu(
+  token: string,
+  kind: SessionKind | undefined,
+  wikiCache: Map<string, NonNullable<PageContext['feishu']>>,
+): NonNullable<PageContext['feishu']> {
+  const cached = wikiCache.get(token)
+  if (cached) return cached
+  if (kind === 'base') return { isBase: true, kind: 'base', appToken: token }
+  if (kind === 'sheet') return { isBase: false, kind: 'sheet', spreadsheetToken: token }
+  if (kind === 'ppt') return { isBase: false, kind: 'ppt', slideToken: token }
+  if (kind === 'doc') return { isBase: false, kind: 'doc', documentId: token }
+  // wiki, or a legacy session with no kind — treat the token as a wiki node.
+  return { isBase: false, kind: 'wiki', wikiToken: token }
+}
+
 interface Args {
   ctx: PageContext
   chatStreaming: boolean
@@ -124,14 +142,33 @@ export function useDocBinding(a: Args): DocBindingApi {
   const sessions = useSessions(effectiveResource, chatStreaming, resolvedDocKind)
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions
 
-  // In pin mode the assistant operates on the PINNED doc, not the focused tab — synthesize
-  // the agent-facing context.
+  // chatContext drives the ChatPanel workspace (topbar title, Base badge, MessageList kind,
+  //  InputBar/SkillSuggest resourceKind) AND the agent's doc target. In pin mode it's
+  //  synthesized from the pinned doc. In follow mode it MUST track the EFFECTIVE session's
+  //  doc, not the raw live tab: when the user switches to a non-doc tab the session is held
+  //  on its doc (heldResource + the liveResource debounce), but `ctx` flips to the non-doc
+  //  page immediately — feeding that straight through made the workspace jitter (title/kind/
+  //  examples/skills all flipping while the conversation stayed put) and silently dropped the
+  //  doc from the agent. So when the live tab matches the session's doc we use the fresh live
+  //  ctx; when it differs (non-doc tab, or another doc while held) we reuse the last ctx seen
+  //  for the session's doc so the workspace stays stable whenever the session does.
+  const seenDocCtxRef = useRef<Map<string, PageContext>>(new Map())
+  if (rawResource) seenDocCtxRef.current.set(rawResource, ctx)
+  const sessionTok = sessions.activeSession?.appToken ?? null
+  const liveMatchesSession = rawResource !== null && rawResource === sessionTok
   const chatContext: PageContext =
     docMode === 'pin' && pinned
       ? pinned.kind === 'wiki'
         ? { url: '', title: pinned.title, selectedText: '', feishu: pinnedResolved ?? { isBase: false, kind: 'wiki', wikiToken: pinned.token } }
         : { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
-      : ctx
+      : liveMatchesSession
+        ? ctx
+        : sessionTok
+          ? (seenDocCtxRef.current.get(sessionTok) ?? {
+              url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
+              feishu: sessionFeishu(sessionTok, sessions.activeSession?.kind, wikiCacheRef.current),
+            })
+          : ctx
 
   // follow mode: HOLD the session on its current doc when the live tab differs, so the
   // auto-switch can't yank it back. `justFollowedRef` suppresses the hold for one cycle after
