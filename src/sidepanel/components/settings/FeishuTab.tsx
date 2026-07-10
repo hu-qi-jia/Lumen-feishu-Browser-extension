@@ -170,7 +170,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       const { userToken, openId, name, refreshToken, expiresIn } = await authorizeFeishuUser()
       await saveUserToken({ accessToken: userToken, refreshToken, expiresIn })
       patch({ feishuOwnerOpenId: openId, feishuAccessToken: userToken })
-      setAuthResult({ ok: true, msg: `已授权：${name}（open_id 已自动填入，将自动续期，记得点保存）` })
+      setAuthResult({ ok: true, msg: `已授权：${name}（open_id 已自动填入，将自动续期）` })
     } catch (err) {
       setAuthResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
     } finally {
@@ -186,7 +186,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
       const { openId, name } = await fetchUserOpenId(form.feishuAccessToken)
       await clearUserToken()
       patch({ feishuOwnerOpenId: openId })
-      setAuthResult({ ok: true, msg: `已获取：${name}（open_id 已填入，记得点保存）` })
+      setAuthResult({ ok: true, msg: `已获取：${name}（open_id 已填入）` })
     } catch (err) {
       setAuthResult({ ok: false, msg: err instanceof Error ? err.message : String(err) })
     } finally {

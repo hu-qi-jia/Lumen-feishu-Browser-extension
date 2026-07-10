@@ -15,7 +15,7 @@ type Result = { kind: 'ok' | 'err'; msg: string }
 
 /** 设置页「知识库」tab：FeishuSteps 四步引导 + 端点/API Key + 测试连接 + 高级（inbox/exclude）。
  *  API Key 走独立加密键（测试连接成功即存）；端点/inbox/exclude/vault 通过 patch 进 form，
- *  随设置页底部「保存」批量落盘（与其余 tab 一致）。 */
+ *  由设置页自动保存即时落盘（与其余 tab 一致）。 */
 export default function KnowledgeBaseTab({ form, patch }: SettingsTabProps) {
   const [apiKey, setApiKey] = useState('')
   const [hasStored, setHasStored] = useState(false)

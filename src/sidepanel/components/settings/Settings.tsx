@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
 import { loadPolicy, policyLockedKeys } from '@/shared/enterprisePolicy'
 import GeneralTab from './GeneralTab'
@@ -67,6 +67,18 @@ export default function Settings({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }))
 
+  // Auto-save: persist form changes immediately (debounced). No Save button — edits take
+  // effect as you type. `onSave` is kept in a ref so only `form` changes trigger the timer
+  // (otherwise a new onSave identity from the parent after each save would re-fire it).
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    const t = setTimeout(() => { void onSaveRef.current(form) }, 400)
+    return () => clearTimeout(t)
+  }, [form])
+
   // ── render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -120,11 +132,8 @@ export default function Settings({
               : 'dev'}
           </span>
         </Tooltip>
-        <Button variant="secondary" onClick={onCancel}>
-          取消
-        </Button>
-        <Button variant="primary" onClick={() => onSave(form)}>
-          保存
+        <Button variant="secondary" onClick={() => { void onSave(form); onCancel() }}>
+          完成
         </Button>
       </div>
     </div>

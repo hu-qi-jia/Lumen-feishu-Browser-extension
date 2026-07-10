@@ -253,9 +253,10 @@ export default function App() {
     return () => { chrome.runtime.onMessage.removeListener(onMsg) }
   }, [applyCtx])
 
+  // Persist settings without navigating — the Settings panel auto-saves on every change,
+  // so onSave is now a pure write (navigation happens via the 完成 button / onCancel).
   async function onSaveSettings(s: typeof settings) {
     await saveSettings(s)
-    setTab('chat')
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
