@@ -79,10 +79,18 @@ export const BUILD_CONFIG = {
    *  <tenant>.test.com. All API paths & call styles are identical across deployments. */
   feishuBaseDomain: ((import.meta.env.VITE_FEISHU_BASE_DOMAIN ?? 'feishu.cn') as string)
     .trim().toLowerCase().replace(/^\.+|\.+$/g, '').replace(/^https?:\/\//, ''),
+  /** Web Clipper: capture the active tab's content (selection / readable text) into a
+   *  Feishu Base. Gesture-gated + activeTab only (no new host_permissions, no new egress —
+   *  see SECURITY_AUDIT). Default on; set VITE_CLIP_ENABLED=false to ship without it. */
+  clipEnabled: ((import.meta.env.VITE_CLIP_ENABLED ?? 'true') as string).trim().toLowerCase() !== 'false',
   /** Knowledge Base (Obsidian Local REST API integration). Default on; set
    *  VITE_KNOWLEDGE_BASE=false to ship without it. Loopback-only egress
    *  (see isObsidianOutboundAllowed + manifest host_permissions). */
   knowledgeBaseEnabled: ((import.meta.env.VITE_KNOWLEDGE_BASE ?? 'true') as string).trim().toLowerCase() !== 'false',
+  /** Optional enterprise governance (v2 — flag defined now, enforcement deferred):
+   *  comma-separated domains where clipping is allowed. Empty = allow anywhere. */
+  clipManagedDomains: (import.meta.env.VITE_CLIP_MANAGED_DOMAINS ?? '')
+    .split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean) as string[],
   /** Store-PACKAGING flag (VITE_WEBSTORE): strips manifest `key` + applies the store name/desc
    *  (in vite.config.ts). Does NOT by itself disable remote code — that's a separate, opt-in flag
    *  below, so a full-featured BYO build can still be packaged for the store. */
@@ -134,6 +142,9 @@ export const HAS_SKILLS = BUILD_CONFIG.skillsEnabled && !!BUILD_CONFIG.oauthProx
  *  is dead-code-eliminated, store release totally unaffected. The backed-up content goes ONLY to the
  *  enterprise's own object storage, read-gated by Feishu tenant-member auth (see artifactSync.ts). */
 export const HAS_ARTIFACT_SYNC = BUILD_CONFIG.artifactSync && !!BUILD_CONFIG.oauthProxyUrl
+
+/** Web Clipper feature flag (see BUILD_CONFIG.clipEnabled). */
+export const CLIP_ENABLED = BUILD_CONFIG.clipEnabled
 
 /** Knowledge Base (Obsidian) feature flag. When off, all KB code no-ops and the
  *  Hub card / chat toggle are hidden. Store builds disable via VITE_KNOWLEDGE_BASE=false. */

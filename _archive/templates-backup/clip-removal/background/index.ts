@@ -2,10 +2,14 @@
 //
 // The side panel is available on EVERY tab (its default_path in manifest enables it
 // globally). We deliberately do NOT gate it per-tab: the old per-tab enable/disable
-// (a) tore the panel document down on tab switch — killing any in-flight task, and
-// (b) could wedge a tab's panel "un-reopenable" until the extension was reinstalled.
-// The React UI decides what to show per page (Feishu assistant / a hint on other sites).
-import { NO_REMOTE_CODE } from '@/shared/config'
+// (a) tore the panel document down on tab switch — killing any in-flight task (e.g. a
+// running clip write), and (b) could wedge a tab's panel "un-reopenable" until the
+// extension was reinstalled. The React UI decides what to show per page (Feishu
+// assistant / clip flow / a hint on other sites).
+import { CLIP_ENABLED, NO_REMOTE_CODE } from '@/shared/config'
+import { captureClip, captureClipScrolling } from '@/shared/clip/capture'
+import { MAX_CLIP_CHARS } from '@/shared/clip/types'
+import type { ClipCapture } from '@/shared/clip/types'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 import type { AppSettings, DocSelectionPayload } from '@/shared/types'
 import { decryptField } from '@/shared/crypto'
@@ -31,8 +35,133 @@ import {
 } from '@/shared/dataCleanup'
 
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
-// it again reopens it). No per-tab state to get stuck.
+// again reopens it). No per-tab state to get stuck.
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
+
+// ─── Web Clipper ───────────────────────────────────────────────────────────────
+
+// One-shot stash bridging the open()→panel-mount gap: a freshly-opened panel pulls this
+// via CLIP_REQUEST (the immediate CLIP_CAPTURE push below can race ahead of mount).
+let lastClip: { payload?: ClipCapture; error?: string; at: number } | null = null
+
+/**
+ * Capture the active tab into the side panel. MUST run inside a user-gesture handler
+ * (context menu / keyboard command): both `chrome.sidePanel.open()` and
+ * `chrome.scripting.executeScript` under `activeTab` require a gesture.
+ */
+function clipActiveTab(tabId: number): void {
+  if (!CLIP_ENABLED) return
+  chrome.sidePanel.open({ tabId }).catch(() => {}) // already-open panels just no-op
+  void runCapture(tabId)
+}
+
+async function runCapture(tabId: number): Promise<void> {
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: captureClip,
+      args: [MAX_CLIP_CHARS],
+    })
+    const payload = res?.result as ClipCapture | undefined
+    if (!payload) throw new Error('empty capture')
+    lastClip = { payload, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_CAPTURE', payload }).catch(() => {})
+  } catch {
+    // Restricted pages (chrome://, the Web Store, other extensions, view-source) can't be
+    // scripted even with activeTab — surface a friendly notice instead of failing silently.
+    const message = '此页面不支持剪藏（浏览器限制了对该页的访问）'
+    lastClip = { error: message, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_ERROR', message }).catch(() => {})
+  }
+}
+
+// Full-table capture: auto-scroll a virtualized grid, accumulating all rows. Same
+// activeTab/executeScript gesture model — no new permission. Bounded by maxSteps × delay.
+const SCROLL_MAX_STEPS = 60
+const SCROLL_STEP_DELAY_MS = 350
+
+function scrollCaptureActiveTab(tabId: number): void {
+  if (!CLIP_ENABLED) return
+  chrome.sidePanel.open({ tabId }).catch(() => {})
+  void runScrollCapture(tabId)
+}
+
+async function runScrollCapture(tabId: number): Promise<void> {
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: captureClipScrolling,
+      args: [MAX_CLIP_CHARS, SCROLL_MAX_STEPS, SCROLL_STEP_DELAY_MS],
+    })
+    const payload = res?.result as ClipCapture | undefined
+    if (!payload) throw new Error('empty capture')
+    lastClip = { payload, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_CAPTURE', payload }).catch(() => {})
+  } catch {
+    const message = '此页面无法滚动抓取（浏览器限制了对该页的访问）'
+    lastClip = { error: message, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_ERROR', message }).catch(() => {})
+  }
+}
+
+// Screenshot the visible tab → side panel runs vision OCR on it. captureVisibleTab is
+// covered by `activeTab` under the gesture — no new permission. Visible viewport only.
+function screenshotActiveTab(tab: chrome.tabs.Tab): void {
+  if (!CLIP_ENABLED || tab.id == null) return
+  chrome.sidePanel.open({ tabId: tab.id }).catch(() => {})
+  void runScreenshot(tab)
+}
+
+async function runScreenshot(tab: chrome.tabs.Tab): Promise<void> {
+  try {
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+    if (!dataUrl) throw new Error('empty shot')
+    const payload: ClipCapture = {
+      url: tab.url ?? '', title: tab.title ?? '', selectedText: '',
+      content: '', imageDataUrl: dataUrl, capturedAt: Date.now(), truncated: false,
+    }
+    lastClip = { payload, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_CAPTURE', payload }).catch(() => {})
+  } catch {
+    const message = '此页面不支持截图（浏览器限制了对该页的访问）'
+    lastClip = { error: message, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_ERROR', message }).catch(() => {})
+  }
+}
+
+if (CLIP_ENABLED) {
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create(
+      { id: 'clip-to-base', title: '剪藏到飞书', contexts: ['selection', 'page', 'link', 'image'] },
+      () => void chrome.runtime.lastError, // ignore "duplicate id" on SW restart
+    )
+    chrome.contextMenus.create(
+      { id: 'scroll-clip-to-base', title: '剪藏整张表（滚动加载全部行）', contexts: ['page'] },
+      () => void chrome.runtime.lastError,
+    )
+    chrome.contextMenus.create(
+      { id: 'screenshot-to-base', title: '截图识别到飞书（视觉模型）', contexts: ['page', 'image'] },
+      () => void chrome.runtime.lastError,
+    )
+  })
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'clip-to-base' && tab?.id != null) clipActiveTab(tab.id)
+    else if (info.menuItemId === 'scroll-clip-to-base' && tab?.id != null) scrollCaptureActiveTab(tab.id)
+    else if (info.menuItemId === 'screenshot-to-base' && tab) screenshotActiveTab(tab)
+  })
+  chrome.commands.onCommand.addListener((command, tab) => {
+    if (command === 'clip_to_base' && tab?.id != null) clipActiveTab(tab.id)
+  })
+  // Panel pulls the pending clip on mount (handles the open→message race), one-shot.
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg?.type === 'CLIP_REQUEST') {
+      sendResponse(lastClip)
+      lastClip = null
+      return false
+    }
+    return undefined
+  })
+}
 
 // ─── Saved-viz launcher (background renders, since it holds Feishu host access) ──
 
@@ -76,8 +205,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 })
 
 // ─── Selection → side panel: open the panel + stash the payload so the panel can pull it on
-// mount (covers the open→message race where the panel isn't listening yet). The button click
-// is the user gesture MV3 requires for sidePanel.open.
+// mount (mirrors the CLIP_REQUEST pattern — covers the open→message race where the panel
+// isn't listening yet). The button click is the user gesture MV3 requires for sidePanel.open.
 let pendingSelection: { payload: DocSelectionPayload; at: number } | null = null
 const SELECTION_TTL_MS = 3000
 
@@ -339,3 +468,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
     syncCleanupAlarm((next?.intervalDays ?? 0) as 0 | 3 | 7 | 30)
   }
 })
+
+

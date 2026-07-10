@@ -14,10 +14,17 @@
     "identity",
     "scripting",
     "contextMenus",
+    "commands",
     "unlimitedStorage",
     "alarms",
     "declarativeNetRequestWithHostAccess"
   ],
+  "commands": {
+    "clip_to_base": {
+      "suggested_key": { "default": "Alt+Shift+C" },
+      "description": "剪藏当前页到飞书"
+    }
+  },
   "host_permissions": [
     "https://*.feishu.cn/*",
     "https://*.larksuite.com/*",
