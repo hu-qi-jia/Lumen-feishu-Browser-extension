@@ -143,32 +143,29 @@ export function useDocBinding(a: Args): DocBindingApi {
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions
 
   // chatContext drives the ChatPanel workspace (topbar title, Base badge, MessageList kind,
-  //  InputBar/SkillSuggest resourceKind) AND the agent's doc target. In pin mode it's
-  //  synthesized from the pinned doc. In follow mode it MUST track the EFFECTIVE session's
-  //  doc, not the raw live tab: when the user switches to a non-doc tab the session is held
-  //  on its doc (heldResource + the liveResource debounce), but `ctx` flips to the non-doc
-  //  page immediately — feeding that straight through made the workspace jitter (title/kind/
-  //  examples/skills all flipping while the conversation stayed put) and silently dropped the
-  //  doc from the agent. So when the live tab matches the session's doc we use the fresh live
-  //  ctx; when it differs (non-doc tab, or another doc while held) we reuse the last ctx seen
-  //  for the session's doc so the workspace stays stable whenever the session does.
+  //  InputBar/SkillSuggest resourceKind) AND the agent's doc target. It follows the EFFECTIVE
+  //  resource — the doc the active session is bound to — not the raw live tab. In follow mode
+  //  that's heldResource ?? liveResource: when the user switches to a non-Feishu tab,
+  //  liveResource settles to null and heldResource is cleared (hold effect below), so
+  //  effectiveResource becomes null → the workspace shows the general session. On a Feishu
+  //  doc, effectiveResource is that doc's token → the workspace shows its cached ctx. During
+  //  a doc→doc switch the hold keeps effectiveResource on the OLD doc so the workspace stays
+  //  put until the SwitchDocDialog confirms the new one. Tracking the effective resource (not
+  //  the live tab, which flips immediately on tab switch) is what stops the title/kind/
+  //  examples from jittering between the old doc and the general session.
   const seenDocCtxRef = useRef<Map<string, PageContext>>(new Map())
   if (rawResource) seenDocCtxRef.current.set(rawResource, ctx)
-  const sessionTok = sessions.activeSession?.appToken ?? null
-  const liveMatchesSession = rawResource !== null && rawResource === sessionTok
   const chatContext: PageContext =
     docMode === 'pin' && pinned
       ? pinned.kind === 'wiki'
         ? { url: '', title: pinned.title, selectedText: '', feishu: pinnedResolved ?? { isBase: false, kind: 'wiki', wikiToken: pinned.token } }
         : { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
-      : liveMatchesSession
-        ? ctx
-        : sessionTok
-          ? (seenDocCtxRef.current.get(sessionTok) ?? {
-              url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
-              feishu: sessionFeishu(sessionTok, sessions.activeSession?.kind, wikiCacheRef.current),
-            })
-          : ctx
+      : effectiveResource
+        ? (seenDocCtxRef.current.get(effectiveResource) ?? {
+            url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
+            feishu: sessionFeishu(effectiveResource, sessions.activeSession?.kind, wikiCacheRef.current),
+          })
+        : ctx
 
   // follow mode: HOLD the session on its current doc when the live tab differs, so the
   // auto-switch can't yank it back. `justFollowedRef` suppresses the hold for one cycle after
@@ -183,6 +180,13 @@ export function useDocBinding(a: Args): DocBindingApi {
       justFollowedRef.current = false
       setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return
     }
+    // Non-Feishu tab (liveResource is null after the debounce): don't hold the session on its
+    // doc — let effectiveResource fall to null so the workspace switches to the general session
+    // (the user's expectation: a non-doc tab means "back to general"). Holding here was the
+    // jitter root cause: liveResource settled to null while heldResource was set to the old
+    // doc, and the async gap between the two state updates made effectiveResource flip
+    // null→old-doc→null, oscillating the session between general and doc.
+    if (!liveResource) { setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     const sess = sessionsRef.current
     const sessionTok = sess.activeSession?.appToken ?? null
     const liveChanged = liveResource !== prevLiveRef.current
@@ -190,7 +194,7 @@ export function useDocBinding(a: Args): DocBindingApi {
     if (!sessionTok || liveResource === sessionTok) { setHeldResource(null); setPendingSwitch(null); return }
     if (liveChanged && sess.messages.length === 0) { setHeldResource(null); setPendingSwitch(null); return }
     setHeldResource(sessionTok)
-    if (!liveChanged || !liveResource || chatStreaming) { setPendingSwitch(null); return }
+    if (!liveChanged || chatStreaming) { setPendingSwitch(null); return }
     setPendingSwitch({ to: liveResource })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveResource, docMode, chatStreaming, sessions.activeSession?.appToken])
