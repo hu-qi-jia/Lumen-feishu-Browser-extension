@@ -1,7 +1,7 @@
 .kb-detail { display: flex; flex-direction: column; height: 100%; }
-.kb-detail .topbar { padding-left: 12px; }
-/* 新建笔记页：标题行比分栏列表的 TopBar 更矮、更轻，形成层级。 */
-.kb-detail--new .topbar { height: 32px; }
+/* 笔记详情/新建页：标题行比分栏列表的 TopBar 更矮，形成层级。 */
+.kb-detail .topbar { height: 32px; padding-left: 12px; }
+/* 新建页标题再轻一号，避免与知识库列表标题字号/权重一致。 */
 .kb-detail--new .topbar-title { font-size: 13px; font-weight: 500; }
 .kb-detail-actions { display: flex; gap: 2px; }
 .kb-detail-body, .kb-detail-edit { padding: 12px; overflow: auto; }
