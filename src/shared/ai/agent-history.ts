@@ -10,7 +10,7 @@ import type { ChatMessage, Attachment } from '../types'
 // Rebuild a valid sequence: keep only tool_calls that have a matching tool response,
 // emit each assistant(tool_calls) immediately followed by those responses, and drop
 // orphan tool messages and placeholder tool_calls.
-export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessageParam[] {
+export function buildApiHistory(history: ChatMessage[], visionEnabled = true): ChatCompletionMessageParam[] {
   const nonSystem = history.filter((m) => m.role !== 'system')
 
   // Index the latest tool response per tool_call_id (dedupes UI duplicates).
@@ -19,12 +19,14 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
     if (m.role === 'tool' && m.tool_call_id) responses.set(m.tool_call_id, m.content ?? '')
   }
 
-  // 找到最新一条 user 消息：仅对它（如果带图片）做 image_url 多模态编码，
+  // 找到最新一条 user 消息：仅对它（如果带图片，且 vision 启用）做 image_url 多模态编码，
   // 让 vision-capable 的 LLM 能直接"看图"（识别表格/内容并据此调工具）。
   // 历史消息里的图片仍走纯文本元数据——既避免多轮历史塞多张图导致 token 爆炸，
   // 又防止非 vision 模型在历史回放时被 image_url part 直接拒绝。
   // 注意：判定标准是"最后一条 user 消息是否带图"，而非"最后一条带图的 user 消息"——
   // 用户先发图后发纯文本追问时，图已成历史，应走纯文本。
+  // visionEnabled=false（降级模式，非 vision 模型）时所有图片都走纯文本元数据——
+  // 这样"插入图片到文档"等不需要 LLM 看图的操作仍能正常工作（attachment_id 文本仍保留）。
   let lastUserIdx = -1
   for (let i = nonSystem.length - 1; i >= 0; i--) {
     if (nonSystem[i].role === 'user') { lastUserIdx = i; break }
@@ -60,19 +62,21 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
     if (m.role === 'user') {
       const attachments = m.attachments ?? []
       const isLastUserWithImage =
+        visionEnabled &&
         idx === lastUserIdx &&
         attachments.some((a) => a.type === 'image' && a.dataUrl)
       if (attachments.length === 0) {
         out.push({ role: 'user', content: m.content ?? '' })
       } else if (isLastUserWithImage) {
-        // 最新一条 user 消息且带图片：输出多模态 content。
+        // 最新一条 user 消息且带图片（且 vision 启用）：输出多模态 content。
         // 关键：image_url part 旁必须保留 attachment_id 文本元数据——LLM 需要从这段文本
         // 读出 UUID 才能正确填入 insert_image 等工具的 args.attachment_id（工具执行端按
         // id 从 latestAttachments 数组查原图）。只对最新消息做，历史消息走下面 else 分支。
         out.push({ role: 'user', content: attachmentToContentParts(m, attachments) })
       } else {
-        // 历史消息的附件：纯文本元数据（attachment_id + name），不嵌图片字节。
-        // 既防止非 vision 模型在历史回放时被 image_url 拒绝，又避免 token 爆炸。
+        // 历史消息的附件（或降级模式下的所有图片附件）：纯文本元数据（attachment_id + name），
+        // 不嵌图片字节。既防止非 vision 模型在历史回放时被 image_url 拒绝，又避免 token 爆炸。
+        // 降级模式下 attachment_id 文本仍保留——insert_image 等工具调用不受影响。
         const bits: string[] = []
         if (m.content?.trim()) bits.push(m.content.trim())
         for (const a of attachments) {

@@ -140,9 +140,13 @@ export async function runAgent(
     } catch { /* best-effort */ }
   }
 
-  const msgs: ChatCompletionMessageParam[] = [
+  // vision 降级标志：非 vision 模型首次拒绝 image_url part 后置为 false，
+  // 重建 msgs 让所有图片走纯文本元数据（attachment_id 仍保留），insert_image 等工具不受影响。
+  // 这样"插入图片到文档"等不需要 LLM 看图的操作在非 vision 模型下也能正常工作。
+  let visionEnabled = true
+  let msgs: ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
-    ...buildApiHistory(history),
+    ...buildApiHistory(history, visionEnabled),
   ]
 
   let totalToolCalls = 0
@@ -205,12 +209,22 @@ export async function runAgent(
         stream: true,
       }, { signal })
     } catch (e) {
-      // 非 vision 模型收到 image_url part 会直接拒绝（"unknown variant image_url, expected text"
-      // 等）。本功能基于多模态模型开发，不支持时给出明确提示，而非让原始 400 错误裸奔到用户。
-      // 仅当本轮消息确实含图片且错误匹配 vision 不支持特征时才转译；其余错误原样抛出。
+      // 非 vision 模型收到 image_url part 会直接拒绝（"unknown variant image_url, expected text" 等）。
+      // 降级而非报错：重建 msgs 让所有图片走纯文本元数据（attachment_id 仍保留），重试本轮。
+      // 这样"插入图片到文档"等不需要 LLM 看图的操作在非 vision 模型下仍能正常工作；
+      // 而"识别图片内容"类操作降级后 LLM 看不到图，会回复"我无法查看图片内容"——合理反馈。
+      // 仅当本轮消息确实含图片且错误匹配 vision 不支持特征时才降级；其余错误原样抛出。
+      // 降级只发生一次：已降级还失败说明是其他原因，原样抛出避免死循环。
       const hasImage = latestAttachments?.some((a) => a.type === 'image' && a.dataUrl) ?? false
-      if (hasImage && e instanceof Error && e.name !== 'AbortError' && isVisionUnsupportedError(e.message)) {
-        throw new Error('当前大模型不支持图片识别，请在「设置」里配置支持视觉的模型（如 GPT-4o / Qwen-VL / GLM-4V 等）后再上传图片。')
+      if (visionEnabled && hasImage && e instanceof Error && e.name !== 'AbortError' && isVisionUnsupportedError(e.message)) {
+        visionEnabled = false
+        // 重建 msgs：图片走纯文本元数据。此时 msgs 还没被 push 任何 assistant/tool 消息
+        // （请求在 push 之前就失败了），所以重建是安全的——不丢上下文。
+        msgs = [
+          { role: 'system', content: systemPrompt },
+          ...buildApiHistory(history, false),
+        ]
+        continue // 重试本轮，用降级后的纯文本 msgs
       }
       throw e
     }

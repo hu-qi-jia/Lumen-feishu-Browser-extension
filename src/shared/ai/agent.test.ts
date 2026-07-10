@@ -300,6 +300,22 @@ describe('buildApiHistory', () => {
     expect(u.content).toContain('附件：d.csv')
     expect(u.content).toContain('x,y')
   })
+
+  it('visionEnabled=false（降级模式）→ 最新图片 user 消息也走纯文本，但保留 attachment_id（insert_image 仍可用）', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: '插入这张图到文档末尾', attachments: [
+        { id: 'att1', type: 'image', name: 'a.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,xxx' },
+      ] }),
+    ], false)
+    const u = out[0] as { role: string; content: string }
+    expect(u.role).toBe('user')
+    // 降级模式：content 是字符串，不是多模态数组
+    expect(typeof u.content).toBe('string')
+    // attachment_id 仍保留——LLM 能据此调 insert_image
+    expect(u.content).toContain('attachment_id: att1')
+    // 没有 image_url part
+    expect(u.content).not.toContain('image_url')
+  })
 })
 
 describe('assertApiCallAllowed — feishu_api_call security gate', () => {
