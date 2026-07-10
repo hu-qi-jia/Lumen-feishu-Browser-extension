@@ -4,6 +4,7 @@ import { recentNotes, searchVault, type ObsidianNoteRow } from '@/shared/obsidia
 import Tooltip from '../../ui/Tooltip'
 import SearchBox from '../../ui/SearchBox'
 import SegmentedTabs from '../../ui/SegmentedTabs'
+import FlatList from '../../ui/FlatList'
 import ObsidianNoteDetail from './ObsidianNoteDetail'
 import { IconPlus, IconFileText } from '../../ui/icons'
 import IconButton from '../../ui/IconButton'
@@ -103,27 +104,20 @@ export default function ObsidianVaultView({ settings }: Props) {
       {loading && <div className="sc-empty">载入中…</div>}
       {!loading && !error && rows.length === 0 && <div className="sc-empty">{tab === 'search' ? '无匹配笔记' : '仓库为空'}</div>}
 
-      <ul className="kb-list">
-        {rows.map((r) => {
+      <FlatList
+        items={rows.map((r) => {
           const title = r.path.split('/').pop() || r.path
-          return (
-            <li key={r.path}>
-              <button className="kb-row" onClick={() => setActive(r.path)} type="button">
-                <IconFileText className="kb-row-icon" />
-                <span className="kb-row-meta">
-                  <span className="kb-row-title">{title}</span>
-                  {(r.path !== title || r.snippet) && (
-                    <span className="kb-row-sub">
-                      {r.snippet || r.path}
-                    </span>
-                  )}
-                </span>
-                {r.mtime && tab === 'recent' && <span className="kb-row-time">{relTime(r.mtime)}</span>}
-              </button>
-            </li>
-          )
+          const showSub = r.path !== title || r.snippet
+          return {
+            id: r.path,
+            title,
+            subtitle: showSub ? (r.snippet || r.path) : undefined,
+            icon: <IconFileText />,
+            meta: r.mtime && tab === 'recent' ? <span className="kb-row-time">{relTime(r.mtime)}</span> : undefined,
+            onClick: () => setActive(r.path),
+          }
         })}
-      </ul>
+      />
     </div>
   )
 }

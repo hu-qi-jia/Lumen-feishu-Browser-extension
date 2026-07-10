@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
 import Tooltip from '../ui/Tooltip'
+import FlatList from '../ui/FlatList'
 import Markdown from '../chat/Markdown'
 import SkillEditor from './SkillEditor'
 import { IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
   validateSkillMarkdown, exportUserSkills,
@@ -156,19 +158,19 @@ export default function SkillPanel({ onBack }: Props) {
     const listAction = (
       <div className="sk-head-actions">
         <Tooltip content="导入 .md" position="bottom">
-          <button className="sl-history-btn" onClick={() => fileInput.current?.click()} type="button" aria-label="导入">
+          <IconButton onClick={() => fileInput.current?.click()} aria-label="导入">
             <IconUpload />
-          </button>
+          </IconButton>
         </Tooltip>
         <Tooltip content="导出全部" position="bottom">
-          <button className="sl-history-btn" onClick={handleExport} type="button" aria-label="导出" disabled={!skills.length}>
+          <IconButton onClick={handleExport} aria-label="导出" disabled={!skills.length}>
             <IconDownload />
-          </button>
+          </IconButton>
         </Tooltip>
         <Tooltip content="新建技能" position="bottom">
-          <button className="sl-history-btn" onClick={() => setView({ mode: 'edit' })} type="button" aria-label="新建技能">
+          <IconButton onClick={() => setView({ mode: 'edit' })} aria-label="新建技能">
             <IconPlus />
-          </button>
+          </IconButton>
         </Tooltip>
       </div>
     )
@@ -203,21 +205,25 @@ export default function SkillPanel({ onBack }: Props) {
           )}
 
           {!loading && skills.length > 0 && (
-            <div className="sk-flat-list">
-              {skills.map((s) => (
-                <SkillRow
-                  key={s.id}
-                  skill={s}
-                  confirmId={confirmId}
-                  onView={() => setView({ mode: 'detail', skill: s })}
-                  onEdit={() => setView({ mode: 'edit', skill: s })}
-                  onToggle={() => handleToggle(s.id)}
-                  onDelete={() => handleDelete(s)}
-                  onRequestDelete={() => setConfirmId(s.id)}
-                  onCancelDelete={() => setConfirmId(null)}
-                />
-              ))}
-            </div>
+            <FlatList
+              items={skills.map((s) => ({
+                id: s.id,
+                title: s.name,
+                subtitle: s.description,
+                onClick: () => setView({ mode: 'detail', skill: s }),
+                actions: (
+                  <SkillRowActions
+                    skill={s}
+                    confirmId={confirmId}
+                    onEdit={() => setView({ mode: 'edit', skill: s })}
+                    onToggle={() => handleToggle(s.id)}
+                    onDelete={() => handleDelete(s)}
+                    onRequestDelete={() => setConfirmId(s.id)}
+                    onCancelDelete={() => setConfirmId(null)}
+                  />
+                ),
+              }))}
+            />
           )}
         </div>
 
@@ -238,14 +244,14 @@ export default function SkillPanel({ onBack }: Props) {
             skill.builtIn ? null : (
               <div className="sk-head-actions">
                 <Tooltip content="编辑" position="bottom">
-                  <button className="sl-history-btn" onClick={() => setView({ mode: 'edit', skill })} type="button" aria-label="编辑">
+                  <IconButton onClick={() => setView({ mode: 'edit', skill })} aria-label="编辑">
                     <IconEdit />
-                  </button>
+                  </IconButton>
                 </Tooltip>
                 <Tooltip content="删除" position="bottom">
-                  <button className="sl-history-btn sk-head-btn--danger" onClick={() => handleDelete(skill)} type="button" aria-label="删除">
+                  <IconButton variant="danger" onClick={() => handleDelete(skill)} aria-label="删除">
                     <IconTrash />
-                  </button>
+                  </IconButton>
                 </Tooltip>
               </div>
             )
@@ -265,9 +271,9 @@ export default function SkillPanel({ onBack }: Props) {
         rightAction={
           view.skill && !view.skill.builtIn ? (
             <Tooltip content="删除" position="bottom">
-              <button className="sl-history-btn sk-head-btn--danger" onClick={() => view.skill && handleDelete(view.skill)} type="button" aria-label="删除">
+              <IconButton variant="danger" onClick={() => view.skill && handleDelete(view.skill)} aria-label="删除">
                 <IconTrash />
-              </button>
+              </IconButton>
             </Tooltip>
           ) : null
         }
@@ -283,12 +289,11 @@ export default function SkillPanel({ onBack }: Props) {
   )
 }
 
-// ── Skill row (flat list item) ──
+// ── Skill row actions (rendered inside FlatList's actions slot) ──
 
-interface SkillRowProps {
+interface SkillRowActionsProps {
   skill: UserSkill
   confirmId: string | null
-  onView: () => void
   onEdit: () => void
   onToggle: () => void
   onDelete: () => void
@@ -296,54 +301,47 @@ interface SkillRowProps {
   onCancelDelete: () => void
 }
 
-function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequestDelete, onCancelDelete }: SkillRowProps) {
+function SkillRowActions({ skill, confirmId, onEdit, onToggle, onDelete, onRequestDelete, onCancelDelete }: SkillRowActionsProps) {
   const isConfirm = confirmId === skill.id
+  if (isConfirm) {
+    return (
+      <>
+        <IconButton variant="danger" onClick={onDelete} aria-label="确认删除">
+          <IconTrash />
+        </IconButton>
+        <IconButton onClick={onCancelDelete} aria-label="取消">
+          <IconX />
+        </IconButton>
+      </>
+    )
+  }
   return (
-    <div className="sk-flat-row">
-      <button className="sk-flat-row-main" type="button" onClick={onView} aria-label={`查看 ${skill.name}`}>
-        <span className="sk-flat-row-title">{skill.name}</span>
-        <span className="sk-flat-row-desc">{skill.description}</span>
-      </button>
-      <div className="sk-flat-row-actions">
-        {isConfirm ? (
-          <>
-            <button className="sk-row-btn sk-row-btn--danger" onClick={onDelete} type="button" aria-label="确认删除">
-              <IconTrash />
-            </button>
-            <button className="sk-row-btn" onClick={onCancelDelete} type="button" aria-label="取消">
-              <IconX />
-            </button>
-          </>
-        ) : (
-          <>
-            <Tooltip content={skill.enabled ? '已启用' : '已禁用'} position="bottom">
-              <button
-                className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
-                onClick={onToggle}
-                type="button"
-                aria-label={skill.enabled ? '禁用' : '启用'}
-              >
-                <span className="sk-row-toggle-dot" />
-              </button>
-            </Tooltip>
-            {!skill.builtIn && (
-              <Tooltip content="编辑" position="bottom">
-                <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
-                  <IconEdit />
-                </button>
-              </Tooltip>
-            )}
-            {!skill.builtIn && (
-              <Tooltip content="删除" position="bottom">
-                <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
-                  <IconTrash />
-                </button>
-              </Tooltip>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+    <>
+      <Tooltip content={skill.enabled ? '已启用' : '已禁用'} position="bottom">
+        <button
+          className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
+          onClick={onToggle}
+          type="button"
+          aria-label={skill.enabled ? '禁用' : '启用'}
+        >
+          <span className="sk-row-toggle-dot" />
+        </button>
+      </Tooltip>
+      {!skill.builtIn && (
+        <Tooltip content="编辑" position="bottom">
+          <IconButton onClick={onEdit} aria-label="编辑">
+            <IconEdit />
+          </IconButton>
+        </Tooltip>
+      )}
+      {!skill.builtIn && (
+        <Tooltip content="删除" position="bottom">
+          <IconButton variant="danger" onClick={onRequestDelete} aria-label="删除">
+            <IconTrash />
+          </IconButton>
+        </Tooltip>
+      )}
+    </>
   )
 }
 

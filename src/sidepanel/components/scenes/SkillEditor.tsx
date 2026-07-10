@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import Markdown from '../chat/Markdown'
 import Button from '../ui/Button'
+import IconButton from '../ui/IconButton'
 import SegmentedTabs from '../ui/SegmentedTabs'
 import Tooltip from '../ui/Tooltip'
 import { IconHelpCircle, IconFilePlus } from '../ui/icons'
@@ -119,20 +120,14 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
         />
         <div className="sk-editor-tools">
           <Tooltip content={showHelp ? '收起说明' : '格式说明'} position="bottom">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<IconHelpCircle />}
-              onClick={() => setShowHelp((v) => !v)}
-            />
+            <IconButton active={showHelp} onClick={() => setShowHelp((v) => !v)} aria-label={showHelp ? '收起说明' : '格式说明'}>
+              <IconHelpCircle />
+            </IconButton>
           </Tooltip>
           <Tooltip content="插入模板" position="bottom">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<IconFilePlus />}
-              onClick={insertTemplate}
-            />
+            <IconButton onClick={insertTemplate} aria-label="插入模板">
+              <IconFilePlus />
+            </IconButton>
           </Tooltip>
         </div>
       </div>
