@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BUILD_CONFIG, HAS_MANAGED_LLM } from '@/shared/config'
 import { clearManagedLlmCache, usingManagedLlm } from '@/shared/ai/llmConfig'
 import {
@@ -8,12 +9,15 @@ import {
 import FormField from '../ui/FormField'
 import FormInput from '../ui/FormInput'
 import FormToggle from '../ui/FormToggle'
+import Button from '../ui/Button'
 import SettingsSelect from './SettingsSelect'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
 /** AI 模型 tab：模型配置。 */
-export default function AiTab({ form, patch, set }: SettingsTabProps) {
+export default function AiTab({ form, patch, set, onSave }: SettingsTabProps) {
+  const [saved, setSaved] = useState(false)
+
   // ── LLM provider preset ──
   const provider = providerForBaseUrl(form.openaiBaseUrl)
   const llmFormat = form.llmFormat ?? 'openai'
@@ -111,6 +115,22 @@ export default function AiTab({ form, patch, set }: SettingsTabProps) {
                 </datalist>
               </>
             </FormField>
+
+            {onSave && (
+              <div className="ai-save-row">
+                <Button
+                  variant="secondary"
+                  block
+                  onClick={() => {
+                    onSave(form)
+                    setSaved(true)
+                    setTimeout(() => setSaved(false), 1500)
+                  }}
+                >
+                  {saved ? '已保存' : '保存配置'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </SettingsSection>

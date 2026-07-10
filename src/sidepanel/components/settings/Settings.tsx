@@ -100,7 +100,7 @@ export default function Settings({
         )}
 
         {tab === 'ai' && (
-          <AiTab form={form} patch={patch} set={set} />
+          <AiTab form={form} patch={patch} set={set} onSave={onSave} />
         )}
 
         {tab === 'feishu' && <FeishuTab form={form} patch={patch} set={set} />}

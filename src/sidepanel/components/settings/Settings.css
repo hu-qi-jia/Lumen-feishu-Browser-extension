@@ -175,6 +175,11 @@
   min-width: 100%;
 }
 
+/* Save button row in AiTab — full-width button with top margin. */
+.ai-save-row {
+  margin-top: 8px;
+}
+
 /* .field-label / .field-hint / .field-group / .field-label-inline / .field-input
    now live in Form.css — they are shared by all settings tabs and other panels. */
 
