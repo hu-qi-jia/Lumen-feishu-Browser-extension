@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import './Form.css'
 
 interface Props {
   type?: 'text' | 'url' | 'password'

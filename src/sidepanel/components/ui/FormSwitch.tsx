@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import './Form.css'
 
 interface Props {
   checked: boolean

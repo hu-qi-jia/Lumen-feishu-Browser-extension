@@ -1,4 +1,5 @@
 import { type ChangeEvent, type TextareaHTMLAttributes } from 'react'
+import './Form.css'
 
 type Props = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> & {
   value: string
