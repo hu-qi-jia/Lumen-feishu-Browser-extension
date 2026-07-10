@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AppSettings, PageContext } from '@/shared/types'
+import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
 import type { ClipCapture } from '@/shared/clip/types'
 import type { BaseCtx } from '@/shared/feishu/context'
 import { fetchBaseCtx } from '@/shared/feishu/context'
@@ -11,10 +11,12 @@ import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 import { openUrlInNewTab } from '@/shared/url'
 import { runAgent } from '@/shared/ai/agent'
 import { imageToMarkdown } from '@/shared/ai/vision'
+import type { RecentFile } from '../../services/recentFiles'
 import Button from '../ui/Button'
 import FormField from '../ui/FormField'
-import FormInput from '../ui/FormInput'
 import FormSelect from '../ui/FormSelect'
+import DocLinkField from '../session/DocLinkField'
+import Markdown from '../chat/Markdown'
 import Tooltip from '../ui/Tooltip'
 import { IconX, KindIcon } from '../ui/icons'
 import './ClipPanel.css'
@@ -27,12 +29,17 @@ interface Props {
   error?: string
   disabled: boolean
   onClose: () => void
+  /** Recent docs/sheets surfaced to the target-document combobox. */
+  recentFiles: RecentFile[]
+  onRemoveRecent?: (token: string) => void
 }
 
 type Phase = 'shot' | 'preview' | 'target' | 'running' | 'done' | 'failed'
+type BodyView = 'preview' | 'markdown'
 
-export default function ClipPanel({ settings, clip, error, disabled, onClose }: Props) {
+export default function ClipPanel({ settings, clip, error, disabled, onClose, recentFiles, onRemoveRecent }: Props) {
   const [phase, setPhase] = useState<Phase>(error ? 'failed' : clip?.imageDataUrl ? 'shot' : 'preview')
+  const [bodyView, setBodyView] = useState<BodyView>('preview')
   const [baseUrl, setBaseUrl] = useState('')
   const [baseCtx, setBaseCtx] = useState<BaseCtx | null>(null)
   const [tableId, setTableId] = useState('')
@@ -54,6 +61,7 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
   const [presets, setPresets] = useState<Preset[]>([])
   const [savedHint, setSavedHint] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     if (typeof chrome === 'undefined') return
@@ -62,6 +70,14 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
       if (Array.isArray(r?._clip_presets)) setPresets(r._clip_presets)
     })
   }, [])
+
+  // Auto-size the markdown editor to fit its content (mirrors PdfTranscribePanel).
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [markdown, bodyView])
 
   function rememberTarget(kind: Recent['kind'], token: string, name: string) {
     setRecent((prev) => {
@@ -110,6 +126,7 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
     try {
       const md = await imageToMarkdown(settings, clip.imageDataUrl)
       setMarkdown(md)
+      setBodyView('preview')
       setPhase('preview')
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : String(e)); setPhase('failed')
@@ -196,6 +213,14 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
     if (r.kind === 'base') void loadByAppToken(r.token)
     else if (r.kind === 'sheet') void loadSheet(r.token)
     else loadDoc(r.token, r.name)
+  }
+
+  // When DocLinkField picks a recent file, parse it just like a pasted link.
+  function onPickRecentFile(f: RecentFile) {
+    setBaseUrl(f.title)
+    if (f.kind === 'base') void loadByAppToken(f.token)
+    else if (f.kind === 'sheet') void loadSheet(f.token)
+    else loadDoc(f.token, f.title)
   }
 
   const clipFooter =
@@ -354,208 +379,247 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose }: 
     void runClip(context, instruction, undefined, () => {})
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const sourceKind = clip?.imageDataUrl ? '截图识别' : clip?.selectedText ? '已选中文本' : '整页正文'
+  const sourceIcon = clip?.imageDataUrl ? 'camera' : clip?.selectedText ? 'text' : 'web'
+
+  function SourceIcon() {
+    return (
+      <span className={`clip-source-ic clip-source-ic--${sourceIcon}`}>
+        {sourceIcon === 'camera' ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+        ) : sourceIcon === 'text' ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+        )}
+      </span>
+    )
+  }
+
+  // Recent-file kind icon color class for DocLinkField rows (matches dc-row-icon--*).
+  function recentFileKind(f: RecentFile): SessionKind {
+    return f.kind === 'wiki' ? 'doc' : f.kind
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="clip-panel">
-      <header className="clip-head">
+    <div className="scenario-panel view-enter clip-panel" key="clip">
+      <div className="clip-head">
         <span className="clip-title">剪藏到飞书</span>
         <Tooltip content="关闭" position="bottom">
           <button className="icon-action" onClick={() => { abortRef.current?.abort(); onClose() }} aria-label="关闭">
             <IconX />
           </button>
         </Tooltip>
-      </header>
+      </div>
 
-      {phase === 'failed' && (
-        <div className="clip-error">
-          <p>{errMsg || '剪藏失败'}</p>
-          <Button variant="ghost" onClick={onClose}>关闭</Button>
-        </div>
-      )}
-
-      {phase !== 'failed' && clip && (
-        <>
-          {/* Preview — the user sees EXACTLY what will be sent, before any network call. */}
-          <div className="clip-source">
-            <Tooltip content={clip.url} position="bottom">
-              <div className="clip-source-title">{clip.title || clip.url}</div>
-            </Tooltip>
-            <div className="clip-source-url">{clip.url}</div>
-            {clip.imageDataUrl
-              ? <span className="clip-tag">截图识别</span>
-              : clip.selectedText
-                ? <span className="clip-tag">已选中文本</span>
-                : <span className="clip-tag">整页正文</span>}
-            {clip.truncated && <span className="clip-tag clip-tag--warn">已截断</span>}
+      <div className="sc-detail-body clip-body">
+        {phase === 'failed' && (
+          <div className="sc-error-box">
+            <div className="sc-error-title">剪藏失败</div>
+            <div className="sc-error-msg">{errMsg || '无法读取页面内容。'}</div>
+            <Button variant="primary" onClick={onClose}>关闭</Button>
           </div>
+        )}
 
-          {phase === 'shot' && clip.imageDataUrl && (
-            <>
-              <img className="clip-shot-img" src={clip.imageDataUrl} alt="网页截图" />
-              <p className="clip-hint">仅截取当前可见区域。下方点「识别表格」后,截图会发给你配置的大模型提取数据。</p>
-              <div className="clip-actions">
-                <Button variant="primary" loading={visionBusy} disabled={disabled} onClick={recognizeTable}>
-                  识别表格 →
-                </Button>
+        {phase !== 'failed' && clip && (
+          <>
+            {/* Source card (mirrors sl-result / pdf-picked-file). */}
+            <div className="clip-source-card">
+              <SourceIcon />
+              <div className="clip-source-meta">
+                <div className="clip-source-name">{clip.title || clip.url}</div>
+                <div className="clip-source-sub">{clip.url}</div>
               </div>
-              {disabled && <p className="clip-hint">请先在「设置」里完成 API Key / 飞书授权。</p>}
-            </>
-          )}
+              <span className="clip-source-tag">{sourceKind}{clip.truncated && ' · 已截断'}</span>
+            </div>
 
-          {phase !== 'shot' && <pre className="clip-preview">{body || '(无可抓取的文本)'}</pre>}
+            {phase === 'shot' && clip.imageDataUrl && (
+              <>
+                <img className="clip-shot-img" src={clip.imageDataUrl} alt="网页截图" />
+                <p className="clip-hint">仅截取当前可见区域。点击「识别表格」后，截图会发给你配置的大模型提取数据。</p>
+                <Button variant="primary" block loading={visionBusy} disabled={disabled} onClick={recognizeTable}>
+                  {visionBusy ? '识别中…' : '识别表格'}
+                </Button>
+                {disabled && <p className="clip-hint">请先在「设置」里完成 API Key / 飞书授权。</p>}
+              </>
+            )}
 
-          {phase === 'preview' && (
-            <>
-              {matchedPresets.length > 0 && (
-                <div className="clip-presets">
-                  <label className="form-field-label">这个网站的采集模板（一键写入）</label>
-                  {matchedPresets.map((p) => (
-                    <Button key={p.id} variant="primary" disabled={disabled || loadingCtx} onClick={() => runPreset(p)}>
-                      {p.label}
-                    </Button>
-                  ))}
-                  <p className="clip-hint">或手动选择目标 ↓</p>
+            {phase !== 'shot' && (
+              <div className="sc-field">
+                <label className="sc-field-label">识别结果</label>
+                <div className="pdf-result-box">
+                  <div className="pdf-result-bar">
+                    <div className="sc-target-opts pdf-view-toggle">
+                      <button className={`sc-target-opt${bodyView === 'preview' ? ' sc-target-opt--active' : ''}`} onClick={() => setBodyView('preview')}>预览</button>
+                      <button className={`sc-target-opt${bodyView === 'markdown' ? ' sc-target-opt--active' : ''}`} onClick={() => setBodyView('markdown')}>Markdown</button>
+                    </div>
+                  </div>
+                  <div className="pdf-result-scroll clip-result-scroll">
+                    {bodyView === 'preview'
+                      ? <div data-testid="clip-preview"><Markdown>{body || '(无可抓取的文本)'}</Markdown></div>
+                      : <textarea ref={editorRef} className="field-input sc-pdf-editor" data-testid="clip-editor" value={body} onChange={(e) => setMarkdown(e.target.value)} />}
+                  </div>
                 </div>
-              )}
-              <div className="clip-actions">
-                <Button variant="secondary" disabled={disabled || !body} onClick={() => setPhase('target')}>
+              </div>
+            )}
+
+            {phase === 'preview' && (
+              <>
+                {matchedPresets.length > 0 && (
+                  <div className="sc-field clip-presets">
+                    <label className="sc-field-label">这个网站的采集模板（一键写入）</label>
+                    <div className="clip-preset-grid">
+                      {matchedPresets.map((p) => (
+                        <Button key={p.id} variant="primary" disabled={disabled || loadingCtx} onClick={() => runPreset(p)}>
+                          {p.label}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="clip-hint">或手动选择目标 ↓</p>
+                  </div>
+                )}
+                <Button variant="primary" block disabled={disabled || !body} onClick={() => setPhase('target')}>
                   选择目标 →
                 </Button>
                 {disabled && <p className="clip-hint">请先在「设置」里完成 API Key / 飞书授权。</p>}
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {phase === 'target' && (
-            <div className="clip-target">
-              {recent.length > 0 && (
-                <>
-                  <label className="form-field-label">最近用过的（点一下直接用）</label>
-                  <div className="clip-recent-list">
-                    {recent.map((r) => (
-                      <Tooltip
-                        key={r.token}
-                        content={`${kindLabel(r.kind)} · ${r.name}`}
-                        position="bottom"
-                      >
-                        <button
-                          type="button"
-                          className="clip-recent-chip"
-                          disabled={loadingCtx}
-                          onClick={() => loadRecent(r)}
-                        >
-                          <span className="clip-recent-icon"><KindIcon kind={r.kind} /></span>
-                          <span className="clip-recent-kind">{kindLabel(r.kind)}</span>
-                          <span className="clip-recent-name">{r.name}</span>
-                        </button>
-                      </Tooltip>
-                    ))}
+            {phase === 'target' && (
+              <>
+                {recent.length > 0 && (
+                  <div className="sc-field">
+                    <label className="sc-field-label">最近用过的（点一下直接用）</label>
+                    <div className="clip-recent-list">
+                      {recent.map((r) => (
+                        <Tooltip key={r.token} content={`${kindLabel(r.kind)} · ${r.name}`} position="bottom">
+                          <button
+                            type="button"
+                            className="clip-recent-chip"
+                            disabled={loadingCtx}
+                            onClick={() => loadRecent(r)}
+                          >
+                            <span className="clip-recent-icon"><KindIcon kind={r.kind} /></span>
+                            <span className="clip-recent-kind">{kindLabel(r.kind)}</span>
+                            <span className="clip-recent-name">{r.name}</span>
+                          </button>
+                        </Tooltip>
+                      ))}
+                    </div>
                   </div>
-                </>
-              )}
+                )}
 
-              <FormField
-                label="或粘贴目标链接"
-                hint={<>支持<b>多维表格 / 电子表格 / 文档</b>的链接（含知识库 <code>/wiki/</code>），或直接粘贴 Base app_token。</>}
-              >
-                <FormInput
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="多维表格 /base/ · 电子表格 /sheets/ · 文档 /docx/ · 知识库 /wiki/"
-                />
-              </FormField>
-              <div className="clip-actions">
-                <Button variant="ghost" onClick={() => setPhase('preview')}>← 返回</Button>
-                <Button variant="secondary" loading={loadingCtx} disabled={!baseUrl.trim()} onClick={loadTarget}>
-                  加载
-                </Button>
-              </div>
-              <div className="clip-divider"><span>或新建一个</span></div>
-              <div className="clip-new-grid">
-                <Tooltip content="据内容新建多维表格并写入" position="bottom">
-                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewBase}>
-                    <span className="clip-new-ic"><KindIcon kind="base" /></span><span>多维表格</span>
-                  </button>
-                </Tooltip>
-                <Tooltip content="据内容新建电子表格并写入" position="bottom">
-                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewSheet}>
-                    <span className="clip-new-ic"><KindIcon kind="sheet" /></span><span>电子表格</span>
-                  </button>
-                </Tooltip>
-                <Tooltip content="据内容新建文档并写入" position="bottom">
-                  <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewDoc}>
-                    <span className="clip-new-ic"><KindIcon kind="doc" /></span><span>文档</span>
-                  </button>
-                </Tooltip>
-              </div>
+                <div className="sc-field">
+                  <label className="sc-field-label">粘贴目标链接</label>
+                  <DocLinkField
+                    value={baseUrl}
+                    onValueChange={(v) => setBaseUrl(v)}
+                    recentFiles={recentFiles.map((f) => ({ ...f, kind: recentFileKind(f) }))}
+                    onPickRecent={onPickRecentFile}
+                    onRemoveRecent={onRemoveRecent}
+                    onSubmit={loadTarget}
+                    placeholder="粘贴多维表格 /base/、电子表格 /sheets/、文档 /docx/、知识库 /wiki/"
+                    disabled={loadingCtx}
+                  />
+                  <p className="clip-hint">支持<b>多维表格 / 电子表格 / 文档</b>的链接（含知识库 <code>/wiki/</code>），或直接粘贴 Base app_token。</p>
+                </div>
 
-              {baseCtx && (
-                <FormField label={`写入哪张表（多维表格「${baseCtx.appName}」）`}>
-                  <FormSelect value={tableId} onChange={(e) => setTableId(e.target.value)}>
-                    {baseCtx.tables.map((t) => (
-                      <option key={t.tableId} value={t.tableId}>{t.tableName}</option>
-                    ))}
-                  </FormSelect>
-                </FormField>
-              )}
-              {baseCtx && (
-                <div className="clip-actions clip-actions--col">
-                  <Button variant="primary" block disabled={disabled || !tableId} onClick={writeToBase}>
-                    AI 整理并写入
-                  </Button>
-                  <Button variant="ghost" disabled={!tableId} onClick={() => savePreset('base', baseCtx.appToken, baseCtx.appName, tableId)}>
-                    保存为采集模板
+                <div className="clip-actions">
+                  <Button variant="secondary" onClick={() => setPhase('preview')}>← 返回</Button>
+                  <Button variant="primary" loading={loadingCtx} disabled={!baseUrl.trim()} onClick={loadTarget}>
+                    加载
                   </Button>
                 </div>
-              )}
-              {sheetDoc?.kind === 'sheet' && (
-                <div className="clip-actions clip-actions--col">
-                  <Button variant="primary" block disabled={disabled} onClick={writeToSheet}>
-                    AI 追加写入电子表格「{sheetDoc.name}」
-                  </Button>
-                  <Button variant="ghost" onClick={() => savePreset('sheet', sheetDoc.token, sheetDoc.name)}>保存为采集模板</Button>
-                </div>
-              )}
-              {sheetDoc?.kind === 'doc' && (
-                <div className="clip-actions clip-actions--col">
-                  <Button variant="primary" block disabled={disabled} onClick={writeToDoc}>
-                    AI 插入文档「{sheetDoc.name}」
-                  </Button>
-                  <Button variant="ghost" onClick={() => savePreset('doc', sheetDoc.token, sheetDoc.name)}>保存为采集模板</Button>
-                </div>
-              )}
-              {savedHint && <p className="clip-hint">已保存采集模板，下次在这个网站剪藏时可一键写入。</p>}
-              {errMsg && <p className="clip-hint clip-hint--err">{errMsg}</p>}
-            </div>
-          )}
 
-          {phase === 'running' && (
-            <div className="clip-running">
-              <div className="clip-spinner" />
-              <p>AI 正在整理并写入…</p>
-              {status.length > 0 && <p className="clip-status">{status.join(' · ')}</p>}
-              {result && <pre className="clip-preview">{result}</pre>}
-            </div>
-          )}
+                <div className="clip-divider"><span>或新建一个</span></div>
+                <div className="clip-new-grid">
+                  <Tooltip content="据内容新建多维表格并写入" position="bottom">
+                    <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewBase}>
+                      <span className="clip-new-ic"><KindIcon kind="base" /></span><span>多维表格</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="据内容新建电子表格并写入" position="bottom">
+                    <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewSheet}>
+                      <span className="clip-new-ic"><KindIcon kind="sheet" /></span><span>电子表格</span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="据内容新建文档并写入" position="bottom">
+                    <button className="clip-new-chip" disabled={disabled || loadingCtx} onClick={createNewDoc}>
+                      <span className="clip-new-ic"><KindIcon kind="doc" /></span><span>文档</span>
+                    </button>
+                  </Tooltip>
+                </div>
 
-          {phase === 'done' && (
-            <div className="clip-done">
-              <div className="clip-done-icon"></div>
-              <p className="clip-done-text">{result || '已写入。'}</p>
-              {openUrl && (
-                <Button variant="primary" onClick={() => openUrlInNewTab(openUrl)}>
-                  在飞书中打开 ↗
-                </Button>
-              )}
-              <div className="clip-actions">
-                <Button variant="ghost" onClick={() => setPhase('target')}>再写一次</Button>
-                <Button variant="ghost" onClick={onClose}>完成</Button>
+                {baseCtx && (
+                  <FormField label={`写入哪张表（多维表格「${baseCtx.appName}」）`}>
+                    <FormSelect value={tableId} onChange={(e) => setTableId(e.target.value)}>
+                      {baseCtx.tables.map((t) => (
+                        <option key={t.tableId} value={t.tableId}>{t.tableName}</option>
+                      ))}
+                    </FormSelect>
+                  </FormField>
+                )}
+                {baseCtx && (
+                  <div className="clip-actions clip-actions--col">
+                    <Button variant="primary" block disabled={disabled || !tableId} onClick={writeToBase}>
+                      AI 整理并写入
+                    </Button>
+                    <Button variant="ghost" disabled={!tableId} onClick={() => savePreset('base', baseCtx.appToken, baseCtx.appName, tableId)}>
+                      保存为采集模板
+                    </Button>
+                  </div>
+                )}
+                {sheetDoc?.kind === 'sheet' && (
+                  <div className="clip-actions clip-actions--col">
+                    <Button variant="primary" block disabled={disabled} onClick={writeToSheet}>
+                      AI 追加写入电子表格「{sheetDoc.name}」
+                    </Button>
+                    <Button variant="ghost" onClick={() => savePreset('sheet', sheetDoc.token, sheetDoc.name)}>保存为采集模板</Button>
+                  </div>
+                )}
+                {sheetDoc?.kind === 'doc' && (
+                  <div className="clip-actions clip-actions--col">
+                    <Button variant="primary" block disabled={disabled} onClick={writeToDoc}>
+                      AI 插入文档「{sheetDoc.name}」
+                    </Button>
+                    <Button variant="ghost" onClick={() => savePreset('doc', sheetDoc.token, sheetDoc.name)}>保存为采集模板</Button>
+                  </div>
+                )}
+                {savedHint && <p className="clip-hint">已保存采集模板，下次在这个网站剪藏时可一键写入。</p>}
+                {errMsg && <p className="clip-hint clip-hint--err">{errMsg}</p>}
+              </>
+            )}
+
+            {phase === 'running' && (
+              <div className="clip-running">
+                <div className="clip-spinner" />
+                <p>AI 正在整理并写入…</p>
+                {status.length > 0 && <p className="clip-status">{status.join(' · ')}</p>}
+                {result && <pre className="clip-preview">{result}</pre>}
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+
+            {phase === 'done' && (
+              <div className="clip-done">
+                <div className="clip-done-icon"></div>
+                <p className="clip-done-text">{result || '已写入。'}</p>
+                {openUrl && (
+                  <Button variant="primary" block onClick={() => openUrlInNewTab(openUrl)}>
+                    在飞书中打开 ↗
+                  </Button>
+                )}
+                <div className="clip-actions">
+                  <Button variant="ghost" onClick={() => setPhase('target')}>再写一次</Button>
+                  <Button variant="ghost" onClick={onClose}>完成</Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

@@ -387,6 +387,8 @@ export default function App() {
                   error={clipError ?? undefined}
                   disabled={!canOperate}
                   onClose={() => { setClip(null); setClipError(null); setTab('chat') }}
+                  recentFiles={recentFiles}
+                  onRemoveRecent={removeFromRecent}
                 />
               ) : tab === 'news' ? (
                 <NewsPanel />
