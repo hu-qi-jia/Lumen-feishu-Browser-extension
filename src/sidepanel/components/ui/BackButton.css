@@ -2,21 +2,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 6px;
   background: transparent;
-  color: var(--color-text-secondary);
+  border: none;
   cursor: pointer;
-  transition: border-color .15s, background .15s, color .15s;
+  color: var(--color-text-secondary);
+  transition: color .15s ease;
 }
-.back-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-text);
-}
-.back-btn-icon {
-  width: 16px;
-  height: 16px;
-}
+.back-btn:hover { color: var(--color-text); }
+.back-btn:active { color: var(--color-text); }
+.back-btn:disabled { opacity: .4; cursor: not-allowed; }
+.back-btn-icon { display: block; width: 18px; height: 18px; }
