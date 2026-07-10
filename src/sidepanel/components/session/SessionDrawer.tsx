@@ -3,6 +3,7 @@ import type { SessionKind, SessionMeta } from '@/shared/types'
 import type { SessionsApi } from '../../sessions/useSessions'
 import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../../sessions/logic'
 import { KindIcon, GeneralIcon, IconTrash } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 import SideDrawer from '../ui/SideDrawer'
 import SearchBox from '../ui/SearchBox'
 import Tooltip from '../ui/Tooltip'
@@ -224,9 +225,9 @@ function SessionGroupView({
         </button>
         <span className="drawer-group-actions">
           <Tooltip content="删除该文档全部会话" position="left">
-            <button className="drawer-row-btn" onClick={onDeleteGroup} type="button" aria-label="删除该文档全部会话">
+            <IconButton variant="danger" onClick={onDeleteGroup} aria-label="删除该文档全部会话">
               <IconTrash />
-            </button>
+            </IconButton>
           </Tooltip>
         </span>
       </div>
@@ -303,17 +304,17 @@ function SessionRow({
       {!editing && (
         <span className="drawer-row-actions">
           <Tooltip content="重命名" position="left">
-            <button className="drawer-row-btn" onClick={onStartRename} type="button" aria-label="重命名">
+            <IconButton onClick={onStartRename} aria-label="重命名">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content="删除" position="left">
-            <button className="drawer-row-btn" onClick={onDelete} type="button" aria-label="删除">
+            <IconButton variant="danger" onClick={onDelete} aria-label="删除">
               <IconTrash />
-            </button>
+            </IconButton>
           </Tooltip>
         </span>
       )}

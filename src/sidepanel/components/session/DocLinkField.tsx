@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SessionKind } from '@/shared/types'
 import { displayName, type RecentFile } from '../../services/recentFiles'
 import { KindIcon, IconX } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 
 interface Props {
   /** Controlled field text — a typed/pasted link, or whatever the caller fills (e.g. a picked
@@ -84,14 +85,14 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
         onFocus={() => setOpen(true)} onChange={(e) => onValueChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && onSubmit) { e.preventDefault(); onSubmit() } }}
       />
-      <button
-        type="button" className="dc-chevron" disabled={disabled}
+      <IconButton
+        className="dc-chevron" disabled={disabled}
         onClick={() => setOpen((o) => !o)} aria-label="展开最近文档" aria-expanded={open}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-      </button>
+      </IconButton>
       {value && (
-        <button type="button" className="dc-clear" data-testid="dc-clear" aria-label="清除" onClick={() => onValueChange('')}><IconX /></button>
+        <IconButton className="dc-clear" data-testid="dc-clear" aria-label="清除" onClick={() => onValueChange('')}><IconX /></IconButton>
       )}
       {open && filtered.length > 0 && (
         <div className="dc-dropdown" data-testid="dc-dropdown">
@@ -102,10 +103,10 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
               <span className={`dc-row-icon dc-row-icon--${k}`}><KindIcon kind={k} /></span>
               <span className="dc-row-title">{displayName(f)}</span>
               {onRemoveRecent && (
-                <button type="button" className="dc-row-x" aria-label="移除"
+                <IconButton className="dc-row-x" aria-label="移除"
                   onClick={(e) => { e.stopPropagation(); onRemoveRecent(f.token) }}>
                   <IconX />
-                </button>
+                </IconButton>
               )}
             </div>
             )

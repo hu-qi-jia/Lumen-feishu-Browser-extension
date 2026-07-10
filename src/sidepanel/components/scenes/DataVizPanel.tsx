@@ -11,6 +11,7 @@ import type { SavedViz, VizSource } from '@/shared/dataviz/types'
 import type { VizSpec } from '@/shared/dataviz/spec'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
+import IconButton from '../ui/IconButton'
 import Tooltip from '../ui/Tooltip'
 import './DataVizPanel.css'
 
@@ -241,7 +242,7 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
                     </button>
                   </Tooltip>
                   <Tooltip content="删除" position="top">
-                    <button className="dv-item-del" onClick={() => remove(v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    <IconButton variant="danger" className="dv-item-del" onClick={() => remove(v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></IconButton>
                   </Tooltip>
                 </div>
               ))}

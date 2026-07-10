@@ -63,17 +63,6 @@
 
 /* 修改 is a plain .sl-field now (see SlidesPanel.tsx) — no dedicated adjust CSS. */
 
-/* ── TopBar right-slot icon buttons (new + history) ─────────────────────── */
-.sl-history-btn {
-  background: none; border: none; cursor: pointer;
-  color: var(--color-text-secondary); padding: 6px; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s, color .15s;
-}
-.sl-history-btn svg { display: block; width: 18px; height: 18px; }
-.sl-history-btn:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
-.sl-history-btn:disabled { opacity: .5; cursor: not-allowed; }
-
 /* ── Link input + chips ─────────────────────────────────────────────────── */
 /* The source field is the shared DocLinkField (same control the PDF panel uses for "目标文档"):
    paste a Feishu link, or click the chevron to drop down 最近打开 and add a cached doc directly.

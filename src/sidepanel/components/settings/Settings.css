@@ -406,27 +406,16 @@
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background .15s, color .15s;
   z-index: 1;
 }
-.code-block__copy:hover {
+/* Scoped under .code-block so the selector's specificity ties
+   .icon-btn:hover:not(:disabled) and wins via source order (this stylesheet
+   loads after IconButton.css). --color-border is required because the code
+   block itself sits on --color-surface-2, which is IconButton's default hover
+   background — without this override the hover would be invisible. */
+.code-block .code-block__copy:hover {
   background: var(--color-border);
   color: var(--color-text);
-}
-.code-block__copy svg {
-  width: 14px;
-  height: 14px;
 }
 
 /* ── Test connection ── */

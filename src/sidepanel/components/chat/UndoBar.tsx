@@ -4,6 +4,7 @@ import { loadDeleteUndo, clearDeleteUndo, restoreDeleteUndo, type UndoView } fro
 import { resolveToken } from '@/shared/feishu/auth'
 import { reloadActiveTab } from '../../services/tabReload'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 
 /**
  * A slim "↩ 撤销删除" bar shown after the assistant deletes records. It reads the undo entry the
@@ -56,7 +57,7 @@ export default function UndoBar({ settings }: { settings: AppSettings }) {
           <span style={{ flex: 1 }}>{undo.label} · 误删了？可一键恢复</span>
           <button style={btn} disabled={busy} onClick={() => void restore()}>{busy ? '恢复中…' : '↩ 撤销'}</button>
           <Tooltip content="不撤销，关闭" position="top">
-            <button style={x} onClick={() => void dismiss()} aria-label="不撤销，关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <IconButton onClick={() => void dismiss()} aria-label="不撤销，关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></IconButton>
           </Tooltip>
         </div>
       )}
@@ -74,4 +75,3 @@ const bar: React.CSSProperties = {
 const btn: React.CSSProperties = {
   border: 'none', background: '#4f6bff', color: '#fff', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontSize: 12,
 }
-const x: React.CSSProperties = { border: 'none', background: 'transparent', color: '#999', cursor: 'pointer', fontSize: 13 }

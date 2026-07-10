@@ -7,21 +7,13 @@
 .dc-input { width: 100%; padding-right: 56px; }
 .dc-chevron {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--color-text-secondary, #8a8f99);
-  cursor: pointer; padding: 2px 4px; display: inline-flex;
-  transition: color .15s;
 }
-.dc-chevron:hover { color: var(--color-primary, #3370ff); }
 .dc-chevron svg { width: 16px; height: 16px; }
 /* Clear (×) — sits clearly LEFT of the chevron (2px gap, no overlap), only while the field
    has content. Hidden when empty so an idle field isn't cluttered with a disabled-looking ×. */
 .dc-clear {
   position: absolute; right: 32px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--color-text-secondary, #8a8f99);
-  cursor: pointer; padding: 2px 4px; display: inline-flex;
-  transition: color .15s;
 }
-.dc-clear:hover { color: var(--color-danger, #d33); }
 .dc-clear svg { width: 14px; height: 14px; }
 .dc-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 20;
@@ -41,6 +33,4 @@
 .dc-row-icon--base { color: #8b5cf6; }
 .dc-row-icon--sheet { color: #2f9e44; }
 .dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-.dc-row-x { background: none; border: none; color: var(--color-text-secondary, #bbb); cursor: pointer; display: inline-flex; padding: 2px; border-radius: 4px; }
 .dc-row-x svg { width: 14px; height: 14px; }
-.dc-row-x:hover { color: var(--color-danger, #d33); }

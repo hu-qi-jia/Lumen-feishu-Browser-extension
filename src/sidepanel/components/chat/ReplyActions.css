@@ -1,29 +1,15 @@
 /* Action row under a completed agent reply — copy + retry, icon-only with hover tooltips.
-   Sits as the last child of .reply-block; aligned to the right. */
+   Sits as the last child of .reply-block; aligned to the right.
+   Button base styles (size/layout/hover/disabled/svg) come from <IconButton> (.icon-btn). */
 .reply-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
 }
-.reply-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background .15s ease, color .15s ease;
-}
-.reply-action:hover { background: var(--color-surface-2); color: var(--color-text); }
-.reply-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
-.reply-action:disabled { opacity: .4; cursor: not-allowed; }
-.reply-action svg { width: 15px; height: 15px; }
-/* Copied confirmation — the check turns brand-color to signal success. */
+/* Copied confirmation — the check turns brand-color to signal success.
+   The :hover variant is scoped under .reply-action so its specificity ties
+   .icon-btn:hover:not(:disabled) and wins via source order (this stylesheet
+   loads after IconButton.css), keeping the check brand-colored on hover. */
 .reply-action--copied { color: var(--color-primary); }
-.reply-action--copied:hover { color: var(--color-primary); }
+.reply-action.reply-action--copied:hover { color: var(--color-primary); }

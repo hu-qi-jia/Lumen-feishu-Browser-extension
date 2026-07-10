@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import IconButton from './IconButton'
 import Tooltip from './Tooltip'
 import './SideDrawer.css'
 
@@ -48,12 +49,12 @@ export default function SideDrawer({ title, onClose, children }: Props) {
         <div className="drawer-head">
           <span className="drawer-title">{title}</span>
           <Tooltip content="关闭" position="bottom">
-            <button className="drawer-x" onClick={requestClose} type="button" aria-label="关闭">
+            <IconButton className="drawer-x" onClick={requestClose} aria-label="关闭">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </button>
+            </IconButton>
           </Tooltip>
         </div>
         {children}

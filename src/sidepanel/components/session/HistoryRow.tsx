@@ -1,4 +1,5 @@
 import { IconTrash } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 import Tooltip from '../ui/Tooltip'
 import './HistoryRow.css'
 
@@ -28,9 +29,9 @@ export default function HistoryRow({ name, meta, active, onOpen, onDelete, delet
       {openTitle ? <Tooltip content={openTitle} position="right">{main}</Tooltip> : main}
       {onDelete && (
         <span className="hr-actions">
-          <button className="drawer-row-btn" type="button" aria-label="删除" onClick={onDelete} disabled={deleteDisabled}>
+          <IconButton variant="danger" aria-label="删除" onClick={onDelete} disabled={deleteDisabled}>
             <IconTrash />
-          </button>
+          </IconButton>
         </span>
       )}
     </div>

@@ -36,3 +36,7 @@
   box-shadow: none;
 }
 .icon-btn--ghost:hover:not(:disabled) { color: var(--color-text); }
+
+/* Danger: red icon color, same gray hover background as default — no red border/bg. */
+.icon-btn--danger { color: var(--color-error); }
+.icon-btn--danger:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-error); }

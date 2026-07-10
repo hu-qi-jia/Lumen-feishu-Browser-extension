@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import IconButton from '../ui/IconButton'
 
 interface Props {
   /** 代码内容（原样展示，保留换行）。 */
@@ -26,8 +27,7 @@ export default function CodeBlock({ code, scrollable = false, className }: Props
   return (
     <div className={`code-block${scrollable ? ' code-block--scroll' : ''}${className ? ` ${className}` : ''}`}>
       <pre className="code-block__pre">{code}</pre>
-      <button
-        type="button"
+      <IconButton
         className="code-block__copy"
         onClick={() => void handleCopy()}
         aria-label={copied ? '已复制' : '复制'}
@@ -43,7 +43,7 @@ export default function CodeBlock({ code, scrollable = false, className }: Props
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
         )}
-      </button>
+      </IconButton>
     </div>
   )
 }

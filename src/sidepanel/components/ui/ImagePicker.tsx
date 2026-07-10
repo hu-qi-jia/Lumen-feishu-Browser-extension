@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { SlideImage } from '@/shared/ai/slidesImages'
 import { compressImageToDataUrl } from '@/shared/attachments'
+import IconButton from './IconButton'
 import { UploadDrop } from './UploadDrop'
 import './ImagePicker.css'
 
@@ -64,8 +65,7 @@ export function ImagePicker({ images, pageOf, onChange, disabled, max = 12 }: Pr
                   <span className="sl-imgchip-page">P{pageOf(i.id)}</span>
                 )
               : null}
-            <button
-              type="button"
+            <IconButton
               className="sl-imgchip-x"
               aria-label={`移除 ${i.label}`}
               onClick={() => remove(i.id)}
@@ -82,7 +82,7 @@ export function ImagePicker({ images, pageOf, onChange, disabled, max = 12 }: Pr
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </button>
+            </IconButton>
           </div>
         ))}
       </div>

@@ -14,6 +14,7 @@ import DocCombobox, { type DocTarget } from '../session/DocCombobox'
 import UploadDrop from '../ui/UploadDrop'
 import HistoryRow from '../session/HistoryRow'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import { KindIcon, IconPlus, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle, IconX } from '../ui/icons'
 import './PdfTranscribePanel.css'
 
@@ -175,15 +176,15 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         <>
           {phase === 'done' && (
             <Tooltip content="新建任务" position="bottom">
-              <button className="sc-history-btn" onClick={newTask} type="button" aria-label="新建任务">
+              <IconButton onClick={newTask} aria-label="新建任务">
                 <IconPlus />
-              </button>
+              </IconButton>
             </Tooltip>
           )}
           <Tooltip content="历史记录" position="bottom">
-            <button className="sc-history-btn" onClick={() => setHistoryOpen(true)} type="button" aria-label="历史记录">
+            <IconButton onClick={() => setHistoryOpen(true)} aria-label="历史记录">
               <IconHistory />
-            </button>
+            </IconButton>
           </Tooltip>
         </>
       } />
@@ -223,10 +224,13 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
               {phase === 'selected' && (
                 <>
                   <span className="pdf-picked-hint">点击或拖入更换</span>
-                  <button type="button" className="pdf-picked-x" aria-label="移除文件"
-                    onClick={(e) => { e.stopPropagation(); pickedFile.current = null; setPhase('idle') }}>
+                  <IconButton
+                    className="pdf-picked-x"
+                    aria-label="移除文件"
+                    onClick={(e) => { e.stopPropagation(); pickedFile.current = null; setPhase('idle') }}
+                  >
                     <IconX />
-                  </button>
+                  </IconButton>
                 </>
               )}
             </div>

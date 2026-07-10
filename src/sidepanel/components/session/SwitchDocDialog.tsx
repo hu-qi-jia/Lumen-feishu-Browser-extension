@@ -1,4 +1,5 @@
 import { useEscapeToClose } from '../ui/useEscapeToClose'
+import IconButton from '../ui/IconButton'
 import Tooltip from '../ui/Tooltip'
 import '../chat/ConfirmDialog.css'
 
@@ -21,12 +22,12 @@ export default function SwitchDocDialog({ toTitle, onNew, onStay, onCancel }: Pr
     <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="confirm-card view-enter" onClick={(e) => e.stopPropagation()}>
         <Tooltip content="在当前会话继续" position="bottom">
-          <button className="confirm-x" onClick={onCancel} type="button" aria-label="关闭">
+          <IconButton className="confirm-x" onClick={onCancel} aria-label="关闭">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
-          </button>
+          </IconButton>
         </Tooltip>
         <div className="confirm-icon"></div>
         <h3 className="confirm-title">切换工作文档？</h3>

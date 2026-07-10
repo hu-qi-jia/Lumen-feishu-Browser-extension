@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { IconSearch, IconX } from './icons'
+import IconButton from './IconButton'
 import './SearchBox.css'
 
 interface Props {
@@ -40,9 +41,9 @@ export default function SearchBox({ value, onChange, onSearch, placeholder, auto
         spellCheck={false}
       />
       {value && (
-        <button type="button" className="search-box-clear" aria-label="清除" onClick={() => { onChange(''); if (typeof ref !== 'function') ref.current?.focus() }}>
+        <IconButton className="search-box-clear" aria-label="清除" onClick={() => { onChange(''); if (typeof ref !== 'function') ref.current?.focus() }}>
           <IconX />
-        </button>
+        </IconButton>
       )}
       {trailing}
     </div>

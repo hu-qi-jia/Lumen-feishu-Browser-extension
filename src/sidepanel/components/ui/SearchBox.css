@@ -31,18 +31,7 @@
   color: var(--color-text);
 }
 .search-box-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 2px;
   flex-shrink: 0;
-}
-.search-box-clear:hover {
-  color: var(--color-text);
 }
 .search-box-clear svg {
   width: 13px;

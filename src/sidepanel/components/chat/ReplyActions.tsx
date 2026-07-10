@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { IconCopy, IconRefresh, IconCheck } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 import Tooltip from '../ui/Tooltip'
 import './ReplyActions.css'
 
@@ -33,20 +34,19 @@ export default function ReplyActions({ text, onRetry }: Props) {
   return (
     <div className="reply-actions">
       <Tooltip content={copied ? '已复制' : '复制'} position="top">
-        <button
+        <IconButton
           className={`reply-action${copied ? ' reply-action--copied' : ''}`}
           onClick={handleCopy}
-          type="button"
           aria-label="复制"
         >
           {copied ? <IconCheck /> : <IconCopy />}
-        </button>
+        </IconButton>
       </Tooltip>
       {onRetry && (
         <Tooltip content="重试" position="top">
-          <button className="reply-action" onClick={onRetry} type="button" aria-label="重试">
+          <IconButton className="reply-action" onClick={onRetry} aria-label="重试">
             <IconRefresh />
-          </button>
+          </IconButton>
         </Tooltip>
       )}
     </div>
