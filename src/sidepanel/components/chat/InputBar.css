@@ -5,6 +5,7 @@
 }
 
 .input-bar-inner {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1.5px solid var(--color-border);
@@ -229,22 +230,45 @@
 
 /* ── Slash skill picker ── */
 .slash-popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
   display: flex; flex-direction: column;
-  max-height: 200px; overflow-y: auto;
+  max-height: 260px; overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-bg);
   box-shadow: var(--shadow-lg);
-  padding: 3px;
+  padding: 6px;
+  z-index: 20;
+}
+.slash-popup-group { display: flex; flex-direction: column; gap: 2px; }
+.slash-popup-label {
+  padding: 4px 8px;
+  font-size: 11px; font-weight: 600;
+  color: var(--color-text-secondary);
 }
 .slash-item {
-  width: 100%; padding: 5px 10px;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 6px 8px;
   border: none; border-radius: 6px;
   background: none; cursor: pointer; text-align: left;
-  font-family: inherit; font-size: 12px; font-weight: 500; color: var(--color-text);
+  font-family: inherit; color: var(--color-text);
   transition: background .1s;
 }
 .slash-item--active { background: var(--color-surface); }
+.slash-item-icon {
+  width: 22px; height: 22px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 5px; color: #2f54eb; background: #f0f5ff;
+}
+.slash-item-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.slash-item-title { font-size: 12px; font-weight: 600; }
+.slash-item-desc {
+  font-size: 11px; color: var(--color-text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ── Skill chip in attachment list ── */
 .attachment-chip--skill {

@@ -371,19 +371,26 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
         {/* Slash skill picker */}
         {slashOpen && filteredSlashSkills.length > 0 && (
           <div className="slash-popup" role="listbox">
-            {filteredSlashSkills.slice(0, 8).map((s, i) => (
-              <button
-                key={s.id}
-                className={`slash-item${i === slashIndex ? ' slash-item--active' : ''}`}
-                type="button"
-                role="option"
-                aria-selected={i === slashIndex}
-                onMouseEnter={() => setSlashIndex(i)}
-                onClick={() => selectSkill(s)}
-              >
-                {s.name}
-              </button>
-            ))}
+            <div className="slash-popup-group">
+              <span className="slash-popup-label">技能</span>
+              {filteredSlashSkills.slice(0, 8).map((s, i) => (
+                <button
+                  key={s.id}
+                  className={`slash-item${i === slashIndex ? ' slash-item--active' : ''}`}
+                  type="button"
+                  role="option"
+                  aria-selected={i === slashIndex}
+                  onMouseEnter={() => setSlashIndex(i)}
+                  onClick={() => selectSkill(s)}
+                >
+                  <span className="slash-item-icon"><IconSparkle width={14} height={14} /></span>
+                  <span className="slash-item-meta">
+                    <span className="slash-item-title">{s.name}</span>
+                    <span className="slash-item-desc">{s.description || '调用此技能完成任务'}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
