@@ -27,3 +27,12 @@
   background: var(--color-primary-soft);
 }
 .icon-btn--active:hover:not(:disabled) { background: var(--color-primary-soft); }
+
+.icon-btn--ghost,
+.icon-btn--ghost:hover:not(:disabled),
+.icon-btn--ghost:active:not(:disabled) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.icon-btn--ghost:hover:not(:disabled) { color: var(--color-text); }

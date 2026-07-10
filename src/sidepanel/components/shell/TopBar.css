@@ -19,6 +19,7 @@
 .topbar-title {
   font-size: 14px;
   font-weight: 600;
+  line-height: 28px;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
