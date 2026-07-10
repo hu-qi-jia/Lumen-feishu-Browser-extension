@@ -125,27 +125,6 @@
   flex-shrink: 0;
 }
 
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: color .15s ease, border-color .15s ease, background .15s ease;
-}
-.icon-btn:hover {
-  color: var(--color-error);
-  border-color: var(--color-error);
-  background: color-mix(in srgb, var(--color-error) 6%, var(--color-bg));
-}
-.icon-btn svg { width: 14px; height: 14px; }
-
 /* Inline help icon after titles / labels */
 .help-icon {
   display: inline-flex;
