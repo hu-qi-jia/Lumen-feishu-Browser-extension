@@ -119,9 +119,11 @@ function assignParam(cur: Partial<SkillParamDef>, key: string, rawVal: string): 
 
 /** 解析完整 skill markdown。不抛错——格式不对时返回带空 meta 的对象，由 validate 报具体问题。 */
 export function parseSkillMarkdown(md: string): { meta: SkillFrontmatter; body: string } {
-  const m = md.match(FRONTMATTER_RE)
+  // 去除 BOM（外部 .md 文件常见）和前导空白/空行，避免 frontmatter 正则失配
+  const cleaned = md.replace(/^\uFEFF/, '').replace(/^\s+/, '')
+  const m = cleaned.match(FRONTMATTER_RE)
   if (!m) {
-    return { meta: { name: '', slug: '', description: '', scope: 'any' }, body: md.trim() }
+    return { meta: { name: '', slug: '', description: '', scope: 'any' }, body: cleaned.trim() }
   }
   const yamlText = m[1]
   const body = m[2].trim()
