@@ -236,8 +236,23 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   return (
     <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
       <div className="input-bar-inner">
-        {visibleAttachments.length > 0 && (
+        {(visibleAttachments.length > 0 || kbEnabled) && (
           <div className="attachment-list">
+            {kbEnabled && (
+              <div className="attachment-chip attachment-chip--kb">
+                <span className="attachment-name">知识库</span>
+                <Tooltip content="关闭知识库">
+                  <button
+                    className="attachment-remove"
+                    onClick={() => onToggleKb(false)}
+                    aria-label="关闭知识库"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </Tooltip>
+              </div>
+            )}
             {visibleAttachments.map((a) => (
               <div key={a.id} className="attachment-chip">
                 {a.type === 'image' && a.dataUrl ? (
@@ -309,32 +324,23 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                     role="menuitem"
                   >
                     <span className="tools-menu-icon tools-menu-icon--upload">
-                      <IconUpload width={18} height={18} />
+                      <IconUpload width={16} height={16} />
                     </span>
-                    <span className="tools-menu-label">
-                      <span className="tools-menu-title">添加附件</span>
-                      <span className="tools-menu-desc">CSV、TSV、图片、文本</span>
-                    </span>
+                    <span className="tools-menu-title">添加附件</span>
                   </button>
                   {(HAS_KNOWLEDGE_BASE || skills.length > 0) && <div className="tools-menu-divider" />}
                   {HAS_KNOWLEDGE_BASE && (
-                    <div
-                      className="tools-menu-row tools-menu-row--toggle"
-                      role="menuitemcheckbox"
-                      aria-checked={kbEnabled}
+                    <button
+                      className={`tools-menu-item tools-menu-item--row${kbEnabled ? ' tools-menu-item--active' : ''}`}
                       onClick={() => { onToggleKb(!kbEnabled); setPlusOpen(false) }}
+                      type="button"
+                      role="menuitem"
                     >
                       <span className="tools-menu-icon tools-menu-icon--kb">
-                        <IconBook width={18} height={18} />
+                        <IconBook width={16} height={16} />
                       </span>
-                      <span className="tools-menu-label">
-                        <span className="tools-menu-title">知识库</span>
-                        <span className="tools-menu-desc">引用已连接的知识库作答</span>
-                      </span>
-                      <span className={`tools-toggle${kbEnabled ? ' tools-toggle--on' : ''}`}>
-                        <span className="tools-toggle-knob" />
-                      </span>
-                    </div>
+                      <span className="tools-menu-title">知识库</span>
+                    </button>
                   )}
                   {skills.length > 0 && HAS_KNOWLEDGE_BASE && <div className="tools-menu-divider" />}
                   {skills.length > 0 && (
@@ -348,14 +354,9 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                           role="menuitem"
                         >
                           <span className="tools-menu-icon tools-menu-icon--skill">
-                            <IconSparkle width={16} height={16} />
+                            <IconSparkle width={14} height={14} />
                           </span>
-                          <span className="tools-menu-label">
-                            <span className="tools-menu-title">{s.intent}</span>
-                            {s.lesson && s.lesson !== s.intent && (
-                              <span className="tools-menu-desc">{s.lesson}</span>
-                            )}
-                          </span>
+                          <span className="tools-menu-title">{s.intent}</span>
                         </button>
                       ))}
                     </div>

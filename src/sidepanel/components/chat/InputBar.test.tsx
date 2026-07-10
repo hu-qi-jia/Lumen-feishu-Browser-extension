@@ -40,4 +40,34 @@ describe('InputBar 知识库开关', () => {
     fireEvent.click(screen.getByText('知识库'))
     expect(toggle).toHaveBeenCalledWith(true)
   })
+
+  it('kbEnabled 为 true 时输入框中显示知识库标签', () => {
+    if (!HAS_KNOWLEDGE_BASE) return
+    render(
+      <InputBar
+        onSend={() => {}}
+        disabled={false}
+        kbEnabled={true}
+        onToggleKb={() => {}}
+        resourceKind="general"
+      />,
+    )
+    expect(screen.getByText('知识库')).toBeTruthy()
+  })
+
+  it('点击知识库标签触发 onToggleKb(false)', () => {
+    if (!HAS_KNOWLEDGE_BASE) return
+    const toggle = vi.fn()
+    render(
+      <InputBar
+        onSend={() => {}}
+        disabled={false}
+        kbEnabled={true}
+        onToggleKb={toggle}
+        resourceKind="general"
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('关闭知识库'))
+    expect(toggle).toHaveBeenCalledWith(false)
+  })
 })

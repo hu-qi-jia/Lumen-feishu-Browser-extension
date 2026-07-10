@@ -55,6 +55,13 @@
   font-size: 11px;
   color: var(--color-text);
 }
+.attachment-chip--kb {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border-soft);
+  color: var(--color-primary);
+}
+.attachment-chip--kb .attachment-remove { color: var(--color-primary); }
+.attachment-chip--kb .attachment-remove:hover { color: var(--color-primary-hover); }
 
 .attachment-thumb {
   width: 28px;
@@ -152,17 +159,17 @@
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
-  min-width: 200px;
-  max-width: 260px;
+  min-width: 160px;
+  max-width: 220px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 14px;
   box-shadow: var(--shadow-lg);
-  padding: 6px;
+  padding: 5px;
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   animation: toolsMenuIn .16s ease;
 }
 @keyframes toolsMenuIn {
@@ -176,38 +183,17 @@
 .tools-menu-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.tools-menu-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  cursor: pointer;
-  transition: background .12s ease;
-}
-.tools-menu-row:hover { background: var(--color-surface); }
-
-.tools-menu-row--toggle { user-select: none; }
-
-.tools-menu-label {
-  display: flex;
-  flex-direction: column;
   gap: 1px;
-  min-width: 0;
 }
 
 .tools-menu-item {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: none;
   border: none;
-  border-radius: 9px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -220,23 +206,30 @@
 .tools-menu-item--row {
   flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 8px;
+  padding: 6px 8px;
 }
+
+.tools-menu-item--active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.tools-menu-item--active:hover { background: var(--color-primary-soft); }
+.tools-menu-item--active:active { background: var(--color-primary-soft); }
 
 .tools-menu-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--color-text-secondary);
   background: var(--color-surface);
 }
-.tools-menu-item:hover .tools-menu-icon,
-.tools-menu-row:hover .tools-menu-icon { background: var(--color-surface-2); }
+.tools-menu-item:hover .tools-menu-icon { background: var(--color-surface-2); }
+.tools-menu-item--active .tools-menu-icon { background: var(--color-primary-border-soft); }
 .tools-menu-icon--upload { color: var(--color-primary); }
 .tools-menu-icon--kb { color: var(--color-primary); }
 .tools-menu-icon--skill { color: #d48806; }
@@ -248,39 +241,7 @@
   font-weight: 600;
   color: var(--color-text);
 }
-.tools-menu-desc {
-  font-size: 10.5px;
-  line-height: 1.35;
-  color: var(--color-text-secondary);
-}
-
-/* Toggle switch inside the tools menu — matches the input bar's clean geometry. */
-.tools-toggle {
-  position: relative;
-  width: 34px;
-  height: 18px;
-  flex-shrink: 0;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
-  transition: background .15s ease, border-color .15s ease;
-}
-.tools-toggle--on {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-.tools-toggle-knob {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 14px;
-  height: 14px;
-  background: var(--color-bg);
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(20, 23, 40, .12);
-  transition: transform .15s ease;
-}
-.tools-toggle--on .tools-toggle-knob { transform: translateX(16px); }
+.tools-menu-item--active .tools-menu-title { color: var(--color-primary); }
 
 /* Send / stop button — one primary circle. The idle (send) and generating (stop) states
    share the exact same treatment so the button reads as a single control; only the icon
