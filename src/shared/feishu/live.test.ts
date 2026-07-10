@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { getTenantAccessToken } from './auth'
 import * as API from './api'
-import { executeTool } from '../ai/agent'
+import { executeTool } from '../ai/agent-executor'
 import type { PageContext } from '../types'
 
 const LIVE = process.env.FEISHU_LIVE === '1'

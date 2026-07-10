@@ -1,5 +1,5 @@
-import { IconTrash } from '../primitives/icons'
-import Tooltip from '../primitives/Tooltip'
+import { IconTrash } from '../ui/icons'
+import Tooltip from '../ui/Tooltip'
 import './HistoryRow.css'
 
 interface HistoryRowProps {

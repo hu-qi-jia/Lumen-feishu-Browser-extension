@@ -15,33 +15,169 @@ src/
 │
 ├── content/
 │   ├── index.ts              # 注入飞书页面：提取 PageContext + 消息路由
-│   └── feishu-automation.ts  # DOM 自动化：点击 UI 创建仪表盘，从 URL 提取 block_token
+│   ├── feishu-automation.ts  # DOM 自动化：点击 UI 创建仪表盘，从 URL 提取 block_token
+│   ├── selection-button.ts   # 划词触发按钮（文本选中 → 弹出 AI 操作入口）
+│   └── dataviz/              # 数据可视化浮窗（注入层）
+│       ├── viz-launcher.ts   # 浮窗启动器（postMessage → sandbox iframe 渲染）
+│       └── viz-overlay.ts    # 可拖拽/四角缩放浮窗容器（多实例管理）
 │
 ├── sidepanel/                # React 侧边栏 UI
 │   ├── main.tsx
 │   ├── App.tsx               # 根组件：设置加载、tab 切换、context 监听、会话 hook + 抽屉
+│   ├── App.css               # 全局样式变量（--color-* / --gradient-brand / --shadow-*）
+│   ├── index.html
 │   ├── sessions/             # 多会话管理（持久化 + 按文档绑定）
 │   │   ├── useSessions.ts    # hook：按 appToken 自动切会话、debounce 落盘、增删改
 │   │   ├── store.ts          # chrome.storage.local 分片存储（index + 每会话消息）
-│   │   └── logic.ts          # 纯 reducer：find-or-create / 删除回退（可单测）
+│   │   ├── logic.ts          # 纯 reducer：find-or-create / 删除回退（可单测）
+│   │   └── logic.test.ts
+│   ├── hooks/                # 侧边栏自定义 hooks
+│   │   ├── useAppSettings.ts # 应用设置（远程配置 + 本地合并）
+│   │   ├── useDocBinding.ts  # 文档绑定状态
+│   │   ├── usePageContext.ts # 飞书页面上下文监听
+│   │   ├── useRecentFiles.ts # 最近文件列表
+│   │   ├── useRecentTitleBackfill.ts  # 标题回填（文档名 → 会话标题）
+│   │   ├── useThemeAccent.ts # 主题色/暗色模式切换
+│   │   └── useWikiResolve.ts # 知识库 URL 解析
+│   ├── lib/                  # 侧边栏工具函数
+│   │   ├── autoDefault.ts    # 自动默认值回填
+│   │   ├── cloudRestore.ts   # 云备份恢复
+│   │   ├── pdfHistory.ts     # PDF 历史记录
+│   │   ├── recentFiles.ts    # 最近文件持久化
+│   │   ├── tabReload.ts      # Tab 重新加载
+│   │   └── wikiResolve.ts    # 知识库地址解析
 │   └── components/
-│       ├── ChatPanel.tsx     # AI 对话主界面（流式渲染、工具进度）
-│       ├── ScenarioPanel.tsx # 模板市场：Gallery → Detail → Progress → Done
-│       ├── BaseContextBadge.tsx  # Base 结构徽章 + 导出模板按钮
-│       ├── Settings.tsx      # API Keys 配置 + 外观（主题色）
-│       ├── MessageList.tsx   # 消息渲染
-│       ├── InputBar.tsx      # 输入框
-│       ├── Skeleton.tsx      # 骨架屏（Skeleton / TemplateCardSkeleton）
-│       ├── ConfirmDialog.tsx # 新建 Base 确认弹窗（新建/加到当前/取消）
-│       ├── ChoiceDialog.tsx  # 通用选项卡弹窗（ask_user 工具：LLM 生成问题+选项让用户选）
-│       ├── SessionDrawer.tsx # 会话列表/切换/新建/重命名/删除抽屉
-│       └── NetworkBlocked.tsx
+│       ├── chat/             # 对话 Tab 组件
+│       │   ├── ChatPanel.tsx      # AI 对话主界面（流式渲染、工具进度）
+│       │   ├── MessageList.tsx    # 消息渲染（含 Markdown 渲染）
+│       │   ├── InputBar.tsx       # 输入框（含附件、图片上传）
+│       │   ├── BaseContextBadge.tsx  # Base 结构徽章 + 导出模板按钮
+│       │   ├── CodeBlock.tsx      # 代码块渲染（复制/下载）
+│       │   ├── ConfirmDialog.tsx  # 新建 Base 确认弹窗（新建/加到当前/取消）
+│       │   ├── DocSelector.tsx    # 文档选择器
+│       │   ├── FieldChips.tsx     # 字段标签组
+│       │   ├── ImageExportCard.tsx# 图片导出卡片
+│       │   ├── Markdown.tsx       # Markdown 渲染组件
+│       │   ├── ReplyActions.tsx   # 回复操作栏（重新生成/复制/撤销）
+│       │   ├── SkillSuggest.tsx   # 技能建议列表
+│       │   └── UndoBar.tsx        # 撤销提示条
+│       │
+│       ├── panels/           # 应用 Tab（非对话功能面板）
+│       │   ├── ScenarioPanel.tsx  # 模板市场：Gallery → Detail → Progress → Done
+│       │   ├── ClipPanel.tsx      # 剪藏面板
+│       │   ├── AISitePanel.tsx    # AI 网站发布
+│       │   ├── DataVizPanel.tsx   # 数据可视化看板管理
+│       │   ├── SlidesPanel.tsx    # 幻灯片生成
+│       │   ├── SmartFillPanel.tsx # AI 智能填充
+│       │   └── PdfTranscribePanel.tsx  # PDF 转录面板
+│       │
+│       ├── news/             # 资讯 Tab
+│       │   ├── NewsPanel.tsx      # 资讯面板容器
+│       │   ├── NewsList.tsx       # 资讯列表
+│       │   ├── NewsEmpty.tsx      # 空状态
+│       │   ├── NewsRefreshBar.tsx # 刷新控制条
+│       │   ├── GitHubTab.tsx      # GitHub 趋势
+│       │   ├── WeiboTab.tsx       # 微博热搜
+│       │   └── useNewsData.ts     # 资讯数据 hook
+│       │
+│       ├── primitives/       # 通用 UI 原语（无业务耦合）
+│       │   ├── Button.tsx         # 按钮
+│       │   ├── IconButton.tsx     # 图标按钮
+│       │   ├── BackButton.tsx     # 返回按钮
+│       │   ├── Dropdown.tsx       # 下拉菜单
+│       │   ├── SearchBox.tsx      # 搜索框
+│       │   ├── SegmentedTabs.tsx  # 分段选项卡
+│       │   ├── Skeleton.tsx       # 骨架屏 + 模板卡片骨架
+│       │   ├── SideDrawer.tsx     # 侧边抽屉
+│       │   ├── Tooltip.tsx        # 工具提示
+│       │   ├── NetworkBlocked.tsx # 网络阻断提示
+│       │   ├── ImagePicker.tsx    # 图片选择器
+│       │   ├── UploadDrop.tsx     # 拖拽上传区域
+│       │   ├── ThemeThumb.tsx     # 主题缩略图
+│       │   ├── icons.tsx          # 内联 SVG 图标库
+│       │   ├── useEscapeToClose.ts# ESC 关闭 hook
+│       │   └── *.css              # 对应样式文件
+│       │
+│       ├── form/             # 表单控件
+│       │   ├── index.ts           # barrel re-export
+│       │   ├── FormField.tsx      # 表单字段容器（label + 错误 + 提示）
+│       │   ├── FormInput.tsx      # 文本输入
+│       │   ├── FormTextArea.tsx   # 多行文本
+│       │   ├── FormSelect.tsx     # 下拉选择
+│       │   ├── FormCheckbox.tsx   # 复选框
+│       │   ├── FormSwitch.tsx     # 开关
+│       │   ├── FormToggle.tsx     # 切换按钮组
+│       │   └── Form.css           # 表单样式
+│       │
+│       ├── session/          # 会话管理 UI
+│       │   ├── SessionDrawer.tsx  # 会话列表/切换/新建/重命名/删除抽屉
+│       │   ├── HistoryRow.tsx     # 会话历史行
+│       │   ├── DocCombobox.tsx    # 文档选择组合框
+│       │   ├── DocLinkField.tsx   # 文档链接字段
+│       │   ├── SwitchDocDialog.tsx# 切换文档确认弹窗
+│       │   └── SwitchSessionDialog.tsx  # 切换会话确认弹窗
+│       │
+│       ├── settings/         # 设置 Tab
+│       │   ├── Settings.tsx       # 设置根组件（标签页路由）
+│       │   ├── SettingsTabs.tsx   # 设置标签导航
+│       │   ├── SettingsSection.tsx# 设置分节容器
+│       │   ├── SettingsSelect.tsx # 设置下拉选择
+│       │   ├── AiTab.tsx          # AI 模型配置
+│       │   ├── AppearanceTab.tsx  # 外观设置
+│       │   ├── BackupTab.tsx      # 备份管理
+│       │   ├── FeishuTab.tsx      # 飞书账号配置
+│       │   ├── FeishuSteps.tsx    # 飞书授权步骤引导
+│       │   ├── GeneralTab.tsx     # 通用设置
+│       │   ├── HelpIcon.tsx       # 帮助图标
+│       │   ├── KnowledgeBaseTab.tsx  # 知识库设置
+│       │   └── types.ts           # 设置类型定义
+│       │
+│       ├── knowledge-base/   # 知识库（Obsidian）浏览 UI
+│       │   ├── KnowledgeBasePanel.tsx     # 知识库面板容器
+│       │   ├── ObsidianVaultView.tsx      # Obsidian 仓库浏览
+│       │   └── ObsidianNoteDetail.tsx     # 笔记详情
+│       │
+│       └── shell/            # 外壳（导航骨架）
+│           ├── NavRail.tsx        # 左侧导航栏（Tab 图标）
+│           ├── TopBar.tsx         # 顶部标题栏
+│           ├── HubCard.tsx        # 应用 Hub 卡片
+│           └── *.css              # 对应样式文件
 │
 ├── shared/
 │   ├── ai/
 │   │   ├── agent.ts          # Agent 循环（流式调用 + 工具执行 + 安全校验）
 │   │   ├── agent.test.ts     # 纯安全逻辑单测（sanitizeToken / 确认门控 / 截断）
-│   │   └── tools.ts          # 25 个飞书工具定义（含破坏性工具警告标记）
+│   │   ├── agent-security.ts # 安全策略层（API 白名单 / 文件级删除硬拒 / 内容级删除确认 / 脱敏截断）
+│   │   ├── agent-context.ts  # 工具选择层（按页面类型暴露工具子集 + CREATE_ONCE/READ_ONLY/SHEET/DOC 工具集合）
+│   │   ├── dataviz.ts        # AI 小程序 codegen（图表/计算器/报表/幻灯片/卡片墙）
+│   │   ├── docaudit.ts       # 文档审计
+│   │   ├── docsummary.ts     # 文档摘要
+│   │   ├── llm.ts            # LLM 通用调用封装
+│   │   ├── llmConfig.ts      # LLM 配置管理
+│   │   ├── mdPolish.ts       # Markdown 润色
+│   │   ├── recipes.ts        # 预设配方
+│   │   ├── redact.ts         # 脱敏
+│   │   ├── report.ts         # 报告生成
+│   │   ├── skills.ts         # 技能拉取与注册
+│   │   ├── slides.ts         # 幻灯片 HTML 渲染
+│   │   ├── slidesExport.ts   # 幻灯片导出
+│   │   ├── slidesImages.ts   # 幻灯片图片处理
+│   │   ├── slidesLayouts.ts  # 幻灯片版式
+│   │   ├── slidesSources.ts  # 幻灯片数据源
+│   │   ├── slidesStore.ts    # 幻灯片存储
+│   │   ├── slidesThemes.ts   # 幻灯片主题
+│   │   ├── smartfill.ts      # AI 智能填充逻辑
+│   │   ├── text.ts           # 文本处理
+│   │   ├── vision.ts         # 视觉识别
+│   │   ├── tools/            # 飞书工具定义（按产品域拆分）
+│   │   │   ├── index.ts      # barrel re-export（所有工具汇总）
+│   │   │   ├── base.ts       # 多维表格 Base 工具定义（33 个）
+│   │   │   ├── sheet.ts      # 电子表格工具定义（13 个）
+│   │   │   ├── doc.ts        # 文档工具定义（6 个）
+│   │   │   ├── compose.ts    # 复合操作工具定义（去重/跨表/VLOOKUP/审计等）
+│   │   │   ├── core.ts       # 通用工具（render_data_app + feishu_api_call）
+│   │   │   └── knowledge.ts  # 知识库只读工具（搜索/读笔记/列目录）
+│   │   └── *.test.ts         # 对应单测文件
 │   │
 │   ├── feishu/
 │   │   ├── api.ts            # 多维表格 Base Open API（表/字段/记录/视图/仪表盘/转所有者）
@@ -88,10 +224,10 @@ public/
 - **暗色模式**:`App.tsx` 维护 `theme`('light'|'dark'),写入 `document.documentElement.dataset.theme` 并持久化到 `localStorage['fa-theme']`;`App.css` 的 `[data-theme="dark"]` 覆盖 token + 少量硬编码浅色填充。头部月亮/太阳按钮切换。
 - 品牌色为靛蓝→紫渐变(`--gradient-brand`),用于 Logo、标题、主按钮、用户气泡。
 - **主色可配置**:`src/shared/theme.ts` 的 `deriveAccent(hex,isDark)` 把单个 accent hex 派生成整套品牌变量(primary/hover/soft/tint/border/gradient/ring + 6 个 `--shadow-brand-*`)。`App.tsx` 持有 `accent` state(localStorage `fa-accent`,与 `fa-theme` 对称),`useEffect([accent,theme])` 把变量写到 `:root`;`accent===DEFAULT_ACCENT` 时**清除** inline 覆盖、回落到 App.css 手调默认值。Settings「外观」节给预设色板 + `<input type=color>`,即时生效不走 chrome.storage。**注意**:所有品牌色已收敛为变量,组件内不再有硬编码 `rgba(79,107,255)`/`rgba(123,92,255)`,新增 UI 一律引用变量,否则自定义主色不生效。
-- **骨架屏**:`components/Skeleton.tsx`(`Skeleton` + `TemplateCardSkeleton`),shimmer 动画在 `Skeleton.css`。ScenarioPanel 首次远程拉取(`refreshing && templates===BUILTIN_TEMPLATES`)时列表显示骨架卡。
+- **骨架屏**:`components/primitives/Skeleton.tsx`(`Skeleton` + `TemplateCardSkeleton`),shimmer 动画在 `primitives/Skeleton.css`。ScenarioPanel 首次远程拉取(`refreshing && templates===BUILTIN_TEMPLATES`)时列表显示骨架卡。
 - **视图转场**:`.view-enter`(App.css `viewIn` keyframes)。Tab/Settings 切换在 `App.tsx` 用 `.app-view` keyed wrapper(`key=showSettings?'settings':tab`)触发;ScenarioPanel 的 gallery/detail/progress/done 各根元素带 `key` + `view-enter`。
 - **模板封面图**:`ScenarioTemplate.cover?`(可选)。`TemplateCard` 有 cover 则渲染 `<img class=sc-card-cover>`,`onError` 降级回 emoji icon;无 cover 直接用 emoji。`hr.json`/`index.json` 用内联 SVG data-URI 做示例(同源、免 CDN/CSP)。
-- 动效尊重 `prefers-reduced-motion`:`MessageList.css`(msg-row 等)、`App.css`(`.view-enter`/`.skel`)、`Skeleton.css`(`.skel`)各自关闭。
+- 动效尊重 `prefers-reduced-motion`:`chat/MessageList.css`(msg-row 等)、`App.css`(`.view-enter`/`.skel`)、`primitives/Skeleton.css`(`.skel`)各自关闭。
 
 ## 会话管理（多会话 / 按文档绑定）
 
@@ -420,6 +556,8 @@ ScenarioPanel Gallery        # 模板市场 UI（一键导入）
 
 ## 开发指引
 
+> **路径别名**：全项目使用 `@/` 前缀映射 `src/`（如 `@/shared/ai/tools/base`），不再使用相对路径 `../../` 式导入。
+
 ### 调试 UI（无需加载扩展）
 
 ```bash
@@ -443,7 +581,7 @@ npm run dev:ext
 
 ### 修改 Agent 工具
 
-- 新增工具：`tools.ts` 添加定义 + `agent.ts` `executeTool()` 添加 case
+- 新增工具：在 `tools/` 对应产品域文件（`base.ts` / `sheet.ts` / `doc.ts` / `compose.ts` / `core.ts` / `knowledge.ts`）中添加定义，并在 `tools/index.ts` 的 barrel export 中注册 + `agent.ts` `executeTool()` 添加 case
 - 破坏性工具：description 加 `⚠️` 前缀，并加入 `DESTRUCTIVE_TOOLS` Set（当前：`delete_table` / `delete_field` / `delete_record` / `batch_delete_records` / `delete_sheet` / `delete_dimension` / `delete_document_blocks` / `dedupe_records`）
 - 所有 ID 参数命名为 `app_token` / `table_id` / `field_id` / `record_id` 以触发 `sanitizeToken` 自动校验
 

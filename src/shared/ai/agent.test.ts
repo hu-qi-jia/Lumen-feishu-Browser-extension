@@ -3,7 +3,12 @@ import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
 import { DEFAULT_SETTINGS } from '../types'
 import { HAS_KNOWLEDGE_BASE } from '../config'
-import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, buildApiHistory, assertApiCallAllowed, runAgent, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall, rewriteFeishuOrigins, toolsForContext, resolveImageInsertIndex, attachmentToMetaData, buildSystemPrompt } from './agent'
+import { runAgent } from './agent'
+import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, assertApiCallAllowed, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall } from './agent-security'
+import { buildApiHistory, attachmentToMetaData } from './agent-history'
+import { buildSystemPrompt } from './agent-prompt'
+import { toolsForContext } from './agent-context'
+import { rewriteFeishuOrigins, resolveImageInsertIndex } from './agent-executor'
 
 describe('toolsForContext — exposes only the current resource\'s tools (+ core)', () => {
   const names = (kind: string | undefined) => toolsForContext(kind).map((t) => (t as { function: { name: string } }).function.name)
@@ -442,7 +447,7 @@ describe('知识库只读工具', () => {
     vi.resetModules()
     const mockSearch = vi.fn().mockResolvedValue([{ path: 'a.md', score: 1 }])
     vi.doMock('../obsidian/api', () => ({ searchVault: mockSearch, readNote: vi.fn(), recentNotes: vi.fn() }))
-    const { executeTool } = await import('./agent')
+    const { executeTool } = await import('./agent-executor')
     const out = await executeTool('search_knowledge_base', { query: 'kw' }, 'tok', {} as never, { ...DEFAULT_SETTINGS })
     expect(mockSearch).toHaveBeenCalled()
     // 返回的是数组本身（由 loop 统一序列化）；不能是双重转义的 JSON 字符串
@@ -455,7 +460,7 @@ describe('知识库只读工具', () => {
     vi.resetModules()
     const mockRecent = vi.fn().mockResolvedValue([{ path: 'Inbox/x.md', mtime: 1 }])
     vi.doMock('../obsidian/api', () => ({ searchVault: vi.fn(), readNote: vi.fn(), recentNotes: mockRecent }))
-    const { executeTool } = await import('./agent')
+    const { executeTool } = await import('./agent-executor')
     const out = await executeTool('list_knowledge_notes', {}, 'tok', {} as never, { ...DEFAULT_SETTINGS })
     expect(mockRecent).toHaveBeenCalled()
     expect(Array.isArray(out)).toBe(true)
@@ -482,7 +487,7 @@ describe('记录读取与字段缓存', () => {
       has_more: true, page_token: 'NEXT', total: 50,
     })
     vi.doMock('../feishu/api', () => ({ listRecords: mockListRecords }))
-    const { executeTool } = await import('./agent')
+    const { executeTool } = await import('./agent-executor')
     const out = await executeTool(
       'list_records', { app_token: 'a', table_id: 't', page_token: 'CUR' },
       'tok', {} as never, { ...DEFAULT_SETTINGS },
@@ -506,7 +511,7 @@ describe('记录读取与字段缓存', () => {
     })
     const mockUpdateField = vi.fn().mockResolvedValue({ field_id: 'fld1' })
     vi.doMock('../feishu/api', () => ({ listFields: mockListFields, updateField: mockUpdateField }))
-    const { executeTool } = await import('./agent')
+    const { executeTool } = await import('./agent-executor')
     const cache = new Map<string, unknown>()
     const call = (name: string) => executeTool(
       'update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: name },
@@ -525,7 +530,7 @@ describe('记录读取与字段缓存', () => {
     const mockCreateField = vi.fn().mockResolvedValue({ field_id: 'fld2' })
     const mockUpdateField = vi.fn().mockResolvedValue({ field_id: 'fld1' })
     vi.doMock('../feishu/api', () => ({ listFields: mockListFields, createField: mockCreateField, updateField: mockUpdateField }))
-    const { executeTool } = await import('./agent')
+    const { executeTool } = await import('./agent-executor')
     const cache = new Map<string, unknown>()
     await executeTool('update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: 'x' }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)
     await executeTool('create_field', { app_token: 'a', table_id: 't', field_name: '新列', type: 1 }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)

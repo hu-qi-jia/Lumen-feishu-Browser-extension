@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { HAS_ARTIFACT_SYNC } from '@/shared/config'
-import { restoreAllArtifacts } from '../../lib/cloudRestore'
+import { restoreAllArtifacts } from '../../services/cloudRestore'
 import { applyBackup, buildBackup } from '@/shared/configBackup'
-import { FormCheckbox } from '../form'
-import { IconDownload, IconUpload } from '../primitives/icons'
-import Button from '../primitives/Button'
+import FormCheckbox from '../ui/FormCheckbox'
+import { IconDownload, IconUpload } from '../ui/icons'
+import Button from '../ui/Button'
 import ConfirmDialog from '../chat/ConfirmDialog'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import { TitleWithHelp } from './HelpIcon'
 import type { ConfirmRequest } from '@/shared/ai/agent'
-import '../primitives/IconButton.css'
+import '../ui/IconButton.css'
 import {
   cleanupImpact,
   clearAllUserData,

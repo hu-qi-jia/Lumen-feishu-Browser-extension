@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import type { ChatMessage } from '@/shared/types'
 import Markdown from './Markdown'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import ReplyActions from './ReplyActions'
 import './MessageList.css'
 

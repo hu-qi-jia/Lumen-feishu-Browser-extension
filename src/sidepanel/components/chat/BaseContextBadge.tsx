@@ -4,8 +4,8 @@ import { ctxSummary } from '@/shared/feishu/context'
 import { exportBaseAsTemplate, downloadTemplateJSON } from '@/shared/feishu/export'
 import { resolveToken } from '@/shared/feishu/auth'
 import type { AppSettings } from '@/shared/types'
-import { IconDownload, IconCheck, IconAlert, IconRefresh } from '../primitives/icons'
-import Tooltip from '../primitives/Tooltip'
+import { IconDownload, IconCheck, IconAlert, IconRefresh } from '../ui/icons'
+import Tooltip from '../ui/Tooltip'
 import './BaseContextBadge.css'
 
 interface Props {

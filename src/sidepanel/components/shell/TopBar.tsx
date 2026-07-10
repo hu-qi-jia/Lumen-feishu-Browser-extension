@@ -1,4 +1,4 @@
-import BackButton from '../primitives/BackButton'
+import BackButton from '../ui/BackButton'
 import './TopBar.css'
 
 interface Props {

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
 import { loadDeleteUndo, clearDeleteUndo, restoreDeleteUndo, type UndoView } from '@/shared/feishu/undo'
 import { resolveToken } from '@/shared/feishu/auth'
-import { reloadActiveTab } from '../../lib/tabReload'
-import Tooltip from '../primitives/Tooltip'
+import { reloadActiveTab } from '../../services/tabReload'
+import Tooltip from '../ui/Tooltip'
 
 /**
  * A slim "↩ 撤销删除" bar shown after the assistant deletes records. It reads the undo entry the

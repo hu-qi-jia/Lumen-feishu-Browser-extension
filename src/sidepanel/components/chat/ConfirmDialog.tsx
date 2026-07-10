@@ -1,5 +1,5 @@
 import type { ConfirmRequest, ConfirmChoice } from '@/shared/ai/agent'
-import { useEscapeToClose } from '../primitives/useEscapeToClose'
+import { useEscapeToClose } from '../ui/useEscapeToClose'
 import './ConfirmDialog.css'
 
 interface Props {

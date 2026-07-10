@@ -1,5 +1,5 @@
 import { ACCENT_PRESETS, DEFAULT_ACCENT } from '@/shared/theme'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 

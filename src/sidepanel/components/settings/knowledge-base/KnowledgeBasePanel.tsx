@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
 import { pingObsidian } from '@/shared/obsidian/api'
-import TopBar from '../shell/TopBar'
+import TopBar from '../../shell/TopBar'
 import ObsidianVaultView from './ObsidianVaultView'
-import Button from '../primitives/Button'
-import '../panels/ScenarioPanel.css'
+import Button from '../../ui/Button'
+import '../../scenes/ScenarioPanel.css'
 
 interface Props {
   settings: AppSettings

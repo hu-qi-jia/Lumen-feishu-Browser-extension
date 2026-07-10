@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { RecentFile } from '../../lib/recentFiles'
+import type { RecentFile } from '../../services/recentFiles'
 import { parseDocTokenFromUrl } from '@/shared/feishu/parseDocRef'
-import Button from '../primitives/Button'
+import Button from '../ui/Button'
 import DocLinkField from './DocLinkField'
 import './DocCombobox.css'
 

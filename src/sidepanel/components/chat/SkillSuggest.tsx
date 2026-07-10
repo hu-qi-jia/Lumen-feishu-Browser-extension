@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 
 /**
  * 主动推送：进入某类资源（base/sheet/doc）的新会话时，预加载社区「高分做法」，做成可点 chip。

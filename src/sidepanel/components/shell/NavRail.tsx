@@ -1,5 +1,5 @@
 import React from 'react'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import './NavRail.css'
 
 export interface NavItem {

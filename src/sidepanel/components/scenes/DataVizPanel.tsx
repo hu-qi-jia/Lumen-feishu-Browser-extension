@@ -10,8 +10,8 @@ import { isTokenExpiredError } from '@/shared/feishu/auth'
 import type { SavedViz, VizSource } from '@/shared/dataviz/types'
 import type { VizSpec } from '@/shared/dataviz/spec'
 import TopBar from '../shell/TopBar'
-import Button from '../primitives/Button'
-import Tooltip from '../primitives/Tooltip'
+import Button from '../ui/Button'
+import Tooltip from '../ui/Tooltip'
 import './DataVizPanel.css'
 
 /** Map an error to a user-facing string — expired sessions get a clear re-login hint. */

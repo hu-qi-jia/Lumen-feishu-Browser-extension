@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { tenantToken } from './driver'
-import { executeTool } from '@/shared/ai/agent'
+import { executeTool } from '@/shared/ai/agent-executor'
 import { DEFAULT_SETTINGS, type PageContext } from '@/shared/types'
 
 const LIVE = process.env.REPLICATE_LIVE === '1'

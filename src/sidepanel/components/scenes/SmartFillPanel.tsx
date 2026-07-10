@@ -5,7 +5,7 @@ import { buildPlan, applyPlan } from '@/shared/smartfill/plan'
 import { TYPE_LABEL } from '@/shared/smartfill/coerce'
 import type { FillField, FillPlan, ApplyResult, FillSource } from '@/shared/smartfill/types'
 import TopBar from '../shell/TopBar'
-import Button from '../primitives/Button'
+import Button from '../ui/Button'
 import './SmartFillPanel.css'
 
 interface Props {

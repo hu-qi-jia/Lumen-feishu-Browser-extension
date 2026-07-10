@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
 import { recentNotes, searchVault, type ObsidianNoteRow } from '@/shared/obsidian/api'
-import Tooltip from '../primitives/Tooltip'
-import SearchBox from '../primitives/SearchBox'
-import SegmentedTabs from '../primitives/SegmentedTabs'
+import Tooltip from '../../ui/Tooltip'
+import SearchBox from '../../ui/SearchBox'
+import SegmentedTabs from '../../ui/SegmentedTabs'
 import ObsidianNoteDetail from './ObsidianNoteDetail'
-import { IconPlus, IconFileText } from '../primitives/icons'
+import { IconPlus, IconFileText } from '../../ui/icons'
 import './ObsidianVaultView.css'
 
 interface Props {

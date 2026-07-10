@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { SessionKind } from '@/shared/types'
-import type { RecentFile } from '../../lib/recentFiles'
-import { displayName } from '../../lib/recentFiles'
-import Dropdown from '../primitives/Dropdown'
-import Tooltip from '../primitives/Tooltip'
-import { KindIcon } from '../primitives/icons'
+import type { RecentFile } from '../../services/recentFiles'
+import { displayName } from '../../services/recentFiles'
+import Dropdown from '../ui/Dropdown'
+import Tooltip from '../ui/Tooltip'
+import { KindIcon } from '../ui/icons'
 import './DocSelector.css'
 
 interface Props {

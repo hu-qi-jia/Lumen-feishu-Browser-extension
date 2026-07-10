@@ -15,10 +15,11 @@ import {
   fetchUserOpenId,
   oauthRedirectUrl,
 } from '@/shared/feishu/oauth'
-import { FormField, FormInput } from '../form'
-import Button from '../primitives/Button'
+import FormField from '../ui/FormField'
+import FormInput from '../ui/FormInput'
+import Button from '../ui/Button'
 import CodeBlock from '../chat/CodeBlock'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import FeishuSteps from './FeishuSteps'
 import type { SettingsTabProps } from './types'
 

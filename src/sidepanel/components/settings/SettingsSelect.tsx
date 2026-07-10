@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import Dropdown from '../primitives/Dropdown'
+import Dropdown from '../ui/Dropdown'
 
 interface Option {
   value: string

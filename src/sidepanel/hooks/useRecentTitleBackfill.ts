@@ -4,7 +4,7 @@ import { resolveToken } from '@/shared/feishu/auth'
 import { getDocumentMeta } from '@/shared/feishu/docx'
 import { getSpreadsheet } from '@/shared/feishu/sheets'
 import { getApp, getWikiNode } from '@/shared/feishu/api'
-import type { RecentFile } from '../lib/recentFiles'
+import type { RecentFile } from '../services/recentFiles'
 
 interface Args {
   recentFiles: RecentFile[]

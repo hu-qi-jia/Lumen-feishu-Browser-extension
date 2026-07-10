@@ -13,8 +13,8 @@ import type { ReportResult } from '@/shared/report/types'
 import { resolveToken, isTokenExpiredError } from '@/shared/feishu/auth'
 import { listMyChats, sendText, type ChatBrief } from '@/shared/feishu/im'
 import TopBar from '../shell/TopBar'
-import Button from '../primitives/Button'
-import Tooltip from '../primitives/Tooltip'
+import Button from '../ui/Button'
+import Tooltip from '../ui/Tooltip'
 import './AISitePanel.css'
 
 interface Props { settings: AppSettings; context: PageContext; disabled: boolean; onBack: () => void }

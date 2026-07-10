@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { PageContext, SessionKind } from '@/shared/types'
-import { upsertRecent, removeRecent, loadRecent, saveRecent, realRecentTitle, type RecentFile } from '../lib/recentFiles'
+import { upsertRecent, removeRecent, loadRecent, saveRecent, realRecentTitle, type RecentFile } from '../services/recentFiles'
 
 export interface RecentFilesApi {
   recentFiles: RecentFile[]

@@ -1,5 +1,5 @@
-import { useEscapeToClose } from '../primitives/useEscapeToClose'
-import Tooltip from '../primitives/Tooltip'
+import { useEscapeToClose } from '../ui/useEscapeToClose'
+import Tooltip from '../ui/Tooltip'
 import '../chat/ConfirmDialog.css'
 
 interface Props {

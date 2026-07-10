@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import Dropdown from '../primitives/Dropdown'
-import Tooltip from '../primitives/Tooltip'
+import Dropdown from '../ui/Dropdown'
+import Tooltip from '../ui/Tooltip'
 import type { NewsInterval } from '@/shared/news/types'
 
 interface Props {

@@ -3,8 +3,8 @@ import type { Attachment, DocSelectionPayload } from '@/shared/types'
 import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText } from '@/shared/attachments'
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
-import Tooltip from '../primitives/Tooltip'
-import { IconCheck } from '../primitives/icons'
+import Tooltip from '../ui/Tooltip'
+import { IconCheck } from '../ui/icons'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import type { RecentFile } from '../../lib/recentFiles'
+import type { RecentFile } from '../../services/recentFiles'
 import DocCombobox, { type DocTarget } from './DocCombobox'
 
 const RECENT: RecentFile[] = [

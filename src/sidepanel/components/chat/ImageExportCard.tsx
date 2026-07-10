@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import JSZip from 'jszip'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import './ImageExportCard.css'
 
 interface ImageExportCardProps {

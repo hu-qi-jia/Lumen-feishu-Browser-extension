@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SessionKind } from '@/shared/types'
-import { displayName, type RecentFile } from '../../lib/recentFiles'
-import { KindIcon, IconX } from '../primitives/icons'
+import { displayName, type RecentFile } from '../../services/recentFiles'
+import { KindIcon, IconX } from '../ui/icons'
 
 interface Props {
   /** Controlled field text — a typed/pasted link, or whatever the caller fills (e.g. a picked

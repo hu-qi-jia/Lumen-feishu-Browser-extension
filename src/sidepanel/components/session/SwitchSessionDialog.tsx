@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEscapeToClose } from '../primitives/useEscapeToClose'
+import { useEscapeToClose } from '../ui/useEscapeToClose'
 import '../chat/ConfirmDialog.css'
 
 interface Props {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { FieldCtx } from '@/shared/feishu/context'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import './FieldChips.css'
 
 interface Props {

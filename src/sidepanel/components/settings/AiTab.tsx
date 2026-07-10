@@ -5,7 +5,9 @@ import {
   assertSafeBaseUrl,
   providerForBaseUrl,
 } from '@/shared/providers'
-import { FormField, FormInput, FormToggle } from '../form'
+import FormField from '../ui/FormField'
+import FormInput from '../ui/FormInput'
+import FormToggle from '../ui/FormToggle'
 import SettingsSelect from './SettingsSelect'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'

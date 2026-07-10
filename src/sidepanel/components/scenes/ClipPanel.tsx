@@ -11,7 +11,7 @@ import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 import { openUrlInNewTab } from '@/shared/url'
 import { runAgent } from '@/shared/ai/agent'
 import { imageToMarkdown } from '@/shared/ai/vision'
-import Tooltip from '../primitives/Tooltip'
+import Tooltip from '../ui/Tooltip'
 import './ClipPanel.css'
 
 interface Props {

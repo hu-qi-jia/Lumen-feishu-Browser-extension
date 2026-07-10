@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { IconCopy, IconRefresh, IconCheck } from '../primitives/icons'
-import Tooltip from '../primitives/Tooltip'
+import { IconCopy, IconRefresh, IconCheck } from '../ui/icons'
+import Tooltip from '../ui/Tooltip'
 import './ReplyActions.css'
 
 interface Props {
