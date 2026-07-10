@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
-import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
+import { CLIP_ENABLED, HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import HubCard from '../shell/HubCard'
 import DataVizPanel from './DataVizPanel'
 import AISitePanel from './AISitePanel'
@@ -47,6 +47,7 @@ const HUB_ICONS: Record<string, React.ReactNode> = {
   audit: Svg(<><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></>),
   summary: Svg(<><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="4" cy="6" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r=".8" fill="currentColor" stroke="none" /></>),
   slides: Svg(<><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /><polyline points="6 10 10 14 14 10 18 14" /></>),
+  camera: Svg(<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>),
   file: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></>),
   book: Svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
 }
@@ -120,6 +121,16 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
               </div>
             )
           })}
+
+          {CLIP_ENABLED && (
+            <div className="sc-hub-group">
+              <div className="sc-hub-section">网页采集</div>
+              <div className="sc-hub-grid">
+                <HubCard icon={HUB_ICONS.camera} title="截图识别" desc="视觉模型识别图片中的表格数据" />
+                <HubCard icon={HUB_ICONS.file} title="文件导入" desc="拖入 CSV 文件，AI 整理写入飞书" />
+              </div>
+            </div>
+          )}
 
           {HAS_KNOWLEDGE_BASE && (
             <div className="sc-hub-group">

@@ -4,10 +4,11 @@
 // globally). We deliberately do NOT gate it per-tab: the old per-tab enable/disable
 // (a) tore the panel document down on tab switch — killing any in-flight task, and
 // (b) could wedge a tab's panel "un-reopenable" until the extension was reinstalled.
-// The React UI decides what to show per page (Feishu assistant / a hint on other sites).
-import { NO_REMOTE_CODE } from '@/shared/config'
+// The React UI decides what to show per page (Feishu assistant / clip flow / a hint on other sites).
+import { CLIP_ENABLED, NO_REMOTE_CODE } from '@/shared/config'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 import type { AppSettings, DocSelectionPayload } from '@/shared/types'
+import type { ClipCapture } from '@/shared/clip/types'
 import { decryptField } from '@/shared/crypto'
 import { fetchVizData, fetchDocDatasets, docOf } from '@/shared/dataviz/data'
 import { loadVizList } from '@/shared/dataviz/store'
@@ -33,6 +34,58 @@ import {
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
 // it again reopens it). No per-tab state to get stuck.
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
+
+// ─── Screenshot clipper ────────────────────────────────────────────────────────
+
+// One-shot stash bridging the open()→panel-mount gap: a freshly-opened panel pulls this
+// via CLIP_REQUEST (the immediate CLIP_CAPTURE push below can race ahead of mount).
+let lastClip: { payload?: ClipCapture; error?: string; at: number } | null = null
+
+// Screenshot the visible tab → side panel runs vision OCR on it. captureVisibleTab is
+// covered by `activeTab` under the gesture — no new permission. Visible viewport only.
+function screenshotActiveTab(tab: chrome.tabs.Tab): void {
+  if (!CLIP_ENABLED || tab.id == null) return
+  chrome.sidePanel.open({ tabId: tab.id }).catch(() => {})
+  void runScreenshot(tab)
+}
+
+async function runScreenshot(tab: chrome.tabs.Tab): Promise<void> {
+  try {
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+    if (!dataUrl) throw new Error('empty shot')
+    const payload: ClipCapture = {
+      url: tab.url ?? '', title: tab.title ?? '', selectedText: '',
+      content: '', imageDataUrl: dataUrl, capturedAt: Date.now(), truncated: false,
+    }
+    lastClip = { payload, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_CAPTURE', payload }).catch(() => {})
+  } catch {
+    const message = '此页面不支持截图（浏览器限制了对该页的访问）'
+    lastClip = { error: message, at: Date.now() }
+    chrome.runtime.sendMessage({ type: 'CLIP_ERROR', message }).catch(() => {})
+  }
+}
+
+if (CLIP_ENABLED) {
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create(
+      { id: 'screenshot-to-base', title: '截图识别到飞书（视觉模型）', contexts: ['page', 'image'] },
+      () => void chrome.runtime.lastError, // ignore "duplicate id" on SW restart
+    )
+  })
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'screenshot-to-base' && tab) screenshotActiveTab(tab)
+  })
+  // Panel pulls the pending clip on mount (handles the open→message race), one-shot.
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg?.type === 'CLIP_REQUEST') {
+      sendResponse(lastClip)
+      lastClip = null
+      return false
+    }
+    return undefined
+  })
+}
 
 // ─── Saved-viz launcher (background renders, since it holds Feishu host access) ──
 
@@ -76,8 +129,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 })
 
 // ─── Selection → side panel: open the panel + stash the payload so the panel can pull it on
-// mount (covers the open→message race where the panel isn't listening yet). The button click
-// is the user gesture MV3 requires for sidePanel.open.
+// mount (mirrors the CLIP_REQUEST pattern — covers the open→message race where the panel
+// isn't listening yet). The button click is the user gesture MV3 requires for sidePanel.open.
 let pendingSelection: { payload: DocSelectionPayload; at: number } | null = null
 const SELECTION_TTL_MS = 3000
 

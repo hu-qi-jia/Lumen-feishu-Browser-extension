@@ -1,8 +1,11 @@
 /**
- * Drag-to-import — shared ClipCapture type.
+ * Clip — shared types and message contracts.
  *
- * A dropped CSV/TSV/TXT file is parsed client-side into this shape (see file.ts), then
- * converted to an attachment via attachments.ts. No network egress — parsing is local.
+ * Screenshot capture: a screenshot is taken from the ACTIVE tab only, on an explicit user
+ * gesture (context menu), via chrome.tabs.captureVisibleTab + `activeTab`. No broad
+ * host_permissions, no new network egress — the image is shown to the user (preview) BEFORE
+ * anything leaves the panel. Drag-to-import (file.ts) parses a dropped CSV/TSV/TXT file
+ * client-side into the same ClipCapture shape.
  */
 
 export interface ClipCapture {
@@ -14,11 +17,25 @@ export interface ClipCapture {
   selectedText: string
   /** Readable main content of the page (used when there's no selection). */
   content: string
+  /** Set when this clip is a SCREENSHOT pending vision recognition; `content` is filled in
+   *  after the vision model extracts a Markdown table from the image. */
+  imageDataUrl?: string
   /** ms epoch when captured (stamped in the page world). */
   capturedAt: number
   /** True if `content` was truncated to the size cap. */
   truncated: boolean
 }
 
-/** Max characters of content we capture/send (avoid dumping a whole huge file). */
+/** Max characters of content we capture/send (avoid dumping a whole huge page). */
 export const MAX_CLIP_CHARS = 50_000
+
+/** background → side panel: a fresh clip is ready. */
+export interface ClipCaptureMessage {
+  type: 'CLIP_CAPTURE'
+  payload: ClipCapture
+}
+
+/** side panel → background: panel just mounted, pull any pending clip (open→message race). */
+export interface ClipRequestMessage {
+  type: 'CLIP_REQUEST'
+}

@@ -24,7 +24,7 @@ describe('detectScan', () => {
 
 // classifyPdfError is unit-tested directly. The async reject path through extractMarkdown isn't
 // integration-tested because vitest flags a mock's stored rejection as unhandled regardless of the
-// caller's try/catch.
+// caller's try/catch (same trade-off as src/shared/ai/vision.test.ts).
 describe('classifyPdfError', () => {
   it('maps a password/encrypted error to a friendly message', () => {
     const err = classifyPdfError(new Error('Password required to decrypt'))

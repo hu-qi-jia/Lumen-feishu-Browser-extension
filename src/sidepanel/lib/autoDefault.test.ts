@@ -7,6 +7,7 @@ const base = {
   pageSupported: true,
   hasConversation: false,
   currentTab: 'chat' as AppTab,
+  clip: false,
   chatStreaming: false,
   newSessionPin: false,
   alreadyDefaulted: false,
@@ -43,6 +44,10 @@ describe('decideAutoDefault', () => {
   it('leaves the view untouched if the user is already on scenes or news', () => {
     expect(decideAutoDefault({ ...base, currentTab: 'scenes', pageSupported: false }).tab).toBeNull()
     expect(decideAutoDefault({ ...base, currentTab: 'news' }).tab).toBeNull()
+  })
+
+  it('waits (does not settle) while a clip is showing', () => {
+    expect(decideAutoDefault({ ...base, clip: true, pageSupported: false }).settled).toBe(false)
   })
 
   it('waits while an answer is streaming', () => {

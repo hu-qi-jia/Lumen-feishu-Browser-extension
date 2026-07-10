@@ -60,8 +60,8 @@ function parseSpec(out: string, schema: VizField[]): { name: string; spec: VizSp
 /**
  * One-shot codegen: given a table schema + a small sample of rows + a natural-language
  * request, ask the LLM for a render-function body that builds an ECharts chart. The code is
- * the SAVED artifact; data is injected live at render time. No new egress. The code runs
- * only inside the locked sandbox (connect-src 'none').
+ * the SAVED artifact; data is injected live at render time. Same client/guard as vision.ts —
+ * no new egress. The code runs only inside the locked sandbox (connect-src 'none').
  */
 
 /** Defense-in-depth on top of the sandbox CSP: reject obvious network/import calls. */
