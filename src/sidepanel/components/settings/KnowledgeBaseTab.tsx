@@ -80,7 +80,7 @@ export default function KnowledgeBaseTab({ form, patch }: SettingsTabProps) {
             <FormInput type="url" value={form.obsidianBaseUrl ?? ''} onChange={(e) => patch({ obsidianBaseUrl: e.target.value })} placeholder="http://127.0.0.1:27123" />
           </FormField>
 
-          <FormField label="API Key" hint="粘贴 Obsidian Local REST API 页面显示的 API Key；已保存的 Key 可点击眼睛图标查看或编辑覆盖。">
+          <FormField label="API Key" hint="粘贴 Obsidian Local REST API 页面显示的 API Key。">
             <FormInput type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="粘贴 API Key" />
           </FormField>
         </div>

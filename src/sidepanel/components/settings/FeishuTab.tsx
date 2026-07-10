@@ -289,11 +289,11 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         content: (
           <div className="feishu-config-help">
             <p className="feishu-config-text">
-              在飞书后台「安全设置 → 重定向 URL」登记（须完全一致，含末尾斜杠）：
+              在飞书后台「安全设置 → 重定向 URL」登记：
             </p>
             {redirectUrl && <CodeBlock code={redirectUrl} />}
             <p className="feishu-config-text">
-              权限管理开通（勾<b>用户身份</b>），权限范围参考下方代码块：
+              权限管理开通，权限范围参考下方代码块，可复制后批量导入：
             </p>
             <CodeBlock code={PERMISSION_SCOPES} scrollable />
             <p className="feishu-config-text">
@@ -436,12 +436,10 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
               </span>
             )}
             <p className="field-hint">
-              授权失败时，可改用右边：在上方「user_access_token」粘贴你的 token（见「如何获取?」），
-              再点【token取open_id】——无需登记重定向 URL。
+              授权失败时，可填入 user_access_token 并点击「token取open_id」获取 open_id，无需登记重定向 URL。
             </p>
             <p className="field-hint">
-              用「内置凭据 / tenant」身份新建的多维表格默认归应用所有、不在你的云空间显示。
-              点上方授权后，助手新建表会自动转交给你（应用保留编辑权）；也可手填 open_id。
+              使用内置凭据/tenant 身份新建的表格默认归应用所有。点击上方授权后，助手新建的表格将自动转交给你。
             </p>
           </div>
         ),
