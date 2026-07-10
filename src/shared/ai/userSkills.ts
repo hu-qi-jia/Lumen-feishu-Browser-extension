@@ -59,7 +59,7 @@ export type UserSkillInput = {
 
 // ─── 轻量 YAML frontmatter 解析（只支持 skill 用到的子集）────────────────────
 
-const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/
+const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?([\s\S]*)$/
 
 /** 解析标量值：去引号、转 boolean/number。 */
 function parseScalar(raw: string): unknown {
@@ -170,9 +170,15 @@ function parseFrontmatter(text: string): SkillFrontmatter {
 function normalizeFrontmatter(raw: Record<string, unknown>): SkillFrontmatter {
   const scopeRaw = String(raw.scope ?? 'any')
   const scope: SkillFrontmatter['scope'] = scopeRaw === 'doc' || scopeRaw === 'sheet' ? scopeRaw : 'any'
+  const name = String(raw.name ?? '').trim()
+  let slug = String(raw.slug ?? '').trim()
+  // 外部 skill 文件常无 slug 字段——从 name 自动生成（小写、非字母数字转下划线）
+  if (!slug && name) {
+    slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
+  }
   return {
-    name: String(raw.name ?? '').trim(),
-    slug: String(raw.slug ?? '').trim(),
+    name,
+    slug,
     description: String(raw.description ?? '').trim(),
     scope,
     icon: typeof raw.icon === 'string' && raw.icon ? raw.icon : undefined,

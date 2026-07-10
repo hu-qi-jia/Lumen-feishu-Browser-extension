@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardE
 import type { Attachment, DocSelectionPayload } from '@/shared/types'
 import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText } from '@/shared/attachments'
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
+import { loadUserSkills, type UserSkill } from '@/shared/ai/userSkills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
 import Dropdown from '../ui/Dropdown'
@@ -64,6 +65,11 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
   const [plusOpen, setPlusOpen] = useState(false)
+  const [userSkills, setUserSkills] = useState<UserSkill[]>([])
+  const [slashOpen, setSlashOpen] = useState(false)
+  const [slashQuery, setSlashQuery] = useState('')
+  const [slashIndex, setSlashIndex] = useState(0)
+  const [selectedSkills, setSelectedSkills] = useState<UserSkill[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textRef = useRef('')
   textRef.current = text
@@ -75,6 +81,9 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     if (!resourceKind) return
     preloadSkills(resourceKind).then(setSkills)
   }, [resourceKind])
+
+  // Load user skills once for the "/" picker
+  useEffect(() => { loadUserSkills().then(setUserSkills).catch(() => {}) }, [])
 
   const blocked = disabled || !!busy
 
@@ -149,9 +158,14 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
 
   function submit() {
     const t = text.trim()
-    if ((!t && visibleAttachments.length === 0) || blocked) return
-    onSend(t, visibleAttachments.length ? visibleAttachments : undefined)
+    if ((!t && visibleAttachments.length === 0 && selectedSkills.length === 0) || blocked) return
+    // 若选定了 skill，在消息前拼接调用指令，引导 agent 使用对应 skill__ 工具
+    const skillPrefix = selectedSkills.length
+      ? selectedSkills.map((s) => `请使用技能「${s.name}」(skill__${s.slug})`).join('；') + '\n'
+      : ''
+    onSend(skillPrefix + t, visibleAttachments.length ? visibleAttachments : undefined)
     setText('')
+    setSelectedSkills([])
     // Drop what we just sent (current-doc chips + images/files). KEEP selection chips staged for
     // OTHER docs so they reappear when the user switches back to them.
     setAttachments((prev) =>
@@ -161,7 +175,66 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     )
   }
 
+  // ── Slash command detection ──
+  const enabledUserSkills = userSkills.filter((s) => s.enabled)
+  const filteredSlashSkills = slashQuery
+    ? enabledUserSkills.filter((s) =>
+        s.name.toLowerCase().includes(slashQuery.toLowerCase()) ||
+        s.description.toLowerCase().includes(slashQuery.toLowerCase()),
+      )
+    : enabledUserSkills
+
+  function onTextChange(e: ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setText(val)
+    // 检测 "/" 命令：仅当 "/" 是第一个字符时触发
+    if (val.startsWith('/')) {
+      setSlashOpen(true)
+      setSlashQuery(val.slice(1))
+      setSlashIndex(0)
+    } else {
+      setSlashOpen(false)
+    }
+  }
+
+  function selectSkill(skill: UserSkill) {
+    setSelectedSkills((prev) =>
+      prev.some((s) => s.id === skill.id) ? prev : [...prev, skill],
+    )
+    // 清除 "/" + query 文本
+    const rest = text.replace(/^\/\S*\s?/, '')
+    setText(rest)
+    setSlashOpen(false)
+    textareaRef.current?.focus()
+  }
+
+  function removeSkill(id: string) {
+    setSelectedSkills((prev) => prev.filter((s) => s.id !== id))
+  }
+
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (slashOpen && filteredSlashSkills.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSlashIndex((i) => (i + 1) % filteredSlashSkills.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSlashIndex((i) => (i - 1 + filteredSlashSkills.length) % filteredSlashSkills.length)
+        return
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        selectSkill(filteredSlashSkills[slashIndex])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setSlashOpen(false)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -227,8 +300,22 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   return (
     <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
       <div className="input-bar-inner">
-        {(visibleAttachments.length > 0 || kbEnabled) && (
+        {(visibleAttachments.length > 0 || kbEnabled || selectedSkills.length > 0) && (
           <div className="attachment-list">
+            {selectedSkills.map((s) => (
+              <div key={s.id} className="attachment-chip attachment-chip--skill">
+                <IconSparkle width={12} height={12} />
+                <span className="attachment-name">{s.name}</span>
+                <button
+                  className="attachment-remove"
+                  onClick={() => removeSkill(s.id)}
+                  aria-label="移除技能"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
             {kbEnabled && (
               <div className="attachment-chip attachment-chip--kb">
                 <span className="attachment-name">知识库</span>
@@ -276,11 +363,34 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
           className="input-textarea"
           placeholder={placeholder}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={onTextChange}
           onKeyDown={onKeyDown}
           disabled={blocked}
           rows={1}
         />
+
+        {/* Slash skill picker */}
+        {slashOpen && filteredSlashSkills.length > 0 && (
+          <div className="slash-popup" role="listbox">
+            {filteredSlashSkills.slice(0, 8).map((s, i) => (
+              <button
+                key={s.id}
+                className={`slash-item${i === slashIndex ? ' slash-item--active' : ''}`}
+                type="button"
+                role="option"
+                aria-selected={i === slashIndex}
+                onMouseEnter={() => setSlashIndex(i)}
+                onClick={() => selectSkill(s)}
+              >
+                <span className="slash-item-icon"><IconSparkle width={14} height={14} /></span>
+                <span className="slash-item-meta">
+                  <span className="slash-item-title">{s.name}</span>
+                  {s.description && <span className="slash-item-desc">{s.description}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="input-bar-toolbar">
           <div className="toolbar-left">
@@ -379,7 +489,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                 <button
                   className="btn-send-circle"
                   onClick={submit}
-                  disabled={blocked || (!text.trim() && attachments.length === 0)}
+                  disabled={blocked || (!text.trim() && attachments.length === 0 && selectedSkills.length === 0)}
                   type="button"
                   aria-label="发送"
                 >
