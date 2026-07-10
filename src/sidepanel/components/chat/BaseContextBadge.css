@@ -123,6 +123,41 @@
   .bcb-detail { animation: none; }
 }
 
+/* ── Table switcher tabs — top of the popover when a Base has >1 table ───────── */
+.bcb-table-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox — the row reads as a static strip */
+}
+.bcb-table-tabs::-webkit-scrollbar { display: none; } /* Chrome/Safari — same */
+.bcb-table-tab {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.bcb-table-tab:hover { background: var(--color-surface-2); color: var(--color-text); }
+.bcb-table-tab--active {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  cursor: default;
+}
+
+/* Empty-table hint — quiet metadata line. */
+.bcb-empty { font-size: 11px; color: var(--color-text-secondary); padding: 2px 0; }
+
 .bcb-chips {
   display: flex;
   flex-wrap: wrap;

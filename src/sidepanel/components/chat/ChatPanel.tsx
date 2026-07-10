@@ -112,6 +112,9 @@ export default function ChatPanel({
   const [baseCtx, setBaseCtx] = useState<BaseCtx | null>(null)
   const [ctxLoading, setCtxLoading] = useState(false)
   const [ctxError, setCtxError] = useState('')
+  // User-picked table within the current Base (overrides the URL-derived current table).
+  // Lifted here so the BaseContextBadge popover and the FieldChips above the input agree.
+  const [selectedTableId, setSelectedTableId] = useState<string>('')
   const lastLoadedApp = useRef<string>('')
   // Latest Base whose context load was REQUESTED — fetchBaseCtx is multi-request and un-aborted,
   // so on a fast A→B switch A can resolve last and clobber B; commits below skip unless still latest.
@@ -128,10 +131,12 @@ export default function ChatPanel({
     const appToken = context.feishu?.appToken
     if (!appToken || !context.feishu?.isBase) {
       setBaseCtx(null)
+      setSelectedTableId('')
       return
     }
-    // Avoid re-fetching when only view/table changes within same app
     if (appToken === lastLoadedApp.current && baseCtx) return
+    // New Base (or first load) → clear any table pick carried over from the previous Base.
+    setSelectedTableId('')
     loadBaseCtx()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context.feishu?.appToken, context.feishu?.isBase])
@@ -408,6 +413,8 @@ export default function ChatPanel({
           error={ctxError}
           settings={settings}
           onRefresh={refreshCtx}
+          selectedTableId={selectedTableId}
+          onSelectTable={setSelectedTableId}
         />
       )}
 
@@ -433,12 +440,13 @@ export default function ChatPanel({
       )}
 
       {/* Field picker — Feishu Base grids are canvas-rendered (no DOM text to select), so
-          we list the current table's fields from the structure we already read. Click a
-          field → it drops into the input for a precise edit. The row hides its scrollbar
-          and scrolls sideways on vertical wheel (see FieldChips). */}
+          we list the selected table's fields from the structure we already read. Click a
+          field → it drops into the input for a precise edit. The selected table mirrors the
+          popover's table switcher (lifted state), so chips and popover always agree. The row
+          hides its scrollbar and scrolls sideways on vertical wheel (see FieldChips). */}
       {(() => {
         if (!baseCtx?.tables?.length) return null
-        const tid = context.feishu?.tableId || baseCtx.currentTableId
+        const tid = selectedTableId || baseCtx.currentTableId
         const table = baseCtx.tables.find((t) => t.tableId === tid) ?? baseCtx.tables[0]
         const fields = table?.fields ?? []
         if (!fields.length) return null

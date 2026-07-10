@@ -14,6 +14,10 @@ interface Props {
   error: string
   settings: AppSettings
   onRefresh: () => void
+  /** User-selected table id (overrides the URL-derived current table). Lifted to ChatPanel so
+   *  the popover and the FieldChips above the input stay in sync. */
+  selectedTableId?: string
+  onSelectTable?: (id: string) => void
 }
 
 type ExportState = 'idle' | 'loading' | 'done' | 'error'
@@ -26,7 +30,7 @@ type ExportState = 'idle' | 'loading' | 'done' | 'error'
  * buttons (and 2px spacing) exactly. The table NAME is omitted (the doc-selector trigger
  * already shows it); the popover shows only the current table's field chips (header tags).
  */
-export default function BaseContextBadge({ ctx, loading, error, settings, onRefresh }: Props) {
+export default function BaseContextBadge({ ctx, loading, error, settings, onRefresh, selectedTableId, onSelectTable }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportMsg, setExportMsg] = useState('')
@@ -69,9 +73,15 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
     }
   }, [expanded])
 
-  // The current table drives the field popover (fallback to the first table when the active
-  // table id isn't known). Header tags only — no table name, per spec.
-  const table = ctx ? (ctx.tables.find((t) => t.tableId === ctx.currentTableId) ?? ctx.tables[0]) : undefined
+  // The selected table drives the field popover. Precedence: user selection (if it still
+  // matches a loaded table) → URL-derived current table → first table. Tabs at the top of
+  // the popover let the user switch tables without leaving the Base page.
+  const tables = ctx?.tables ?? []
+  const fallbackId = ctx?.currentTableId ?? tables[0]?.tableId
+  const activeTableId = (selectedTableId && tables.some((t) => t.tableId === selectedTableId))
+    ? selectedTableId
+    : fallbackId
+  const table = tables.find((t) => t.tableId === activeTableId)
   const fields = table?.fields ?? []
   const summary = ctx ? ctxSummary(ctx) : ''
 
@@ -145,19 +155,41 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
         ) : null}
       </div>
 
-      {/* Full-width field popover — spans the whole info bar width. */}
-      {expanded && fields.length > 0 && (
+      {/* Full-width field popover — spans the whole info bar width. Opens as long as there
+          is at least one loaded table; a table-tab row at the top lets the user switch which
+          table's fields are shown (only rendered when the Base has more than one table). */}
+      {expanded && ctx && ctx.tables.length > 0 && (
         <div className="bcb-detail" ref={popoverRef} role="dialog" aria-label="字段详情">
-          <div className="bcb-chips">
-            {fields.map((f) => (
-              <Tooltip key={f.fieldId} content={chipTooltip(f)} position="bottom">
-                <span className="bcb-chip">
-                  {f.fieldName}
-                  {(f.type === 3 || f.type === 4) && <span className="bcb-chip-dot" />}
-                </span>
-              </Tooltip>
-            ))}
-          </div>
+          {ctx.tables.length > 1 && (
+            <div className="bcb-table-tabs" role="tablist" aria-label="选择数据表">
+              {ctx.tables.map((t) => (
+                <button
+                  key={t.tableId}
+                  className={`bcb-table-tab${t.tableId === activeTableId ? ' bcb-table-tab--active' : ''}`}
+                  onClick={() => onSelectTable?.(t.tableId)}
+                  role="tab"
+                  aria-selected={t.tableId === activeTableId}
+                  type="button"
+                >
+                  {t.tableName}
+                </button>
+              ))}
+            </div>
+          )}
+          {fields.length > 0 ? (
+            <div className="bcb-chips">
+              {fields.map((f) => (
+                <Tooltip key={f.fieldId} content={chipTooltip(f)} position="bottom">
+                  <span className="bcb-chip">
+                    {f.fieldName}
+                    {(f.type === 3 || f.type === 4) && <span className="bcb-chip-dot" />}
+                  </span>
+                </Tooltip>
+              ))}
+            </div>
+          ) : (
+            <div className="bcb-empty">该表暂无字段</div>
+          )}
         </div>
       )}
 
