@@ -131,7 +131,7 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
               <HubCard
                 icon={HUB_ICONS.skill}
                 title="技能库"
-                desc="上传 Markdown 技能，Agent 可调用完成文案润色、表格填充等任务"
+                desc="上传或创建 skill，agent 可调用执行任务"
                 onClick={() => setView({ mode: 'skill' })}
               />
             </div>

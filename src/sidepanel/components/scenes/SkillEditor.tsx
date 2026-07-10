@@ -118,22 +118,22 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
           onChange={(v) => setTab(v as 'edit' | 'preview')}
         />
         <div className="sk-editor-tools">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<IconHelpCircle />}
-            onClick={() => setShowHelp((v) => !v)}
-          >
-            {showHelp ? '收起说明' : '格式说明'}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<IconFilePlus />}
-            onClick={insertTemplate}
-          >
-            插入模板
-          </Button>
+          <Tooltip content={showHelp ? '收起说明' : '格式说明'} position="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<IconHelpCircle />}
+              onClick={() => setShowHelp((v) => !v)}
+            />
+          </Tooltip>
+          <Tooltip content="插入模板" position="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<IconFilePlus />}
+              onClick={insertTemplate}
+            />
+          </Tooltip>
         </div>
       </div>
 
@@ -189,7 +189,7 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
       )}
 
       <div className="sk-editor-actions">
-        <Button variant="secondary" onClick={onClose}>取消</Button>
+        <Button variant="secondary" block onClick={onClose}>取消</Button>
         <Tooltip content={canSave ? '保存（Ctrl+S）' : '请先修复上方的校验问题'} position="top">
           <Button variant="primary" block disabled={!canSave} onClick={() => onSave(md)}>
             保存
