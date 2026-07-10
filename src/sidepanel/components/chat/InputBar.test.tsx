@@ -20,7 +20,7 @@ describe('InputBar 知识库开关', () => {
         resourceKind="general"
       />,
     )
-    fireEvent.click(screen.getByText('Tools'))
+    fireEvent.click(screen.getByLabelText('工具 / 知识库'))
     expect(screen.getByText('知识库')).toBeTruthy()
   })
 
@@ -36,7 +36,7 @@ describe('InputBar 知识库开关', () => {
         resourceKind="general"
       />,
     )
-    fireEvent.click(screen.getByText('Tools'))
+    fireEvent.click(screen.getByLabelText('工具 / 知识库'))
     fireEvent.click(screen.getByText('知识库'))
     expect(toggle).toHaveBeenCalledWith(true)
   })

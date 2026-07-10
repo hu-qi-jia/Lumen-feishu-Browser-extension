@@ -4,7 +4,7 @@ import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, p
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
-import { IconCheck } from '../ui/icons'
+import { IconTools } from '../ui/icons'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
@@ -303,46 +303,53 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
             <div className="tools-menu-wrap" ref={skillsWrapRef}>
               <Tooltip content={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : (skills.length ? '技能建议' : '暂无可用技能')}>
                 <button
-                  className={`btn-tools${kbEnabled ? ' btn-tools--active' : ''}`}
+                  className={`btn-icon${kbEnabled ? ' btn-icon--active' : ''}`}
                   onClick={() => setSkillsOpen((v) => !v)}
                   disabled={blocked || (!HAS_KNOWLEDGE_BASE && skills.length === 0)}
                   type="button"
+                  aria-label={HAS_KNOWLEDGE_BASE ? '工具 / 知识库' : '技能建议'}
                   tabIndex={-1}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                  </svg>
-                  <span>{kbEnabled ? '知识库' : 'Tools'}</span>
+                  <IconTools width={16} height={16} />
                 </button>
               </Tooltip>
               {skillsOpen && (
-                <div className="tools-menu">
+                <div className="tools-menu" role="menu">
                   {HAS_KNOWLEDGE_BASE && (
-                    <button
-                      className={`tools-menu-item${kbEnabled ? ' tools-menu-item--active' : ''}`}
+                    <div
+                      className="tools-menu-row tools-menu-row--toggle"
+                      role="menuitemcheckbox"
+                      aria-checked={kbEnabled}
                       onClick={() => { onToggleKb(!kbEnabled); setSkillsOpen(false) }}
-                      type="button"
                     >
-                      <span className="tools-menu-title">
-                        {kbEnabled && <IconCheck className="tools-menu-check" />}
-                        知识库
+                      <span className="tools-menu-label">
+                        <span className="tools-menu-title">知识库</span>
+                        <span className="tools-menu-desc">引用已连接的知识库作答</span>
                       </span>
-                    </button>
+                      <span className={`tools-toggle${kbEnabled ? ' tools-toggle--on' : ''}`}>
+                        <span className="tools-toggle-knob" />
+                      </span>
+                    </div>
                   )}
                   {HAS_KNOWLEDGE_BASE && skills.length > 0 && <div className="tools-menu-divider" />}
-                  {skills.slice(0, 6).map((s) => (
-                    <button
-                      key={s.skillId}
-                      className="tools-menu-item"
-                      onClick={() => { insert(s.lesson || s.intent); setSkillsOpen(false) }}
-                      type="button"
-                    >
-                      <span className="tools-menu-title">{s.intent}</span>
-                      {s.lesson && s.lesson !== s.intent && (
-                        <span className="tools-menu-desc">{s.lesson}</span>
-                      )}
-                    </button>
-                  ))}
+                  {skills.length > 0 && (
+                    <div className="tools-menu-section" role="group" aria-label="技能建议">
+                      {skills.slice(0, 6).map((s) => (
+                        <button
+                          key={s.skillId}
+                          className="tools-menu-item"
+                          onClick={() => { insert(s.lesson || s.intent); setSkillsOpen(false) }}
+                          type="button"
+                          role="menuitem"
+                        >
+                          <span className="tools-menu-title">{s.intent}</span>
+                          {s.lesson && s.lesson !== s.intent && (
+                            <span className="tools-menu-desc">{s.lesson}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
