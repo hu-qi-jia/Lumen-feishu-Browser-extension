@@ -1,30 +1,60 @@
-/* ── Skill editor ──────────────────────────────────────────────────────────
-   Full-panel editor that mirrors PdfTranscribePanel's result box:
-   - tabbed edit/preview toolbar (reuses .sc-target-opts from ScenarioPanel)
-   - auto-growing monospace textarea in edit mode
-   - rendered Markdown preview in preview mode
-   - inline error list + bottom action bar */
+/* ── Skill editor (redesigned) ────────────────────────────────────────────
+   Clean, flat writing surface for skill Markdown.
+   - minimal underlined tabs
+   - monospace editor with subtle focus ring
+   - compact collapsible help
+   - flat bottom action bar */
 
-.sk-editor { padding-top: 10px; }
+.sk-editor { padding-top: 6px; }
 
+/* Header: tabs + tools */
 .sk-editor-head {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   flex-shrink: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
 }
-.sk-editor-tabs { min-width: auto; padding: 2px; }
-.sk-editor-tabs .sc-target-opt { padding: 3px 12px; font-size: 11.5px; }
 
-.sk-editor-tools { display: flex; align-items: center; gap: 6px; }
+/* Tabs — minimal underlined style */
+.sk-editor-tabs {
+  display: flex; align-items: center; gap: 0;
+  min-width: auto; padding: 0;
+  background: transparent; border: none; border-radius: 0;
+}
+.sk-editor-tabs .sc-target-opt {
+  position: relative;
+  padding: 4px 2px;
+  margin-right: 16px;
+  background: transparent; border: none; border-radius: 0;
+  box-shadow: none;
+  font-size: 13px; font-weight: 500;
+  color: var(--color-text-secondary);
+}
+.sk-editor-tabs .sc-target-opt::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -9px; height: 2px;
+  background: var(--color-primary);
+  transform: scaleX(0);
+  transition: transform .15s ease;
+}
+.sk-editor-tabs .sc-target-opt--active {
+  color: var(--color-text); font-weight: 600; background: transparent; box-shadow: none;
+}
+.sk-editor-tabs .sc-target-opt--active::after { transform: scaleX(1); }
+.sk-editor-tabs .sc-target-opt:hover:not(.sc-target-opt--active) { color: var(--color-text); }
+
+/* Tool buttons — flat text buttons */
+.sk-editor-tools { display: flex; align-items: center; gap: 4px; }
 .sk-editor-tool-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--color-border); border-radius: 6px;
+  padding: 4px 8px;
+  border: none; border-radius: 6px;
   background: transparent; color: var(--color-text-secondary);
-  font-size: 11px; cursor: pointer;
-  transition: border-color .15s, color .15s;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: background .15s, color .15s;
 }
-.sk-editor-tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.sk-editor-tool-btn:hover { background: var(--color-surface); color: var(--color-text); }
 
-/* Format help card */
+/* Format help card — flat */
 .sk-editor-help {
   padding: 10px 12px;
   border: 1px solid var(--color-border); border-radius: 8px;
@@ -33,7 +63,7 @@
 .sk-editor-help-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--color-text); }
 .sk-editor-help-list {
   margin: 0; padding-left: 16px;
-  display: flex; flex-direction: column; gap: 3px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 16px;
 }
 .sk-editor-help-list li { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
 .sk-editor-help-list code {
@@ -47,15 +77,29 @@
   display: flex; flex-direction: column; gap: 6px;
 }
 .sk-editor-textarea {
+  width: 100%; box-sizing: border-box;
   flex: 1; min-height: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.6;
   white-space: pre;
   overflow: auto;
   tab-size: 2;
+  outline: none;
+  resize: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.sk-editor-textarea::placeholder { color: var(--color-text-secondary); }
+.sk-editor-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 .sk-editor-preview {
   flex: 1; min-height: 200px; overflow-y: auto;
-  border: 1px solid var(--color-border); border-radius: 8px;
+  border: 1px solid var(--color-border); border-radius: 10px;
   background: var(--color-bg);
   padding: 12px 14px;
   font-size: 13px; line-height: 1.6;
@@ -75,5 +119,6 @@
 /* Bottom actions */
 .sk-editor-actions {
   display: flex; justify-content: flex-end; gap: 8px;
-  padding-top: 4px; border-top: 1px solid var(--color-border);
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
 }

@@ -15,7 +15,7 @@ interface Props {
   onClose: () => void
 }
 
-/** frontmatter 格式模板——点「插入模板」时追加到编辑器（仅在内容为空或末尾无 frontmatter 时）。 */
+/** frontmatter 格式模板——点「插入模板」时追加到编辑器。 */
 const TEMPLATE = `---
 name: 技能名称
 slug: my_skill
@@ -42,14 +42,13 @@ const FIELD_DOCS = [
   ['description', '一句话描述，模型据此判断是否调用该技能（必填）'],
   ['scope', 'any | doc | sheet —— 限定技能在哪种页面可用'],
   ['icon', '图标名：sparkle / chart / report / file / book（可选）'],
-  ['category', '分类名，用于列表分组（可选）'],
+  ['category', '分类名（可选）'],
   ['parameters', '参数列表，每项含 name/type/description/required/enum/default'],
   ['{{param}}', '正文中用双花括号引用参数值，运行时被替换'],
 ]
 
 /**
  * Skill 的 Markdown 编辑器：tab 切换编辑/预览，带 frontmatter 校验。
- * 参考 PdfTranscribePanel 的结果盒样式，复用 .sc-target-opts 分段控件。
  */
 export default function SkillEditor({ initialMarkdown, existing, selfId, onSave, onClose }: Props) {
   const [md, setMd] = useState(initialMarkdown)
@@ -82,7 +81,6 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
       const end = ta.selectionEnd
       const next = md.slice(0, start) + '  ' + md.slice(end)
       setMd(next)
-      // 恢复光标位置（在下一帧，等 React 更新完）
       requestAnimationFrame(() => {
         ta.selectionStart = ta.selectionEnd = start + 2
       })
@@ -149,7 +147,7 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
           <label className="sl-label">Markdown 源码</label>
           <textarea
             ref={taRef}
-            className="sl-req sk-editor-textarea"
+            className="sk-editor-textarea"
             value={md}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
