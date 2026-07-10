@@ -12,10 +12,10 @@
  * sheet and calls `window.print()` — that's the "导出 PDF" path (→ save as PDF).
  */
 import * as echarts from 'echarts'
-import type { Slide } from '../shared/ai/slides'
-import { slideInnerHtml, SLIDES_CSS } from '../shared/ai/slidesExport'
-import { getTheme, themeVars } from '../shared/ai/slidesThemes'
-import type { SlideImage } from '../shared/ai/slidesImages'
+import type { Slide } from '@/shared/ai/slides'
+import { slideInnerHtml, SLIDES_CSS } from '@/shared/ai/slidesExport'
+import { getTheme, themeVars } from '@/shared/ai/slidesThemes'
+import type { SlideImage } from '@/shared/ai/slidesImages'
 
 interface DeckView {
   slides: Slide[]

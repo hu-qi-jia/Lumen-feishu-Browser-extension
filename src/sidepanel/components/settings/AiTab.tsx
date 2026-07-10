@@ -1,10 +1,10 @@
-import { BUILD_CONFIG, HAS_MANAGED_LLM } from '../../../shared/config'
-import { clearManagedLlmCache, usingManagedLlm } from '../../../shared/ai/llmConfig'
+import { BUILD_CONFIG, HAS_MANAGED_LLM } from '@/shared/config'
+import { clearManagedLlmCache, usingManagedLlm } from '@/shared/ai/llmConfig'
 import {
   KNOWN_PROVIDER_HOSTS,
   assertSafeBaseUrl,
   providerForBaseUrl,
-} from '../../../shared/providers'
+} from '@/shared/providers'
 import { FormField, FormInput, FormToggle } from '../form'
 import SettingsSelect from './SettingsSelect'
 import SettingsSection from './SettingsSection'

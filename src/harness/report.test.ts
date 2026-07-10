@@ -4,8 +4,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { tenantToken, freshBase } from './driver'
-import { executeTool } from '../shared/ai/agent'
-import type { PageContext } from '../shared/types'
+import { executeTool } from '@/shared/ai/agent'
+import type { PageContext } from '@/shared/types'
 
 const LIVE = process.env.DOCX_LIVE === '1'
 

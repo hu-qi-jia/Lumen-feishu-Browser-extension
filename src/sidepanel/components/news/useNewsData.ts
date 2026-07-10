@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { NewsCache, NewsSettings, NewsSourceId } from '../../../shared/news/types'
-import { DEFAULT_NEWS_SETTINGS } from '../../../shared/news/types'
-import { loadNewsCache, loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
+import type { NewsCache, NewsSettings, NewsSourceId } from '@/shared/news/types'
+import { DEFAULT_NEWS_SETTINGS } from '@/shared/news/types'
+import { loadNewsCache, loadNewsSettings, saveNewsSettings } from '@/shared/news/store'
 
 type RefreshResp = { ok: true; cache: NewsCache } | { ok: false }
 

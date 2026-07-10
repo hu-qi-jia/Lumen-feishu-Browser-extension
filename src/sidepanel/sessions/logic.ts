@@ -3,7 +3,7 @@
  * (find-or-create by document, byAppToken bookkeeping, delete fallback). Kept
  * side-effect-free so they can be unit-tested without React or chrome.storage.
  */
-import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
+import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '@/shared/types'
 
 const now = () => Date.now()
 

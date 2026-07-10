@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import type { ChatMessage } from '../../shared/types'
+import type { ChatMessage } from '@/shared/types'
 import { useSessions } from './useSessions'
 
 // In-memory chrome.storage.local mock.

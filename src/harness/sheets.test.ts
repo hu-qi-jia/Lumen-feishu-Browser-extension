@@ -7,8 +7,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { tenantToken } from './driver'
-import { executeTool } from '../shared/ai/agent'
-import type { PageContext } from '../shared/types'
+import { executeTool } from '@/shared/ai/agent'
+import type { PageContext } from '@/shared/types'
 
 const LIVE = process.env.SHEETS_LIVE === '1'
 

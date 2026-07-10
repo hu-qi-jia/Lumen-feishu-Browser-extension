@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '../../shared/types'
+import type { ChatMessage, SessionIndex, SessionKind, SessionMeta } from '@/shared/types'
 import * as store from './store'
 import { emptyIndex, ensureSession as ensureSessionPure, removeSession as removeSessionPure, removeSessionsByAppToken as removeSessionsByAppTokenPure, capSessions, previewFromMessages, stampKind as stampKindPure, resolveSessionTitle as resolveSessionTitlePure } from './logic'
 

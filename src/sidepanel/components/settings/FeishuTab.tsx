@@ -6,19 +6,19 @@ import {
   HAS_BUILTIN_CREDS,
   HAS_ENCRYPTED_SECRET,
   HAS_MANAGED_APP_ID,
-} from '../../../shared/config'
-import { clearUserToken, getTenantAccessToken, saveUserToken } from '../../../shared/feishu/auth'
-import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '../../../shared/feishu/appSecret'
-import { getUserAppId, getUserAppSecret, hasUserAppCreds, saveUserAppCreds } from '../../../shared/feishu/userAppCreds'
+} from '@/shared/config'
+import { clearUserToken, getTenantAccessToken, saveUserToken } from '@/shared/feishu/auth'
+import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '@/shared/feishu/appSecret'
+import { getUserAppId, getUserAppSecret, hasUserAppCreds, saveUserAppCreds } from '@/shared/feishu/userAppCreds'
 import {
   authorizeFeishuUser,
   fetchUserOpenId,
   oauthRedirectUrl,
-} from '../../../shared/feishu/oauth'
+} from '@/shared/feishu/oauth'
 import { FormField, FormInput } from '../form'
-import Button from '../Button'
-import CodeBlock from '../CodeBlock'
-import Tooltip from '../Tooltip'
+import Button from '../primitives/Button'
+import CodeBlock from '../chat/CodeBlock'
+import Tooltip from '../primitives/Tooltip'
 import FeishuSteps from './FeishuSteps'
 import type { SettingsTabProps } from './types'
 

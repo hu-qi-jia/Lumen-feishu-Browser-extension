@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppSettings, PageContext } from '../../shared/types'
-import { parseFeishuContext } from '../../shared/feishu/pageUrl'
-import { resolveToken } from '../../shared/feishu/auth'
-import { getDocumentMeta } from '../../shared/feishu/docx'
-import { getSpreadsheet } from '../../shared/feishu/sheets'
+import type { AppSettings, PageContext } from '@/shared/types'
+import { parseFeishuContext } from '@/shared/feishu/pageUrl'
+import { resolveToken } from '@/shared/feishu/auth'
+import { getDocumentMeta } from '@/shared/feishu/docx'
+import { getSpreadsheet } from '@/shared/feishu/sheets'
 
 export interface PageContextApi {
   ctx: PageContext

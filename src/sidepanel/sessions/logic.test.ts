@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { ChatMessage, SessionIndex, SessionMeta } from '../../shared/types'
+import type { ChatMessage, SessionIndex, SessionMeta } from '@/shared/types'
 import {
   emptyIndex, ensureSession, removeSession, removeSessionsByAppToken, capSessions, MAX_SESSIONS,
   previewFromMessages, groupSessions, stampKind, resolveSessionTitle, GENERAL_GROUP_KEY,

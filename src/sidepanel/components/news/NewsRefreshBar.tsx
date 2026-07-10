@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import Dropdown from '../Dropdown'
-import Tooltip from '../Tooltip'
-import type { NewsInterval } from '../../../shared/news/types'
+import Dropdown from '../primitives/Dropdown'
+import Tooltip from '../primitives/Tooltip'
+import type { NewsInterval } from '@/shared/news/types'
 
 interface Props {
   refreshing: boolean

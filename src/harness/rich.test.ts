@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest'
 import { writeFileSync } from 'node:fs'
 import { runReplication, freshBase, readStructure, tenantToken } from './driver'
-import * as API from '../shared/feishu/api'
+import * as API from '@/shared/feishu/api'
 
 const LIVE = process.env.REPLICATE_LIVE === '1'
 

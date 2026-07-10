@@ -4,10 +4,10 @@
  * deepseek-v4-pro.txt, and runs runAgent() end-to-end against the real Feishu API.
  */
 import { readFileSync } from 'node:fs'
-import { runAgent } from '../shared/ai/agent'
-import { getTenantAccessToken } from '../shared/feishu/auth'
-import * as API from '../shared/feishu/api'
-import { DEFAULT_SETTINGS, type AppSettings, type PageContext, type ChatMessage } from '../shared/types'
+import { runAgent } from '@/shared/ai/agent'
+import { getTenantAccessToken } from '@/shared/feishu/auth'
+import * as API from '@/shared/feishu/api'
+import { DEFAULT_SETTINGS, type AppSettings, type PageContext, type ChatMessage } from '@/shared/types'
 
 export interface ToolTrace {
   name: string

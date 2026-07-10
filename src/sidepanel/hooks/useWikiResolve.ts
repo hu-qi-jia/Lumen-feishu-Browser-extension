@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AppSettings, PageContext, SessionKind } from '../../shared/types'
-import { mergeResolvedWiki } from '../wikiResolve'
-import { resolveToken, isTokenExpiredError, forceRefreshUserToken } from '../../shared/feishu/auth'
-import * as API from '../../shared/feishu/api'
+import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
+import { mergeResolvedWiki } from '../lib/wikiResolve'
+import { resolveToken, isTokenExpiredError, forceRefreshUserToken } from '@/shared/feishu/auth'
+import * as API from '@/shared/feishu/api'
 
 /** Map a resolved wiki node's obj_type to a PageContext.feishu resource. */
 export function wikiToFeishu(objType: string, objToken: string): PageContext['feishu'] | undefined {

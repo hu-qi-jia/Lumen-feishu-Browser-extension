@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { tenantToken } from './driver'
-import { executeTool } from '../shared/ai/agent'
-import { DEFAULT_SETTINGS, type PageContext } from '../shared/types'
+import { executeTool } from '@/shared/ai/agent'
+import { DEFAULT_SETTINGS, type PageContext } from '@/shared/types'
 
 const LIVE = process.env.REPLICATE_LIVE === '1'
 const OWNER = process.env.OWNER_OPEN_ID || ''

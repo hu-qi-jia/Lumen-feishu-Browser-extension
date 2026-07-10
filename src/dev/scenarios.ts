@@ -6,7 +6,7 @@
  *   scenarios.clearStorage()                     // reset all settings
  */
 
-import type { PageContext } from '../shared/types'
+import type { PageContext } from '@/shared/types'
 
 const SCENARIO_KEY = '__mock_scenario__'
 /** Persist the page context so it survives the reload (chrome-mock reads it back). */

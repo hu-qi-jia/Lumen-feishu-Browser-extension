@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { getTenantAccessToken } from '../shared/feishu/auth'
-import { executeTemplate } from '../shared/templates/engine'
-import type { ScenarioTemplate } from '../shared/templates/types'
+import { getTenantAccessToken } from '@/shared/feishu/auth'
+import { executeTemplate } from '@/shared/templates/engine'
+import type { ScenarioTemplate } from '@/shared/templates/types'
 
 const LIVE = process.env.FEISHU_LIVE === '1'
 

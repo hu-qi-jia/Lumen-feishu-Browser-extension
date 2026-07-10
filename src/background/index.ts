@@ -6,33 +6,33 @@
 // running clip write), and (b) could wedge a tab's panel "un-reopenable" until the
 // extension was reinstalled. The React UI decides what to show per page (Feishu
 // assistant / clip flow / a hint on other sites).
-import { CLIP_ENABLED, NO_REMOTE_CODE } from '../shared/config'
-import { captureClip, captureClipScrolling } from '../shared/clip/capture'
-import { MAX_CLIP_CHARS } from '../shared/clip/types'
-import type { ClipCapture } from '../shared/clip/types'
-import { DEFAULT_SETTINGS } from '../shared/types'
-import type { AppSettings, DocSelectionPayload } from '../shared/types'
-import { decryptField } from '../shared/crypto'
-import { fetchVizData, fetchDocDatasets, docOf } from '../shared/dataviz/data'
-import { loadVizList } from '../shared/dataviz/store'
-import { loadDecks } from '../shared/ai/slidesStore'
-import { resolveToken } from '../shared/feishu/auth'
-import { batchUpdateRecords, getWikiNode } from '../shared/feishu/api'
-import { applyInBatches } from '../shared/feishu/compose'
-import { createTask } from '../shared/feishu/task'
-import { fetchGitHubTrending } from '../shared/news/github'
-import { translateDescriptions, applyTranslationCache } from '../shared/news/github'
-import { fetchWeiboHotSearch } from '../shared/news/weibo'
-import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '../shared/news/store'
-import { NEWS_ALARM_NAME, syncNewsAlarm } from '../shared/news/alarm'
-import type { NewsSourceId } from '../shared/news/types'
+import { CLIP_ENABLED, NO_REMOTE_CODE } from '@/shared/config'
+import { captureClip, captureClipScrolling } from '@/shared/clip/capture'
+import { MAX_CLIP_CHARS } from '@/shared/clip/types'
+import type { ClipCapture } from '@/shared/clip/types'
+import { DEFAULT_SETTINGS } from '@/shared/types'
+import type { AppSettings, DocSelectionPayload } from '@/shared/types'
+import { decryptField } from '@/shared/crypto'
+import { fetchVizData, fetchDocDatasets, docOf } from '@/shared/dataviz/data'
+import { loadVizList } from '@/shared/dataviz/store'
+import { loadDecks } from '@/shared/ai/slidesStore'
+import { resolveToken } from '@/shared/feishu/auth'
+import { batchUpdateRecords, getWikiNode } from '@/shared/feishu/api'
+import { applyInBatches } from '@/shared/feishu/compose'
+import { createTask } from '@/shared/feishu/task'
+import { fetchGitHubTrending } from '@/shared/news/github'
+import { translateDescriptions, applyTranslationCache } from '@/shared/news/github'
+import { fetchWeiboHotSearch } from '@/shared/news/weibo'
+import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '@/shared/news/store'
+import { NEWS_ALARM_NAME, syncNewsAlarm } from '@/shared/news/alarm'
+import type { NewsSourceId } from '@/shared/news/types'
 import {
   CLEANUP_ALARM,
   clearAllUserData,
   loadCleanupSettings,
   saveCleanupSettings,
   syncCleanupAlarm,
-} from '../shared/dataCleanup'
+} from '@/shared/dataCleanup'
 
 // Clicking the toolbar icon opens the panel on any page (and closing with → clicking
 // again reopens it). No per-tab state to get stuck.

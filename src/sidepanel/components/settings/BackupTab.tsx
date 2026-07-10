@@ -1,24 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { HAS_ARTIFACT_SYNC } from '../../../shared/config'
-import { restoreAllArtifacts } from '../../cloudRestore'
-import { applyBackup, buildBackup } from '../../../shared/configBackup'
+import { HAS_ARTIFACT_SYNC } from '@/shared/config'
+import { restoreAllArtifacts } from '../../lib/cloudRestore'
+import { applyBackup, buildBackup } from '@/shared/configBackup'
 import { FormCheckbox } from '../form'
-import { IconDownload, IconUpload } from '../icons'
-import Button from '../Button'
-import ConfirmDialog from '../ConfirmDialog'
-import Tooltip from '../Tooltip'
+import { IconDownload, IconUpload } from '../primitives/icons'
+import Button from '../primitives/Button'
+import ConfirmDialog from '../chat/ConfirmDialog'
+import Tooltip from '../primitives/Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import { TitleWithHelp } from './HelpIcon'
-import type { ConfirmRequest } from '../../../shared/ai/agent'
-import '../IconButton.css'
+import type { ConfirmRequest } from '@/shared/ai/agent'
+import '../primitives/IconButton.css'
 import {
   cleanupImpact,
   clearAllUserData,
   loadCleanupSettings,
   saveCleanupSettings,
   type CleanupIntervalDays,
-} from '../../../shared/dataCleanup'
+} from '@/shared/dataCleanup'
 
 const BACKUP_TIP = '导出配置、小程序、AI 建站、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
 

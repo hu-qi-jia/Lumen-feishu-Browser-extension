@@ -5,7 +5,7 @@
  *
  * v1: docs only (docx / wiki). Sheets/base are out of scope (different selection semantics).
  */
-import { parseFeishuContext } from '../shared/feishu/pageUrl'
+import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 
 let host: HTMLDivElement | null = null   // shadow host (page-fixed)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root

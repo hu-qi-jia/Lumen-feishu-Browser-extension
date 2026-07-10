@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
-import type { AppSettings, SessionKind } from '../../shared/types'
-import { resolveToken } from '../../shared/feishu/auth'
-import { getDocumentMeta } from '../../shared/feishu/docx'
-import { getSpreadsheet } from '../../shared/feishu/sheets'
-import { getApp, getWikiNode } from '../../shared/feishu/api'
-import type { RecentFile } from '../recentFiles'
+import type { AppSettings, SessionKind } from '@/shared/types'
+import { resolveToken } from '@/shared/feishu/auth'
+import { getDocumentMeta } from '@/shared/feishu/docx'
+import { getSpreadsheet } from '@/shared/feishu/sheets'
+import { getApp, getWikiNode } from '@/shared/feishu/api'
+import type { RecentFile } from '../lib/recentFiles'
 
 interface Args {
   recentFiles: RecentFile[]

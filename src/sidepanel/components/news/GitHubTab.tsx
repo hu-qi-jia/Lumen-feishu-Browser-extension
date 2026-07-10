@@ -1,6 +1,6 @@
-import type { GitHubTrendingRepo } from '../../../shared/news/types'
+import type { GitHubTrendingRepo } from '@/shared/news/types'
 import NewsList from './NewsList'
-import Tooltip from '../Tooltip'
+import Tooltip from '../primitives/Tooltip'
 
 interface Props {
   items: GitHubTrendingRepo[]

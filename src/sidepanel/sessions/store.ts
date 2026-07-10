@@ -4,7 +4,7 @@
  *   sessions_index_v1            → SessionIndex (light, frequent read)
  *   session_msgs_v1::<id>        → ChatMessage[] (per session, lazy read / throttled write)
  */
-import type { ChatMessage, SessionIndex } from '../../shared/types'
+import type { ChatMessage, SessionIndex } from '@/shared/types'
 
 const IDX_KEY = 'sessions_index_v1'
 const MSG_PREFIX = 'session_msgs_v1::'

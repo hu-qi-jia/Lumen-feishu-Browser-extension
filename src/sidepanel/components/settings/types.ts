@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react'
-import type { AppSettings } from '../../../shared/types'
+import type { AppSettings } from '@/shared/types'
 
 /**
  * Shared contract every settings tab consumes.

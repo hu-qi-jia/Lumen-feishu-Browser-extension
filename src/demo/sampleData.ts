@@ -3,7 +3,7 @@
  * AI dashboard / chart / slides features with NO Feishu login and NO real data. Only an LLM
  * key is needed (which, unlike a Feishu user_access_token, doesn't expire in ~2h).
  */
-import type { VizData } from '../shared/dataviz/types'
+import type { VizData } from '@/shared/dataviz/types'
 
 export const SAMPLE_TITLE = '示例数据 · 季度销售'
 

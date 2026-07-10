@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from '../../shared/types'
-import { cleanDocTitle } from '../../shared/feishu/pageUrl'
-import { resolveToken } from '../../shared/feishu/auth'
-import * as API from '../../shared/feishu/api'
+import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from '@/shared/types'
+import { cleanDocTitle } from '@/shared/feishu/pageUrl'
+import { resolveToken } from '@/shared/feishu/auth'
+import * as API from '@/shared/feishu/api'
 import { useSessions } from '../sessions/useSessions'
 import type { SessionsApi } from '../sessions/useSessions'
 import { wikiToFeishu } from './useWikiResolve'
@@ -32,7 +32,7 @@ function pinnedFeishu(p: PinnedDoc): NonNullable<PageContext['feishu']> {
 interface Args {
   ctx: PageContext
   chatStreaming: boolean
-  settings: import('../../shared/types').AppSettings
+  settings: import('@/shared/types').AppSettings
   wikiCacheRef: React.MutableRefObject<Map<string, NonNullable<PageContext['feishu']>>>
   resolveWikiKind: (wikiToken: string) => Promise<SessionKind | undefined>
   recordRecent: (token: string, title: string, kind: SessionKind) => void

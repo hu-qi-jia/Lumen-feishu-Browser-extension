@@ -14,7 +14,7 @@ import {
   DatasetComponent, DataZoomComponent, ToolboxComponent, VisualMapComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { vizAccent } from '../shared/theme'
+import { vizAccent } from '@/shared/theme'
 
 echarts.use([
   BarChart, LineChart, PieChart, ScatterChart,
@@ -23,8 +23,8 @@ echarts.use([
   CanvasRenderer,
 ])
 
-import type { VizSpec, DashboardSpec, ChartSpec as VizChartSpec, RawChartSpec } from '../shared/dataviz/spec'
-import { buildOption, evalAggregate, formatValue, actionTemplate } from '../shared/dataviz/interpret'
+import type { VizSpec, DashboardSpec, ChartSpec as VizChartSpec, RawChartSpec } from '@/shared/dataviz/spec'
+import { buildOption, evalAggregate, formatValue, actionTemplate } from '@/shared/dataviz/interpret'
 
 // No-remote-code path: render a declarative VizSpec via the bundled interpreter (no eval).
 // When VITE_NO_REMOTE_CODE=1 this const is statically true → Vite dead-code-eliminates every legacy

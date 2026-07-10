@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
-import { DEFAULT_SETTINGS } from '../../../shared/types'
-import type { AppSettings } from '../../../shared/types'
+import { DEFAULT_SETTINGS } from '@/shared/types'
+import type { AppSettings } from '@/shared/types'
 
 const mockPing = vi.fn()
 const mockSaveToken = vi.fn()
 const mockGetToken = vi.fn()
-vi.mock('../../../shared/obsidian/api', () => ({ pingObsidian: (...a: unknown[]) => mockPing(...a) }))
-vi.mock('../../../shared/obsidian/auth', () => ({ saveObsidianToken: (...a: unknown[]) => mockSaveToken(...a), getObsidianToken: () => mockGetToken() }))
+vi.mock('@/shared/obsidian/api', () => ({ pingObsidian: (...a: unknown[]) => mockPing(...a) }))
+vi.mock('@/shared/obsidian/auth', () => ({ saveObsidianToken: (...a: unknown[]) => mockSaveToken(...a), getObsidianToken: () => mockGetToken() }))
 
 const KnowledgeBaseTab = (await import('./KnowledgeBaseTab')).default
 

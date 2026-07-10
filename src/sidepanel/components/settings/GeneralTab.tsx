@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings } from '../../../shared/types'
+import type { AppSettings } from '@/shared/types'
 import { FormInput, FormSwitch } from '../form'
-import { IconTrash } from '../icons'
-import Tooltip from '../Tooltip'
+import { IconTrash } from '../primitives/icons'
+import Tooltip from '../primitives/Tooltip'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import { HelpIcon, TitleWithHelp } from './HelpIcon'
 import type { SettingsTabProps } from './types'
-import '../IconButton.css'
-import { loadNewsSettings, saveNewsSettings } from '../../../shared/news/store'
-import type { TranslationEngine } from '../../../shared/news/types'
-import { clearRecipes, recipeCount } from '../../../shared/ai/recipes'
+import '../primitives/IconButton.css'
+import { loadNewsSettings, saveNewsSettings } from '@/shared/news/store'
+import type { TranslationEngine } from '@/shared/news/types'
+import { clearRecipes, recipeCount } from '@/shared/ai/recipes'
 
 interface Props extends SettingsTabProps {
   policyLocks: Set<keyof AppSettings>

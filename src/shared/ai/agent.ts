@@ -1,7 +1,6 @@
 import OpenAI from 'openai'
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources'
+import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext, ToolCallDef, Attachment } from '../types'
-import { FEISHU_TOOLS, KNOWLEDGE_TOOLS } from './tools'
 import * as API from '../feishu/api'
 import * as Sheets from '../feishu/sheets'
 import * as Docx from '../feishu/docx'
@@ -28,9 +27,35 @@ import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
 import { uploadMedia } from '../feishu/upload'
 import { downloadMedia } from '../feishu/media'
-import { reloadActiveTab } from '../../sidepanel/tabReload'
+import { reloadActiveTab } from '@/sidepanel/lib/tabReload'
 import { compressImageToDataUrl, dataUrlToBlob } from '../attachments'
 import { searchVault, readNote, recentNotes } from '../obsidian/api'
+import {
+  assertApiCallAllowed,
+  isWritingApiCall,
+  isDestructiveApiCall,
+  isFileLevelDelete,
+  FILE_LEVEL_DELETE_MSG,
+  describeDestructiveOp,
+  DESTRUCTIVE_TOOLS,
+  WRITE_TOOLS,
+  checkDestructiveConfirmation,
+  sanitizeToken,
+  truncateToolResult,
+} from './agent-security'
+import { CREATE_ONCE_TOOLS, READ_ONLY_TOOLS, SHEET_TOOLS, DOC_TOOLS, toolsForContext } from './agent-context'
+
+// 安全策略与工具选择已抽离至 ./agent-security 与 ./agent-context，以下 re-export 保持外部导入兼容。
+export {
+  assertApiCallAllowed,
+  isDestructiveApiCall,
+  isFileLevelDelete,
+  describeDestructiveOp,
+  checkDestructiveConfirmation,
+  sanitizeToken,
+  truncateToolResult,
+  toolsForContext,
+}
 
 export interface ConfirmRequest {
   kind: 'create_base' | 'delete' | 'write'
@@ -71,210 +96,8 @@ const MAX_TOOL_CALLS_PER_TURN = BUILD_CONFIG.maxToolCalls
 // wrong-index destructive mistakes. (The creative viz/site codegen is a SEPARATE call, unaffected.)
 const AGENT_TEMPERATURE = 0.2
 
-// "Create-once" tools: re-running the SAME call (same args) in one turn almost always
-// means an accidental duplicate (e.g. the model retried after a slow response) and
-// would create a second table/doc/sheet. We dedupe exact repeats within a turn.
-// feishu_api_call allowlist (default-deny). Only the business namespaces the
-// extension legitimately needs — keeps a prompt-injected agent from calling
-// messaging / contacts / admin / permission endpoints.
-const API_ALLOWED_PREFIXES = [
-  /^\/bitable\//, /^\/sheets\//, /^\/docx\//, /^\/doc\//, /^\/wiki\//, /^\/board\//,
-  /^\/drive\/v1\/files\//, /^\/drive\/v1\/medias\//, /^\/drive\/v1\/metas\b/,
-]
-// Hard-blocked even if a path otherwise matches — ownership/permission/identity-sensitive.
-const API_BLOCKED = [/transfer_owner/i, /\/permissions\//i, /\/im\//i, /\/contact\//i, /\/admin\//i]
-
-export function assertApiCallAllowed(path: string): void {
-  if (!path.startsWith('/')) throw new Error('feishu_api_call: path 必须以 / 开头（相对 /open-apis）')
-  if (/[@\\]|\.\.|\/\//.test(path)) throw new Error('feishu_api_call: path 含非法字符')
-  if (API_BLOCKED.some((re) => re.test(path))) {
-    throw new Error('feishu_api_call: 该接口涉及成员/权限/通讯录/消息，出于安全已禁止调用。请改用专用工具或让用户在飞书内手动操作。')
-  }
-  if (!API_ALLOWED_PREFIXES.some((re) => re.test(path))) {
-    throw new Error(`feishu_api_call: 仅允许多维表格/电子表格/文档/云空间文件等业务接口，路径「${path}」不在白名单内（出于企业安全默认拒绝）。`)
-  }
-}
-
-/** A generic api call that MODIFIES (PUT/PATCH) — gated by destructive confirmation.
- *  DELETE is not here: file-level deletion via the generic API is blocked outright
- *  (see isFileLevelDelete), not merely confirmed. */
-function isWritingApiCall(name: string, args: Record<string, unknown>): boolean {
-  return name === 'feishu_api_call' && /^(PUT|PATCH)$/i.test(String(args.method ?? ''))
-}
-
-/** A generic feishu_api_call that DELETES/TRASHES content via a POST — bitable/doc `batch_delete`,
- *  a drive move-to-trash, or a Sheets `sheets_batch_update` carrying a deleteDimension/Range/Sheet.
- *  These slip past isWritingApiCall (PUT/PATCH only) AND the file-level DELETE block, so without
- *  this a raw-API deletion would run with NO confirmation. DENY-BY-DEFAULT: any POST whose path or
- *  body looks like a deletion is gated (an extra confirm is far safer than a silent destroy; legit
- *  create/get/search POSTs don't carry delete/trash/remove tokens, so they aren't over-prompted). */
-export function isDestructiveApiCall(name: string, args: Record<string, unknown>): boolean {
-  if (name !== 'feishu_api_call') return false
-  const method = String(args.method ?? '').toUpperCase()
-  const path = String(args.path ?? '')
-  if (method === 'DELETE') return true // (also file-level-blocked, but content DELETE if it ever isn't)
-  if (method === 'POST') {
-    if (/(batch_delete|\/delete|delete_|trash|move_to_trash)/i.test(path)) return true // delete endpoints
-    // Body check is narrow ON PURPOSE — a Sheets batch_update delete request. NOT a generic
-    // /"delete.../ (that false-flagged benign payloads with a field/key named e.g. "deleted").
-    const body = JSON.stringify(args.body ?? args.payload ?? args.data ?? {})
-    if (/"(deleteDimension|deleteRange|deleteSheet)"/i.test(body)) return true
-  }
-  return false
-}
-
-// File / container-level deletion is NEVER performed by the assistant — destroying a
-// whole table, spreadsheet, document or drive file must be the user's own deliberate
-// action in Feishu. Content-level deletion (rows, fields, blocks, dedupe) stays allowed
-// behind the destructive-confirmation gate.
-const FILE_LEVEL_DELETE_TOOLS = new Set(['delete_table', 'delete_sheet'])
-
-export function isFileLevelDelete(name: string, args: Record<string, unknown>): boolean {
-  if (FILE_LEVEL_DELETE_TOOLS.has(name)) return true
-  if (name === 'feishu_api_call') {
-    const method = String(args.method ?? '').toUpperCase()
-    const path = String(args.path ?? '')
-    // Any DELETE through the generic API could remove a whole file/app/doc — block all.
-    if (method === 'DELETE') return true
-    // POST move_to_trash destroys a whole cloud file too — same file-level hard block,
-    // not merely the content-delete confirmation gate.
-    if (method === 'POST' && /move_to_trash/i.test(path)) return true
-  }
-  return false
-}
-
-const FILE_LEVEL_DELETE_MSG =
-  '安全策略：助手不会删除整张表 / 电子表格 / 文档 / 云文件（文件级删除）。如确需删除，请你在飞书中手动操作。'
-
-/** A one-line, human-readable summary of a content-delete / write op, shown on the
- *  confirm card so the user can approve with a button instead of typing. */
-export function describeDestructiveOp(name: string, args: Record<string, unknown>): string {
-  const len = (k: string) => (Array.isArray(args[k]) ? (args[k] as unknown[]).length : undefined)
-  switch (name) {
-    case 'delete_record':
-      return '删除 1 条记录'
-    case 'batch_delete_records':
-      return `批量删除 ${len('record_ids') ?? '若干'} 条记录`
-    case 'delete_field':
-      return `删除字段「${String(args.field_name ?? args.field_id ?? '')}」（含该列全部数据）`
-    case 'delete_dimension': {
-      // Show the EXACT 1-based range on the confirm card so the user catches a wrong delete
-      // (e.g. "删除第 1–2 行" makes it obvious row 1 = the header is about to go).
-      const dim = String(args.dimension ?? '').toUpperCase() === 'COLUMNS' ? '列' : '行'
-      const s = Number(args.start_index), c = Number(args.count)
-      return Number.isFinite(s) && Number.isFinite(c) && c > 0
-        ? `删除电子表格第 ${s + 1}–${s + c} ${dim}（共 ${c} ${dim}）`
-        : `删除电子表格的若干${dim}`
-    }
-    case 'delete_document_blocks': {
-      // The tool deletes the range [start_index, end_index); there is no `block_ids` arg, so the
-      // count must come from the indices (otherwise the confirm card always reads「若干」).
-      const s = Number(args.start_index), e = Number(args.end_index)
-      const n = Number.isFinite(s) && Number.isFinite(e) ? e - s : undefined
-      return `删除文档中的 ${n != null && n > 0 ? n : '若干'} 个内容块`
-    }
-    case 'dedupe_records':
-      return '删除重复记录（去重）'
-    case 'update_where': {
-      // Bulk-writes `set` to every record matching `filter` — confirm before touching many rows.
-      const set = (args.set ?? {}) as Record<string, unknown>
-      const fields = Object.keys(set)
-      return `按条件批量修改记录${fields.length ? `（写入字段：${fields.join(' / ')}）` : ''}`
-    }
-    case 'cross_table_lookup':
-      return `跨表回填并写入「${String(args.into_field ?? '')}」列${args.create_field_if_missing === false ? '' : '（列不存在时会新建）'}`
-    case 'feishu_api_call':
-      return `${String(args.method ?? '')} ${String(args.path ?? '')}（修改写入）`
-    default:
-      return `执行 ${name}（写操作）`
-  }
-}
-
-const CREATE_ONCE_TOOLS = new Set([
-  'create_bitable_app', 'create_table', 'create_field', 'create_view',
-  'create_document', 'create_doc_from_markdown', 'insert_table', 'insert_sheet',
-  'create_spreadsheet', 'add_sheet', 'base_table_to_sheet', 'summarize_table',
-  'generate_data_report',
-  // insert_image / replace_image: some LLMs emit the identical call twice in a turn,
-  // which inserts the image twice. An exact repeat (same attachment_id + anchor) is an
-  // accidental duplicate — dedupe it. Two genuinely different anchors still differ in args,
-  // so "插到 A 和 B 下面" (different sigs) is NOT affected.
-  'insert_image', 'replace_image',
-])
-
-// Maximum CHARACTERS (UTF-16 code units, not bytes) of a single tool result sent to the LLM.
-// Prevents bulk PII (phone numbers, names, etc.) from being sent to external AI. Sliced by
-// code unit below, so it's measured/reported in 字符 (a CJK char is ~3 UTF-8 bytes).
-const MAX_TOOL_RESULT_CHARS = 8_000
 // namespace prefix for the in-run create-dedup keys
 const SIG_NS = 'e51b9f'
-
-// Content-level delete tools that require explicit user confirmation before calling.
-// File-level deletes (delete_table / delete_sheet) are NOT here — they are hard-blocked
-// by isFileLevelDelete above and never reach this gate.
-const DESTRUCTIVE_TOOLS = new Set([
-  'delete_field',
-  'delete_record',
-  'batch_delete_records',
-  'delete_dimension',
-  'delete_document_blocks',
-  'dedupe_records',
-])
-
-// Non-delete BULK WRITE tools that also need a confirmation gate: they modify many records at
-// once (update_where overwrites every matched row; cross_table_lookup back-fills a column on
-// every source row and can auto-create the column). Without this they ran with no confirm card.
-const WRITE_TOOLS = new Set(['update_where', 'cross_table_lookup'])
-
-// Tools that operate on Spreadsheets/Docs — they carry their own resource token
-// (spreadsheet_token / document_id) and must NOT be blocked by the Base app_token guard.
-const SHEET_TOOLS = new Set([
-  'create_spreadsheet', 'get_spreadsheet', 'list_sheets', 'add_sheet', 'delete_sheet',
-  'read_range', 'write_range', 'append_rows', 'fill_column', 'find_replace',
-  'set_number_format', 'insert_dimension', 'delete_dimension',
-])
-const DOC_TOOLS = new Set([
-  'create_document', 'create_doc_from_markdown', 'get_document_content', 'list_blocks',
-  'add_document_content', 'insert_table', 'insert_sheet', 'delete_document_blocks',
-  'insert_image', 'copy_document', 'replace_image', 'export_doc_images',
-])
-// Pure READ tools — side-effect-free, so when the model batches several in one round they can run
-// CONCURRENTLY instead of one-after-another (cuts wall-time for "read A and B and C" patterns).
-const READ_ONLY_TOOLS = new Set([
-  'get_app_info', 'list_tables', 'list_fields', 'list_records', 'search_records', 'list_views',
-  'list_dashboards', 'get_spreadsheet', 'list_sheets', 'read_range', 'get_document_content', 'list_blocks',
-  // 知识库（Obsidian）三件套均为只读 → 可与其他只读调用同轮并行
-  'search_knowledge_base', 'list_knowledge_notes', 'read_knowledge_note',
-])
-// Cross-cutting tools exposed on EVERY page (incl. the "create a new X" entry points) so the user
-// can always ask a question, escape-hatch a raw API call, render a viz, or create a fresh resource.
-const CORE_TOOLS = new Set([
-  'feishu_api_call', 'render_data_app',
-  'create_bitable_app', 'create_spreadsheet', 'create_document', 'create_doc_from_markdown',
-])
-
-/**
- * Expose only the tools relevant to the CURRENT page (core + that resource's toolset) instead of
- * all ~55 every turn. Fewer, on-topic tools → the model picks the right one far more reliably (a
- * top cause of wrong-tool / wrong-resource destructive mistakes) and the request is cheaper/faster.
- * On a Base: bitable tools (everything not sheet/doc). On Sheet/Doc: that resource's tools. On an
- * unresolved/other page: core + creators only (guides the user to open a concrete resource).
- */
-export function toolsForContext(kind: string | undefined, opts?: { kbEnabled?: boolean }): ChatCompletionTool[] {
-  const base = FEISHU_TOOLS.filter((t) => {
-    const name = (t as { function?: { name?: string } }).function?.name ?? ''
-    if (CORE_TOOLS.has(name)) return true
-    if (kind === 'sheet') return SHEET_TOOLS.has(name)
-    if (kind === 'doc') return DOC_TOOLS.has(name)
-    if (kind === 'base') return !SHEET_TOOLS.has(name) && !DOC_TOOLS.has(name)
-    return false // unknown / unresolved wiki → core + creators only
-  })
-  // 知识库默认开启（构建启用且未显式关闭）。原为按会话 opt-in + App.tsx 用 `=== true` 把
-  // undefined 当关 → 用户"在 Hub 选中知识库"却没去对话里拨开关时，工具被静默丢弃、agent 退回
-  // 角色 拒绝。改成"除非显式 false 否则带上"：undefined / true 都注入，仅显式 false 才关。
-  if (HAS_KNOWLEDGE_BASE && opts?.kbEnabled !== false) return [...base, ...KNOWLEDGE_TOOLS]
-  return base
-}
 
 export async function runAgent(
   history: ChatMessage[],
@@ -751,38 +574,6 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
     }
   }
   return out
-}
-
-// ─── Destructive confirmation check ──────────────────────────────────────────
-// Scans the last few user messages in the conversation for explicit confirmation.
-// Returns true only if the most recent user message contains a clear "yes" signal.
-
-const CONFIRM_PATTERNS = /^(确认|是|是的|好|好的|yes|ok|okay|confirm|delete|删除|继续|执行)$/i
-
-export function checkDestructiveConfirmation(
-  history: ChatMessage[],
-  msgs: ChatCompletionMessageParam[]
-): boolean {
-  // Look at the last user message in the full message chain
-  const allMsgs = [...msgs]
-  for (let i = allMsgs.length - 1; i >= 0; i--) {
-    const m = allMsgs[i]
-    if (m.role === 'user') {
-      const text = (typeof m.content === 'string' ? m.content : '').trim()
-      return CONFIRM_PATTERNS.test(text)
-    }
-    // Stop looking back past the last assistant message that asked for confirmation
-    if (m.role === 'assistant') break
-  }
-  // Also accept if the previous history shows a confirmation pattern
-  for (let i = history.length - 1; i >= 0; i--) {
-    const m = history[i]
-    if (m.role === 'user') {
-      return CONFIRM_PATTERNS.test((m.content ?? '').trim())
-    }
-    if (m.role === 'assistant') break
-  }
-  return false
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
@@ -1677,15 +1468,6 @@ case 'export_doc_images': {
   }
 }
 
-// Strip whitespace and validate that a token/ID only contains safe characters
-export function sanitizeToken(val: string | undefined): string | undefined {
-  if (!val) return undefined
-  const s = val.trim()
-  // Feishu tokens contain only alphanumeric + underscore/hyphen
-  if (!/^[A-Za-z0-9_-]+$/.test(s)) throw new Error(`无效 ID 格式: ${s}`)
-  return s
-}
-
 function parseField(f: Record<string, unknown>): API.FeishuField {
   const field: API.FeishuField = {
     field_name: f.field_name as string,
@@ -1703,22 +1485,6 @@ function parseField(f: Record<string, unknown>): API.FeishuField {
     field.description = { text: f.description as string }
   }
   return field
-}
-
-// ─── Tool result sanitization ─────────────────────────────────────────────────
-
-/**
- * Truncate tool results before sending to LLM.
- * Feishu records can contain PII (phone numbers, names, emails).
- * We limit how much raw data leaves the browser to the external AI service.
- */
-export function truncateToolResult(json: string): string {
-  if (json.length <= MAX_TOOL_RESULT_CHARS) return json
-  const truncated = json.slice(0, MAX_TOOL_RESULT_CHARS)
-  // Find last complete JSON object boundary to avoid broken JSON
-  const lastBrace = Math.max(truncated.lastIndexOf('},'), truncated.lastIndexOf(']'))
-  const cut = lastBrace > MAX_TOOL_RESULT_CHARS * 0.5 ? lastBrace + 1 : MAX_TOOL_RESULT_CHARS
-  return json.slice(0, cut) + `\n... [结果已截断，共 ${json.length} 字符，只传输前 ${cut} 字符以保护数据隐私]`
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────

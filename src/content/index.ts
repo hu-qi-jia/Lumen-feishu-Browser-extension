@@ -1,9 +1,9 @@
-import type { PageContext } from '../shared/types'
-import { parseFeishuContext } from '../shared/feishu/pageUrl'
-import { rememberTenantOrigin } from '../shared/feishu/tenant'
+import type { PageContext } from '@/shared/types'
+import { parseFeishuContext } from '@/shared/feishu/pageUrl'
+import { rememberTenantOrigin } from '@/shared/feishu/tenant'
 import { createDashboardUI } from './feishu-automation'
-import { renderViz, closeViz, writeResult, printViz } from './viz-overlay'
-import { refreshLauncher } from './viz-launcher'
+import { renderViz, closeViz, writeResult, printViz } from './dataviz/viz-overlay'
+import { refreshLauncher } from './dataviz/viz-launcher'
 import './selection-button'
 
 function extractContext(selOverride?: string): PageContext {

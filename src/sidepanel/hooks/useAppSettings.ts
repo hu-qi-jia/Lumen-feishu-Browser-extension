@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings } from '../../shared/types'
-import { DEFAULT_SETTINGS } from '../../shared/types'
-import { encryptField, decryptField } from '../../shared/crypto'
-import { HAS_ENTERPRISE_POLICY } from '../../shared/config'
-import { fetchPolicy, loadPolicy, applyPolicy, FAILCLOSED_POLICY } from '../../shared/enterprisePolicy'
+import type { AppSettings } from '@/shared/types'
+import { DEFAULT_SETTINGS } from '@/shared/types'
+import { encryptField, decryptField } from '@/shared/crypto'
+import { HAS_ENTERPRISE_POLICY } from '@/shared/config'
+import { fetchPolicy, loadPolicy, applyPolicy, FAILCLOSED_POLICY } from '@/shared/enterprisePolicy'
 
 export interface AppSettingsApi {
   settings: AppSettings

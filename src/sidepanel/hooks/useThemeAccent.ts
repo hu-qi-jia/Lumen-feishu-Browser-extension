@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { deriveAccent, DEFAULT_ACCENT, ACCENT_VAR_NAMES } from '../../shared/theme'
+import { deriveAccent, DEFAULT_ACCENT, ACCENT_VAR_NAMES } from '@/shared/theme'
 
 /**
  * Theme (light/dark) + accent color. Both persist to localStorage and write CSS variables

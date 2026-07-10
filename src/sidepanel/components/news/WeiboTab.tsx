@@ -1,4 +1,4 @@
-import type { WeiboHotSearch } from '../../../shared/news/types'
+import type { WeiboHotSearch } from '@/shared/news/types'
 import NewsList from './NewsList'
 
 interface Props {

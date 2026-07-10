@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import SettingsTabs from '../SettingsTabs'
+import SettingsTabs from '../shell/SettingsTabs'
 import GitHubTab from './GitHubTab'
 import WeiboTab from './WeiboTab'
 import NewsRefreshBar from './NewsRefreshBar'
