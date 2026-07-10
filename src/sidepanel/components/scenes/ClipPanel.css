@@ -1,3 +1,7 @@
+/* ClipPanel — only the layout/visual styles unique to this panel.
+   Buttons (.btn), inputs (.form-input), labels (.form-field-label) and icon
+   buttons (.icon-action) come from the shared ui/ components. */
+
 .clip-panel {
   display: flex;
   flex-direction: column;
@@ -12,14 +16,8 @@
   justify-content: space-between;
 }
 .clip-title { font-size: 14px; font-weight: 600; }
-.clip-x {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--color-text-secondary, #888);
-  padding: 2px 6px;
-}
+
+/* Source row — title + url + kind tag(s). */
 .clip-source {
   display: flex;
   flex-wrap: wrap;
@@ -45,6 +43,8 @@
   color: var(--color-text-secondary, #888);
 }
 .clip-tag--warn { color: #c47d00; background: rgba(196,125,0,0.12); }
+
+/* Content preview (exactly what will be sent). */
 .clip-preview {
   font-size: 12px;
   line-height: 1.5;
@@ -58,17 +58,13 @@
   border-radius: var(--radius, 8px);
   background: var(--color-bg-subtle, rgba(0,0,0,0.02));
 }
+
+/* Button rows. */
 .clip-actions { display: flex; gap: 8px; align-items: center; }
-.clip-label { font-size: 12px; font-weight: 600; margin-top: 4px; }
-.clip-input {
-  width: 100%;
-  padding: 7px 9px;
-  font-size: 13px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius, 8px);
-  background: var(--color-bg, #fff);
-  box-sizing: border-box;
-}
+.clip-actions--col { flex-direction: column; align-items: stretch; }
+.clip-actions--col > .btn { width: 100%; }
+
+/* Screenshot (vision OCR) preview. */
 .clip-shot-img {
   width: 100%;
   max-height: 300px;
@@ -78,8 +74,12 @@
   border-radius: var(--radius, 12px);
   background: var(--color-bg-subtle, rgba(0,0,0,0.02));
 }
+
+/* Target picker. */
 .clip-target { display: flex; flex-direction: column; gap: 8px; }
 .clip-presets { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+/* Recently-used target chips. */
 .clip-recent-list { display: flex; flex-direction: column; gap: 6px; }
 .clip-recent-chip {
   display: flex;
@@ -89,6 +89,7 @@
   padding: 8px 10px;
   text-align: left;
   font-size: 13px;
+  font-family: inherit;
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius, 12px);
@@ -98,6 +99,8 @@
 }
 .clip-recent-chip:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-soft); }
 .clip-recent-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.clip-recent-icon { display: flex; flex-shrink: 0; color: var(--color-text-secondary, #888); }
+.clip-recent-icon svg { width: 14px; height: 14px; }
 .clip-recent-kind {
   flex-shrink: 0;
   font-size: 10px;
@@ -107,31 +110,8 @@
   color: var(--color-text-secondary, #888);
 }
 .clip-recent-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.clip-btn, .clip-btn-ghost, .clip-btn--primary {
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: var(--radius, 8px);
-  cursor: pointer;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg, #fff);
-  color: var(--color-text);
-  transition: border-color .15s ease, color .15s ease, box-shadow .15s ease, background .15s ease, transform .15s ease;
-}
-.clip-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
-.clip-btn:disabled, .clip-btn-ghost:disabled, .clip-btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.clip-btn--primary {
-  background: var(--color-primary, #5b7cff);
-  color: #fff;
-  border-color: transparent;
-  width: 100%;
-  box-shadow: var(--shadow-sm);
-}
-.clip-btn--primary:hover:not(:disabled) { box-shadow: var(--shadow-md); filter: brightness(1.04); transform: translateY(-1px); }
-.clip-btn-ghost { background: transparent; color: var(--color-text-secondary, #888); }
-.clip-btn-ghost:hover:not(:disabled) { color: var(--color-primary); border-color: var(--color-primary); }
 
-/* "或新建一个" — three equal, elegant choice chips (icon over label). */
+/* "或新建一个" — three equal choice chips (icon over label). */
 .clip-divider {
   display: flex; align-items: center; gap: 8px;
   margin: 6px 0 2px;
@@ -146,6 +126,7 @@
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 13px 6px;
   font-size: 12px; font-weight: 500;
+  font-family: inherit;
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius, 12px);
@@ -162,9 +143,14 @@
   box-shadow: var(--shadow-md);
 }
 .clip-new-chip:disabled { opacity: 0.5; cursor: not-allowed; }
-.clip-new-ic { font-size: 20px; line-height: 1; }
+.clip-new-ic { display: flex; color: var(--color-text-secondary, #888); }
+.clip-new-ic svg { width: 20px; height: 20px; }
+
+/* Inline hints (not part of a FormField). */
 .clip-hint { font-size: 11px; color: var(--color-text-secondary, #888); margin: 2px 0 0; }
 .clip-hint--err { color: #d33; }
+
+/* States. */
 .clip-error { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .clip-running { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 12px; }
 .clip-status { font-size: 11px; color: var(--color-text-secondary, #888); }

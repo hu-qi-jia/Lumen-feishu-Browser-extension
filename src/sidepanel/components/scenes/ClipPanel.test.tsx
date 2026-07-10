@@ -34,7 +34,7 @@ describe('ClipPanel', () => {
 
   it('gates the flow when not configured (disabled)', () => {
     render(<ClipPanel settings={DEFAULT_SETTINGS} clip={clip} disabled={true} onClose={() => {}} />)
-    expect((screen.getByText('选择目标 →') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '选择目标 →' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('a screenshot clip shows the image + recognize button (not the target picker yet)', () => {
