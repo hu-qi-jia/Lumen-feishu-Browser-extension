@@ -33,6 +33,7 @@ const PROTECTED_KEYS = new Set<string>([
   '_user_app_creds_v1',     // 飞书自带 App 凭证
   '_app_secret_dev_v1',     // 记住的 App Secret
   'news_settings_v1',       // 资讯设置（刷新间隔 / 翻译引擎）
+  '_user_skills_v1',        // 用户自定义技能（用户创建的配置，清理时保留）
   SETTINGS_KEY,             // 本清理设置自身
 ])
 

@@ -3,6 +3,7 @@ import type { BaseCtx } from '../feishu/context'
 import { ctxToPrompt } from '../feishu/context'
 import { redactSensitive } from './redact'
 import { HAS_BUILTIN_CREDS, HAS_KNOWLEDGE_BASE } from '../config'
+import { formatUserSkillsBlock, type UserSkill } from './userSkills'
 
 /**
  * Build the system prompt. LAYOUT MATTERS FOR LATENCY: all STATIC rules (role, tool rules,
@@ -13,7 +14,7 @@ import { HAS_BUILTIN_CREDS, HAS_KNOWLEDGE_BASE } from '../config'
  * 「当前上下文」 block; recipe/skill hints are appended after that. Keep it this way: don't
  * reintroduce a `${}` into the static section or move dynamic content above it.
  */
-export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx, kbEnabled?: boolean): string {
+export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: BaseCtx, kbEnabled?: boolean, userSkills?: UserSkill[]): string {
   const authStatus = HAS_BUILTIN_CREDS
     ? '内置应用凭证（App Credentials）'
     : (s.feishuAccessToken ? '用户手动配置的 user_access_token' : '未配置 — 请提示用户在设置中填写 token')
@@ -42,6 +43,9 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   const kbBlock = HAS_KNOWLEDGE_BASE && kbEnabled !== false
     ? `\n\n## 知识库（Obsidian · 默认开启 · 只读）\n用户已连接 Obsidian 仓库，可用三个**只读**工具：\n- \`search_knowledge_base(query)\` —— 全文检索笔记，返回匹配笔记的 \`path\` + \`snippet\`（非整篇）。\n- \`list_knowledge_notes(limit?)\` —— 列出最近修改的笔记（用户问"我有哪些笔记"、或检索没头绪时先用它浏览）。\n- \`read_knowledge_note(path)\` —— 按 vault 相对路径读某篇笔记全文（大笔记会被截断）。\n**何时检索**：用户问及"我的笔记 / 知识库 / 个人记录 / 过往文档"，或点名某主题——**即使该主题与飞书无关（如编程笔记、Claude Code 指令、读书摘要、指令文档），只要可能在用户的 Obsidian 里，就先 \`search_knowledge_base\` 查**，查到再答、查不到如实说明。**严禁因"超出飞书职责"就拒绝**——知识库内容是用户的个人资料，**不属**"飞书以外的话题"拒绝范围。日常飞书表格 / 文档任务**不必**翻笔记。\n引用笔记内容注明路径；本会话**只读**，不能新建 / 修改 / 删除笔记。未连接时检索会返回接入提示——转告用户去「应用 → 知识库」接入。`
     : ''
+
+  // 用户自定义技能——动态尾部块：启用技能非空时出现。说明各 skill__ 工具的用途与调用方式。
+  const userSkillBlock = userSkills?.length ? formatUserSkillsBlock(userSkills) : ''
 
   return `# 角色定义
 你是飞书办公套件（多维表格 Base / 电子表格 Spreadsheet / 文档 Docs）的专属 AI 助手，运行在 Chrome 扩展侧边栏中。
@@ -212,5 +216,5 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
 
 # 当前上下文（随页面/会话变化）
 认证方式：${authStatus}
-当前 app_token：${currentApp ?? '未检测到'}${structureBlock}${selectedBlock}${kbBlock}`
+当前 app_token：${currentApp ?? '未检测到'}${structureBlock}${selectedBlock}${kbBlock}${userSkillBlock}`
 }

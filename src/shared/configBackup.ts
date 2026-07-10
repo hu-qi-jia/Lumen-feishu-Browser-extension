@@ -14,7 +14,7 @@ import { assertSafeBaseUrl } from './providers'
 
 const MARKER = 'feishu-ai-assistant'
 const MSG_PREFIX = 'session_msgs_v1::'
-const CAP = { dataviz_v1: 50, slides_decks_v1: 50, _learned_recipes_v1: 300 } as const
+const CAP = { dataviz_v1: 50, slides_decks_v1: 50, _learned_recipes_v1: 300, _user_skills_v1: 50 } as const
 
 export interface BackupFile {
   _backup: string
@@ -25,7 +25,7 @@ export interface BackupFile {
   data: Record<string, unknown>
 }
 export interface ImportSummary {
-  settings: boolean; appCreds: boolean; dataviz: number; slides: number; recipes: number; sessions: number
+  settings: boolean; appCreds: boolean; dataviz: number; slides: number; recipes: number; sessions: number; skills: number
 }
 
 const getAll = (): Promise<Record<string, unknown>> =>
@@ -77,6 +77,7 @@ export async function buildBackup(opts: { includeSecrets: boolean; exportedAt: s
   if (Array.isArray(all['dataviz_v1'])) data.dataviz = all['dataviz_v1']
   if (Array.isArray(all['slides_decks_v1'])) data.slides = all['slides_decks_v1']
   if (Array.isArray(all['_learned_recipes_v1'])) data.recipes = all['_learned_recipes_v1']
+  if (Array.isArray(all['_user_skills_v1'])) data.skills = all['_user_skills_v1']
 
   // Conversations (index + per-session message shards).
   if (all['sessions_index_v1']) {
@@ -104,7 +105,7 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
   const d = file.data as Record<string, any>
   const all = await getAll()
   const writes: Record<string, unknown> = {}
-  const summary: ImportSummary = { settings: false, appCreds: false, dataviz: 0, slides: 0, recipes: 0, sessions: 0 }
+  const summary: ImportSummary = { settings: false, appCreds: false, dataviz: 0, slides: 0, recipes: 0, sessions: 0, skills: 0 }
 
   // settings — apply non-secret fields over current; re-encrypt secrets when present (else keep local).
   if (d.settings && typeof d.settings === 'object') {
@@ -145,7 +146,7 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
   }
 
   // arrays — union by id (only add what's missing locally)
-  for (const [key, incoming] of [['dataviz_v1', d.dataviz], ['slides_decks_v1', d.slides], ['_learned_recipes_v1', d.recipes]] as const) {
+  for (const [key, incoming] of [['dataviz_v1', d.dataviz], ['slides_decks_v1', d.slides], ['_learned_recipes_v1', d.recipes], ['_user_skills_v1', d.skills]] as const) {
     if (!Array.isArray(incoming)) continue
     const local = (Array.isArray(all[key]) ? all[key] : []) as Array<{ id: string; createdAt?: number }>
     const merged = mergeById(local, incoming as Array<{ id: string; createdAt?: number }>, CAP[key])
@@ -153,7 +154,8 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
     const added = merged.length - local.length
     if (key === 'dataviz_v1') summary.dataviz = added
     else if (key === 'slides_decks_v1') summary.slides = added
-    else summary.recipes = added
+    else if (key === '_learned_recipes_v1') summary.recipes = added
+    else if (key === '_user_skills_v1') summary.skills = added
   }
 
   // sessions — add missing sessions to the index + write their message shards

@@ -7,6 +7,7 @@ import AISitePanel from './AISitePanel'
 import SmartFillPanel from './SmartFillPanel'
 import SlidesPanel from './SlidesPanel'
 import PdfTranscribePanel from './PdfTranscribePanel'
+import SkillPanel from './SkillPanel'
 import KnowledgeBasePanel from '../settings/knowledge-base/KnowledgeBasePanel'
 import type { RecentFile } from '../../services/recentFiles'
 import './ScenarioPanel.css'
@@ -34,6 +35,7 @@ type View =
   | { mode: 'smartfill' }
   | { mode: 'slides' }
   | { mode: 'pdfTranscribe' }
+  | { mode: 'skill' }
   | { mode: 'knowledgeBase' }
 
 // ── Hub icons (iOS / SF Symbols style line icons) ──────────────────────────
@@ -50,6 +52,7 @@ const HUB_ICONS: Record<string, React.ReactNode> = {
   camera: Svg(<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>),
   file: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></>),
   book: Svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
+  skill: Svg(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>),
 }
 
 export default function ScenarioPanel({ settings, context, disabled, onGoToSettings, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
@@ -122,6 +125,18 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
             )
           })}
 
+          <div className="sc-hub-group">
+            <div className="sc-hub-section">技能库</div>
+            <div className="sc-hub-grid">
+              <HubCard
+                icon={HUB_ICONS.skill}
+                title="技能库"
+                desc="上传 Markdown 技能，Agent 可调用完成文案润色、表格填充等任务"
+                onClick={() => setView({ mode: 'skill' })}
+              />
+            </div>
+          </div>
+
           {CLIP_ENABLED && (
             <div className="sc-hub-group">
               <div className="sc-hub-section">网页采集</div>
@@ -168,6 +183,10 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
 
   if (view.mode === 'pdfTranscribe') {
     return <PdfTranscribePanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
+  }
+
+  if (view.mode === 'skill') {
+    return <SkillPanel onBack={() => setView({ mode: 'hub' })} />
   }
 
   if (view.mode === 'knowledgeBase') {

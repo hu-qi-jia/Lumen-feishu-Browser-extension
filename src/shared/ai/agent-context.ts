@@ -1,6 +1,7 @@
 import type { ChatCompletionTool } from 'openai/resources'
 import { FEISHU_TOOLS, KNOWLEDGE_TOOLS } from './tools'
 import { HAS_KNOWLEDGE_BASE } from '../config'
+import { skillsToTools, filterSkillsForContext, type UserSkill } from './userSkills'
 
 // 工具选择层：按当前页面类型暴露相关工具子集，减少无关工具干扰模型选择。
 
@@ -53,7 +54,10 @@ const CORE_TOOLS = new Set([
  * On a Base: bitable tools (everything not sheet/doc). On Sheet/Doc: that resource's tools. On an
  * unresolved/other page: core + creators only (guides the user to open a concrete resource).
  */
-export function toolsForContext(kind: string | undefined, opts?: { kbEnabled?: boolean }): ChatCompletionTool[] {
+export function toolsForContext(
+  kind: string | undefined,
+  opts?: { kbEnabled?: boolean; userSkills?: UserSkill[] },
+): ChatCompletionTool[] {
   const base = FEISHU_TOOLS.filter((t) => {
     const name = (t as { function?: { name?: string } }).function?.name ?? ''
     if (CORE_TOOLS.has(name)) return true
@@ -65,6 +69,12 @@ export function toolsForContext(kind: string | undefined, opts?: { kbEnabled?: b
   // 知识库默认开启（构建启用且未显式关闭）。原为按会话 opt-in + App.tsx 用 `=== true` 把
   // undefined 当关 → 用户"在 Hub 选中知识库"却没去对话里拨开关时，工具被静默丢弃、agent 退回
   // 角色 拒绝。改成"除非显式 false 否则带上"：undefined / true 都注入，仅显式 false 才关。
-  if (HAS_KNOWLEDGE_BASE && opts?.kbEnabled !== false) return [...base, ...KNOWLEDGE_TOOLS]
-  return base
+  let tools = base
+  if (HAS_KNOWLEDGE_BASE && opts?.kbEnabled !== false) tools = [...tools, ...KNOWLEDGE_TOOLS]
+  // 用户自定义技能：按 scope 筛选启用的技能并追加为工具
+  if (opts?.userSkills?.length) {
+    const active = filterSkillsForContext(opts.userSkills, kind)
+    if (active.length) tools = [...tools, ...skillsToTools(active)]
+  }
+  return tools
 }

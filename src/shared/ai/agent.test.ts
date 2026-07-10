@@ -3,7 +3,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext } from '../types'
 import { DEFAULT_SETTINGS } from '../types'
 import { HAS_KNOWLEDGE_BASE } from '../config'
-import { runAgent } from './agent'
+import { runAgent, isVisionUnsupportedError } from './agent'
 import { sanitizeToken, truncateToolResult, checkDestructiveConfirmation, assertApiCallAllowed, isFileLevelDelete, describeDestructiveOp, isDestructiveApiCall } from './agent-security'
 import { buildApiHistory, attachmentToMetaData } from './agent-history'
 import { buildSystemPrompt } from './agent-prompt'
@@ -632,5 +632,16 @@ describe('记录读取与字段缓存', () => {
     await executeTool('update_field', { app_token: 'a', table_id: 't', field_id: 'fld1', field_name: 'y' }, 'tok', {} as never, { ...DEFAULT_SETTINGS }, undefined, cache)
     // 结构变化后缓存被清 → list_fields 再读一次
     expect(mockListFields).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('isVisionUnsupportedError — 非 vision 模型拒绝 image_url 的错误检测', () => {
+  it('matches provider image-rejection errors', () => {
+    expect(isVisionUnsupportedError('This model does not support image input')).toBe(true)
+    expect(isVisionUnsupportedError('400 invalid content type for messages')).toBe(true)
+    expect(isVisionUnsupportedError('multimodal not enabled')).toBe(true)
+  })
+  it('does not match unrelated errors', () => {
+    expect(isVisionUnsupportedError('network timeout')).toBe(false)
   })
 })

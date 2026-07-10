@@ -28,6 +28,7 @@ import {
   sanitizeToken,
 } from './agent-security'
 import { SHEET_TOOLS, DOC_TOOLS } from './agent-context'
+import { isUserSkillTool, runUserSkill, type UserSkill } from './userSkills'
 
 // ─── Tenant origin resolution ───────────────────────────────────────────────
 
@@ -545,11 +546,21 @@ export async function executeTool(
   settings?: AppSettings,
   attachments?: Attachment[],
   /** Per-turn cache (e.g. list_fields for update_field backfill). Optional → no-op when absent. */
-  turnCache?: Map<string, unknown>
+  turnCache?: Map<string, unknown>,
+  /** 用户自定义技能列表——skill__ 前缀工具按 slug 匹配并渲染指令模板返回。 */
+  userSkills?: UserSkill[],
 ): Promise<unknown> {
   // Backstop for the file-level-delete block (primary check is in the agent loop) — the
   // assistant must never delete a whole table/spreadsheet/document/file by any path.
   if (isFileLevelDelete(name, args)) throw new Error(FILE_LEVEL_DELETE_MSG)
+
+  // 用户自定义技能：渲染指令模板并返回（纯文本指令，模型据此继续执行飞书工具）。
+  // 必须放在其他分发之前——skill__ 工具名不在任何已有 Set 里，否则会落到末尾的「未知工具」。
+  if (isUserSkillTool(name)) {
+    if (!userSkills?.length) return 'Error: 技能未加载，请到「应用 → 技能库」检查。'
+    const r = runUserSkill(name, args, userSkills)
+    return JSON.stringify(r)
+  }
 
   // 知识库（只读）——构建启用时默认可用。返回结构化数据/原始 markdown（非预序列化字符串）。
   if (name === 'search_knowledge_base') {
@@ -859,11 +870,12 @@ export async function runToolWithFallback(
   context: PageContext,
   settings?: AppSettings,
   attachments?: Attachment[],
-  turnCache?: Map<string, unknown>
+  turnCache?: Map<string, unknown>,
+  userSkills?: UserSkill[],
 ): Promise<unknown> {
   const token = await resolveToken(settings ?? ({} as AppSettings))
   try {
-    return await executeTool(name, args, token, context, settings, attachments, turnCache)
+    return await executeTool(name, args, token, context, settings, attachments, turnCache, userSkills)
   } catch (err) {
     if (isPermissionError(err)) {
       throw new Error(
@@ -874,7 +886,7 @@ export async function runToolWithFallback(
     // Access token expired/invalid → force-refresh the user token and retry ONCE.
     if (isTokenExpiredError(err)) {
       const fresh = await forceRefreshUserToken()
-      if (fresh) return await executeTool(name, args, fresh, context, settings, attachments, turnCache)
+      if (fresh) return await executeTool(name, args, fresh, context, settings, attachments, turnCache, userSkills)
       throw new Error('飞书登录已过期，且自动续期失败（refresh_token 可能已失效，约 30 天）。请到「设置 → 用飞书账号授权」重新授权一次。')
     }
     throw err

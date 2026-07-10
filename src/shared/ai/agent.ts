@@ -7,6 +7,7 @@ import { resolveLlmConfig } from './llmConfig'
 import { redactSensitive } from './redact'
 import { loadRecipes, recordRecipe, relevantRecipes, formatRecipes, type Recipe } from './recipes'
 import { matchSkills, formatSkills, preloadSkills, type Skill } from './skills'
+import { loadUserSkills } from './userSkills'
 import type { BaseCtx } from '../feishu/context'
 import { invalidateToken } from '../feishu/auth'
 import {
@@ -23,7 +24,6 @@ import {
 import { CREATE_ONCE_TOOLS, READ_ONLY_TOOLS, toolsForContext } from './agent-context'
 import { buildSystemPrompt } from './agent-prompt'
 import { buildApiHistory } from './agent-history'
-import { isVisionUnsupportedError } from './vision'
 import {
   runToolWithFallback,
   rewriteFeishuOrigins,
@@ -64,6 +64,12 @@ export interface AgentCallbacks {
 // (prevents runaway loops / mass operations). Default 60, tunable via VITE_MAX_TOOL_CALLS.
 const MAX_TOOL_CALLS_PER_TURN = BUILD_CONFIG.maxToolCalls
 
+/** 检测 LLM 拒绝 image_url part 的错误（非 vision 模型收到多模态消息时的典型报错）。
+ *  用于 chat 上传图片时降级到纯文本元数据模式——insert_image 等工具调用不受影响。 */
+export function isVisionUnsupportedError(message: string): boolean {
+  return /image|multimodal|vision|content.*type|unsupported|invalid.*content|400/i.test(message)
+}
+
 // Low temperature for the orchestration loop: tool SELECTION and ARG values (row indices, counts,
 // field names) should be deterministic, not creative — high temp is a top cause of wrong-tool /
 // wrong-index destructive mistakes. (The creative viz/site codegen is a SEPARATE call, unaffected.)
@@ -93,12 +99,14 @@ export async function runAgent(
 
   // Run the independent turn-start I/O CONCURRENTLY so the first model request fires after
   // max() not sum(): resolveLlmConfig (a proxy fetch on enterprise cold-start, else instant)
-  // overlaps loading the local recipe store. The skill match still follows recipes — its query
-  // is the lesson distilled FROM them — so it stays one step after. Behavior-preserving: a
-  // recipe-load failure still yields [] (the .catch), matching the old try/catch default.
-  const [llmCfg, loadedRecipes] = await Promise.all([
+  // overlaps loading the local recipe store AND the local user-skill store. The skill match
+  // still follows recipes — its query is the lesson distilled FROM them — so it stays one step
+  // after. Behavior-preserving: a recipe-load / user-skill-load failure still yields []
+  // (the .catch), matching the old try/catch default.
+  const [llmCfg, loadedRecipes, loadedUserSkills] = await Promise.all([
     resolveLlmConfig(settings),
     learn && lastUserText ? loadRecipes().catch(() => [] as Recipe[]) : Promise.resolve([] as Recipe[]),
+    loadUserSkills().catch(() => []),
   ])
 
   const baseURL = assertSafeBaseUrl(llmCfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
@@ -114,7 +122,7 @@ export async function runAgent(
     dangerouslyAllowBrowser: true,
   })
 
-  let systemPrompt = buildSystemPrompt(context, settings, baseCtx, kbEnabled)
+  let systemPrompt = buildSystemPrompt(context, settings, baseCtx, kbEnabled, loadedUserSkills)
 
   // Community skills matched at turn start — re-surfaced once at a failure point (Phase 4). Empty
   // unless enterprise+proxy, so the fallback never fires on the store/BYO build.
@@ -203,7 +211,7 @@ export async function runAgent(
       stream = await client.chat.completions.create({
         model: llmCfg.model,
         messages: msgs,
-        tools: toolsForContext(context.feishu?.kind, { kbEnabled }), // only the current resource's tools (+ core)
+        tools: toolsForContext(context.feishu?.kind, { kbEnabled, userSkills: loadedUserSkills }), // only the current resource's tools (+ core)
         tool_choice: 'auto',
         temperature: AGENT_TEMPERATURE,
         stream: true,
@@ -291,7 +299,7 @@ export async function runAgent(
         if (!READ_ONLY_TOOLS.has(c.function.name)) continue // writes stay serial in the loop below
         let a: Record<string, unknown> = {}
         try { a = JSON.parse(c.function.arguments) as Record<string, unknown> } catch { /* malformed */ }
-        const p = runToolWithFallback(c.function.name, a, context, settings, [], fieldsCache)
+        const p = runToolWithFallback(c.function.name, a, context, settings, [], fieldsCache, loadedUserSkills)
         p.catch(() => {}) // mark handled now; the real await + error handling happens in the loop
         preReads.set(c.id, p)
       }
@@ -391,11 +399,11 @@ export async function runAgent(
               note: '用户选择加到当前 Base。请使用此 app_token 继续 create_table 等操作，不要新建 Base。',
             }
           } else {
-            data = await runToolWithFallback(tc.function.name, args, context, settings, latestAttachments)
+            data = await runToolWithFallback(tc.function.name, args, context, settings, latestAttachments, undefined, loadedUserSkills)
           }
         } else {
           // Use the concurrently-started read if we kicked one off above; else run it now.
-          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings, latestAttachments, fieldsCache))
+          data = await (preReads.get(tc.id) ?? runToolWithFallback(tc.function.name, args, context, settings, latestAttachments, fieldsCache, loadedUserSkills))
         }
         // Remember successful create-once results so an exact repeat is deduped.
         // (Reached only when the call succeeded — a thrown error skips to catch.)
