@@ -4,6 +4,7 @@ import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, p
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
+import Dropdown from '../ui/Dropdown'
 import { IconPlus, IconUpload, IconBook, IconSparkle } from '../ui/icons'
 import './InputBar.css'
 
@@ -67,7 +68,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   textRef.current = text
   const lastInsertedRef = useRef('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const plusWrapRef = useRef<HTMLDivElement>(null)
 
   // Preload skills when resource kind changes
   useEffect(() => {
@@ -223,16 +223,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     }
   }
 
-  // Close skills menu on outside click
-  useEffect(() => {
-    if (!plusOpen) return
-    function onDown(e: MouseEvent) {
-      if (plusWrapRef.current && !plusWrapRef.current.contains(e.target as Node)) setPlusOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [plusOpen])
-
   return (
     <div className="input-bar" onDragOver={onDragOver} onDrop={onDrop} onPaste={handlePaste}>
       <div className="input-bar-inner">
@@ -301,69 +291,71 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               onChange={onFileChange}
               tabIndex={-1}
             />
-            <div className="tools-menu-wrap" ref={plusWrapRef}>
-              <Tooltip content="添加附件、工具">
-                <button
-                  className={`btn-icon${plusOpen ? ' btn-icon--active' : ''}`}
-                  onClick={() => setPlusOpen((v) => !v)}
-                  disabled={blocked}
-                  type="button"
-                  aria-label="添加附件、工具"
-                  tabIndex={-1}
-                >
-                  <IconPlus width={16} height={16} />
-                </button>
-              </Tooltip>
-              {plusOpen && (
-                <div className="tools-menu" role="menu">
+            <Dropdown
+              open={plusOpen}
+              onOpenChange={setPlusOpen}
+              direction="up"
+              role="menu"
+              menuClassName="inputbar-plus-menu"
+              trigger={
+                <Tooltip content="添加附件、工具">
                   <button
-                    className="tools-menu-item tools-menu-item--row"
-                    onClick={() => { openFilePicker(); setPlusOpen(false) }}
+                    className={`btn-icon${plusOpen ? ' btn-icon--active' : ''}`}
+                    onClick={() => setPlusOpen((v) => !v)}
                     disabled={blocked}
                     type="button"
-                    role="menuitem"
+                    aria-label="添加附件、工具"
+                    tabIndex={-1}
                   >
-                    <span className="tools-menu-icon tools-menu-icon--upload">
-                      <IconUpload width={16} height={16} />
-                    </span>
-                    <span className="tools-menu-title">添加附件</span>
+                    <IconPlus width={16} height={16} />
                   </button>
-                  {(HAS_KNOWLEDGE_BASE || skills.length > 0) && <div className="tools-menu-divider" />}
-                  {HAS_KNOWLEDGE_BASE && (
+                </Tooltip>
+              }
+            >
+              <button
+                className="plus-menu-item"
+                onClick={() => { openFilePicker(); setPlusOpen(false) }}
+                disabled={blocked}
+                type="button"
+                role="menuitem"
+              >
+                <span className="plus-menu-icon plus-menu-icon--upload">
+                  <IconUpload width={15} height={15} />
+                </span>
+                <span className="plus-menu-title">添加附件</span>
+              </button>
+              {HAS_KNOWLEDGE_BASE && (
+                <button
+                  className={`plus-menu-item${kbEnabled ? ' plus-menu-item--active' : ''}`}
+                  onClick={() => { onToggleKb(!kbEnabled); setPlusOpen(false) }}
+                  type="button"
+                  role="menuitem"
+                >
+                  <span className="plus-menu-icon plus-menu-icon--kb">
+                    <IconBook width={15} height={15} />
+                  </span>
+                  <span className="plus-menu-title">知识库</span>
+                </button>
+              )}
+              {skills.length > 0 && (
+                <div className="plus-menu-group" role="group" aria-label="技能建议">
+                  {skills.slice(0, 6).map((s) => (
                     <button
-                      className={`tools-menu-item tools-menu-item--row${kbEnabled ? ' tools-menu-item--active' : ''}`}
-                      onClick={() => { onToggleKb(!kbEnabled); setPlusOpen(false) }}
+                      key={s.skillId}
+                      className="plus-menu-item"
+                      onClick={() => { insert(s.lesson || s.intent); setPlusOpen(false) }}
                       type="button"
                       role="menuitem"
                     >
-                      <span className="tools-menu-icon tools-menu-icon--kb">
-                        <IconBook width={16} height={16} />
+                      <span className="plus-menu-icon plus-menu-icon--skill">
+                        <IconSparkle width={14} height={14} />
                       </span>
-                      <span className="tools-menu-title">知识库</span>
+                      <span className="plus-menu-title">{s.intent}</span>
                     </button>
-                  )}
-                  {skills.length > 0 && HAS_KNOWLEDGE_BASE && <div className="tools-menu-divider" />}
-                  {skills.length > 0 && (
-                    <div className="tools-menu-section" role="group" aria-label="技能建议">
-                      {skills.slice(0, 6).map((s) => (
-                        <button
-                          key={s.skillId}
-                          className="tools-menu-item tools-menu-item--row"
-                          onClick={() => { insert(s.lesson || s.intent); setPlusOpen(false) }}
-                          type="button"
-                          role="menuitem"
-                        >
-                          <span className="tools-menu-icon tools-menu-icon--skill">
-                            <IconSparkle width={14} height={14} />
-                          </span>
-                          <span className="tools-menu-title">{s.intent}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
-            </div>
+            </Dropdown>
           </div>
 
           <div className="toolbar-right">

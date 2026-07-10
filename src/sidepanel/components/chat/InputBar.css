@@ -152,96 +152,69 @@
 }
 .btn-icon--active:hover:not(:disabled) { background: var(--color-primary-soft); }
 
-/* Tools menu */
-.tools-menu-wrap { position: relative; }
-
-.tools-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  min-width: 160px;
-  max-width: 220px;
-  background: var(--color-bg);
+.inputbar-plus-menu {
+  padding: 3px;
+  border-radius: 12px;
+  min-width: 140px;
+  max-width: 200px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
   box-shadow: var(--shadow-lg);
-  padding: 5px;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  animation: toolsMenuIn .16s ease;
-}
-@keyframes toolsMenuIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tools-menu { animation: none; }
 }
 
-.tools-menu-section {
+.plus-menu-group {
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 
-.tools-menu-item {
+.plus-menu-item {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 6px 8px;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 6px;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
+  font-size: 12px;
+  color: var(--color-text);
   transition: background .12s ease;
 }
-.tools-menu-item:hover { background: var(--color-surface); }
-.tools-menu-item:active { background: var(--color-surface-2); }
-.tools-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+.plus-menu-item:hover { background: var(--color-surface); }
+.plus-menu-item:active { background: var(--color-surface-2); }
+.plus-menu-item:disabled { opacity: .45; cursor: not-allowed; }
 
-.tools-menu-item--row {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-}
-
-.tools-menu-item--active {
+.plus-menu-item--active {
   color: var(--color-primary);
   background: var(--color-primary-soft);
 }
-.tools-menu-item--active:hover { background: var(--color-primary-soft); }
-.tools-menu-item--active:active { background: var(--color-primary-soft); }
+.plus-menu-item--active:hover { background: var(--color-primary-soft); }
+.plus-menu-item--active:active { background: var(--color-primary-soft); }
 
-.tools-menu-icon {
+.plus-menu-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   color: var(--color-text-secondary);
   background: var(--color-surface);
 }
-.tools-menu-item:hover .tools-menu-icon { background: var(--color-surface-2); }
-.tools-menu-item--active .tools-menu-icon { background: var(--color-primary-border-soft); }
-.tools-menu-icon--upload { color: var(--color-primary); }
-.tools-menu-icon--kb { color: var(--color-primary); }
-.tools-menu-icon--skill { color: #d48806; }
+.plus-menu-item:hover .plus-menu-icon { background: var(--color-surface-2); }
+.plus-menu-item--active .plus-menu-icon { background: var(--color-primary-border-soft); }
+.plus-menu-icon--upload { color: var(--color-primary); }
+.plus-menu-icon--kb { color: var(--color-primary); }
+.plus-menu-icon--skill { color: #d48806; }
 
-.tools-menu-divider { height: 1px; background: var(--color-border); margin: 4px 0; }
-
-.tools-menu-title {
-  font-size: 12px;
+.plus-menu-title {
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--color-text);
 }
-.tools-menu-item--active .tools-menu-title { color: var(--color-primary); }
+.plus-menu-item--active .plus-menu-title { color: var(--color-primary); }
 
 /* Send / stop button — one primary circle. The idle (send) and generating (stop) states
    share the exact same treatment so the button reads as a single control; only the icon

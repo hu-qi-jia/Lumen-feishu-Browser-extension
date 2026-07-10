@@ -12,6 +12,10 @@ interface Props {
   children: ReactNode
   /** Horizontal alignment of the menu relative to the trigger. Default 'left'. */
   align?: 'left' | 'right'
+  /** Vertical direction of the menu relative to the trigger. Default 'down'. */
+  direction?: 'up' | 'down'
+  /** ARIA role of the menu. Default 'listbox'. */
+  role?: 'listbox' | 'menu'
   /** Extra class on the wrapper. */
   className?: string
   /** Extra class on the menu element. */
@@ -34,6 +38,8 @@ export default function Dropdown({
   trigger,
   children,
   align = 'left',
+  direction = 'down',
+  role = 'listbox',
   className,
   menuClassName,
   maxWidth = 280,
@@ -54,9 +60,9 @@ export default function Dropdown({
       {trigger}
       {open && (
         <div
-          className={`dropdown-menu${align === 'right' ? ' dropdown-menu--right' : ''}${menuClassName ? ` ${menuClassName}` : ''}`}
+          className={`dropdown-menu${align === 'right' ? ' dropdown-menu--right' : ''}${direction === 'up' ? ' dropdown-menu--up' : ''}${menuClassName ? ` ${menuClassName}` : ''}`}
           style={{ maxWidth }}
-          role="listbox"
+          role={role}
         >
           {children}
         </div>
