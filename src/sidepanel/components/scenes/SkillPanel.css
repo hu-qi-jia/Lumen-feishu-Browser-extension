@@ -5,8 +5,7 @@
    - clean rows with inline toggle + actions */
 
 /* TopBar action cluster */
-.sk-head-actions { display: flex; align-items: center; gap: 4px; }
-.sk-head-actions .sl-history-btn:disabled { opacity: .4; cursor: not-allowed; }
+.sk-head-actions { display: flex; align-items: center; gap: 2px; }
 .sk-head-btn--danger:hover { color: #e5484d; background: rgba(229, 72, 77, .1); }
 
 /* List body */

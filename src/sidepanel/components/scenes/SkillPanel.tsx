@@ -5,6 +5,7 @@ import Tooltip from '../ui/Tooltip'
 import Markdown from '../chat/Markdown'
 import SkillEditor from './SkillEditor'
 import ListView from '../ui/ListView'
+import IconButton from '../ui/IconButton'
 import { IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
@@ -157,19 +158,19 @@ export default function SkillPanel({ onBack }: Props) {
     const listAction = (
       <div className="sk-head-actions">
         <Tooltip content="导入 .md" position="bottom">
-          <button className="sl-history-btn" onClick={() => fileInput.current?.click()} type="button" aria-label="导入">
+          <IconButton onClick={() => fileInput.current?.click()} aria-label="导入">
             <IconUpload />
-          </button>
+          </IconButton>
         </Tooltip>
         <Tooltip content="导出全部" position="bottom">
-          <button className="sl-history-btn" onClick={handleExport} type="button" aria-label="导出" disabled={!skills.length}>
+          <IconButton onClick={handleExport} aria-label="导出" disabled={!skills.length}>
             <IconDownload />
-          </button>
+          </IconButton>
         </Tooltip>
         <Tooltip content="新建技能" position="bottom">
-          <button className="sl-history-btn" onClick={() => setView({ mode: 'edit' })} type="button" aria-label="新建技能">
+          <IconButton onClick={() => setView({ mode: 'edit' })} aria-label="新建技能">
             <IconPlus />
-          </button>
+          </IconButton>
         </Tooltip>
       </div>
     )

@@ -69,7 +69,7 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
   }
 
   return (
-    <div className="kb-detail" data-testid="kb-note-detail">
+    <div className={`kb-detail${isNew ? ' kb-detail--new' : ''}`} data-testid="kb-note-detail">
       <TopBar
         title={isNew ? '新建笔记' : path}
         onBack={onClose}

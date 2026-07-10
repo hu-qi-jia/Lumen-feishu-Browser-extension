@@ -1,5 +1,8 @@
 .kb-detail { display: flex; flex-direction: column; height: 100%; }
 .kb-detail .topbar { padding-left: 12px; }
+/* 新建笔记页：标题行比分栏列表的 TopBar 更矮、更轻，形成层级。 */
+.kb-detail--new .topbar { height: 40px; }
+.kb-detail--new .topbar-title { font-size: 13px; font-weight: 500; }
 .kb-detail-actions { display: flex; gap: 2px; }
 .kb-detail-body, .kb-detail-edit { padding: 12px; overflow: auto; }
 .kb-detail-edit { display: flex; flex-direction: column; flex: 1; gap: 12px; }
