@@ -48,11 +48,12 @@ const FIELD_DOCS = [
 ]
 
 /**
- * Skill 的 Markdown 编辑器：左编辑 + 右实时预览，带 frontmatter 校验与 tab 支持。
- * 作为 SideDrawer 的 body 使用——drawer 提供标题与关闭按钮，本组件只管编辑内容。
+ * Skill 的 Markdown 编辑器：tab 切换编辑/预览，带 frontmatter 校验。
+ * 参考 PdfTranscribePanel 的结果盒样式，复用 .sc-target-opts 分段控件。
  */
 export default function SkillEditor({ initialMarkdown, existing, selfId, onSave, onClose }: Props) {
   const [md, setMd] = useState(initialMarkdown)
+  const [tab, setTab] = useState<'edit' | 'preview'>('edit')
   const [showHelp, setShowHelp] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
@@ -99,29 +100,43 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
     } else {
       setMd(md + (md.endsWith('\n') ? '' : '\n') + TEMPLATE)
     }
+    setTab('edit')
     requestAnimationFrame(() => taRef.current?.focus())
   }
 
   return (
-    <div className="skill-editor">
-      <div className="skill-editor-toolbar">
-        <button
-          type="button"
-          className="skill-editor-help-btn"
-          onClick={() => setShowHelp((v) => !v)}
-          aria-expanded={showHelp}
-        >
-          {showHelp ? '收起格式说明' : '格式说明'}
-        </button>
-        <button type="button" className="skill-editor-help-btn" onClick={insertTemplate}>
-          插入模板
-        </button>
+    <div className="sl-body sk-editor">
+      <div className="sk-editor-head">
+        <div className="sc-target-opts sk-editor-tabs">
+          <button
+            type="button"
+            className={`sc-target-opt${tab === 'edit' ? ' sc-target-opt--active' : ''}`}
+            onClick={() => setTab('edit')}
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            className={`sc-target-opt${tab === 'preview' ? ' sc-target-opt--active' : ''}`}
+            onClick={() => setTab('preview')}
+          >
+            预览
+          </button>
+        </div>
+        <div className="sk-editor-tools">
+          <button type="button" className="sk-editor-tool-btn" onClick={() => setShowHelp((v) => !v)}>
+            {showHelp ? '收起说明' : '格式说明'}
+          </button>
+          <button type="button" className="sk-editor-tool-btn" onClick={insertTemplate}>
+            插入模板
+          </button>
+        </div>
       </div>
 
       {showHelp && (
-        <div className="skill-editor-docs">
-          <p className="skill-editor-docs-title">Skill 由 frontmatter + 指令正文组成：</p>
-          <ul className="skill-editor-docs-list">
+        <div className="sk-editor-help">
+          <p className="sk-editor-help-title">Skill 由 frontmatter + 指令正文组成</p>
+          <ul className="sk-editor-help-list">
             {FIELD_DOCS.map(([k, d]) => (
               <li key={k}><code>{k}</code> — {d}</li>
             ))}
@@ -129,12 +144,12 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
         </div>
       )}
 
-      <div className="skill-editor-split">
-        <div className="skill-editor-pane">
-          <div className="skill-editor-pane-label">编辑</div>
+      {tab === 'edit' ? (
+        <div className="sk-editor-field">
+          <label className="sl-label">Markdown 源码</label>
           <textarea
             ref={taRef}
-            className="skill-editor-textarea"
+            className="sl-req sk-editor-textarea"
             value={md}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
@@ -143,25 +158,26 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
             autoFocus
           />
         </div>
-        <div className="skill-editor-pane">
-          <div className="skill-editor-pane-label">预览</div>
-          <div className="skill-editor-preview">
+      ) : (
+        <div className="sk-editor-field">
+          <label className="sl-label">指令预览</label>
+          <div className="sk-editor-preview">
             {validation.body.trim() ? <Markdown>{validation.body}</Markdown> : (
-              <span className="skill-editor-preview-empty">指令正文预览区</span>
+              <span className="sk-editor-preview-empty">frontmatter 之后的指令正文会在这里渲染</span>
             )}
           </div>
         </div>
-      </div>
+      )}
 
       {validation.errors.length > 0 && (
-        <ul className="skill-editor-errors">
+        <ul className="sk-editor-errors">
           {validation.errors.map((err, i) => (
             <li key={i}>{err}</li>
           ))}
         </ul>
       )}
 
-      <div className="skill-editor-actions">
+      <div className="sk-editor-actions">
         <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
         <Tooltip content={canSave ? '保存（Ctrl+S）' : '请先修复上方的校验问题'} position="top">
           <Button variant="primary" size="sm" disabled={!canSave} onClick={() => onSave(md)}>

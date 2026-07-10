@@ -1,151 +1,79 @@
-/* ── Skill 编辑器（左编辑 + 右预览分栏） ── */
-.skill-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 12px 14px;
-}
+/* ── Skill editor ──────────────────────────────────────────────────────────
+   Full-panel editor that mirrors PdfTranscribePanel's result box:
+   - tabbed edit/preview toolbar (reuses .sc-target-opts from ScenarioPanel)
+   - auto-growing monospace textarea in edit mode
+   - rendered Markdown preview in preview mode
+   - inline error list + bottom action bar */
 
-.skill-editor-toolbar {
-  display: flex;
-  gap: 8px;
+.sk-editor { padding-top: 10px; }
+
+.sk-editor-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   flex-shrink: 0;
 }
-.skill-editor-help-btn {
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 3px 9px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
+.sk-editor-tabs { min-width: auto; padding: 2px; }
+.sk-editor-tabs .sc-target-opt { padding: 3px 12px; font-size: 11.5px; }
+
+.sk-editor-tools { display: flex; align-items: center; gap: 6px; }
+.sk-editor-tool-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border); border-radius: 6px;
+  background: transparent; color: var(--color-text-secondary);
+  font-size: 11px; cursor: pointer;
   transition: border-color .15s, color .15s;
 }
-.skill-editor-help-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
+.sk-editor-tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-.skill-editor-docs {
+/* Format help card */
+.sk-editor-help {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border); border-radius: 8px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 8px 10px;
-  flex-shrink: 0;
 }
-.skill-editor-docs-title {
-  margin: 0 0 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text);
+.sk-editor-help-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--color-text); }
+.sk-editor-help-list {
+  margin: 0; padding-left: 16px;
+  display: flex; flex-direction: column; gap: 3px;
 }
-.skill-editor-docs-list {
-  margin: 0;
-  padding-left: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.skill-editor-docs-list li {
-  font-size: 10.5px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-.skill-editor-docs-list code {
-  background: rgba(0,0,0,.06);
-  padding: 0 3px;
-  border-radius: 3px;
-  font-size: 10.5px;
-  color: var(--color-text);
+.sk-editor-help-list li { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
+.sk-editor-help-list code {
+  background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 3px;
+  font-size: 10.5px; color: var(--color-text);
 }
 
-/* 分栏：窄屏纵向堆叠，宽屏左右 */
-.skill-editor-split {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-height: 240px;
+/* Main edit/preview area */
+.sk-editor-field {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; gap: 6px;
 }
-@media (min-width: 480px) {
-  .skill-editor-split {
-    flex-direction: row;
-  }
-}
-.skill-editor-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-.skill-editor-pane-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.skill-editor-textarea {
-  flex: 1;
-  min-height: 200px;
-  resize: none;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-  font-size: 11.5px;
-  line-height: 1.55;
-  color: var(--color-text);
-  background: var(--color-bg);
+.sk-editor-textarea {
+  flex: 1; min-height: 200px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre;
   overflow: auto;
   tab-size: 2;
 }
-.skill-editor-textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-.skill-editor-preview {
-  flex: 1;
-  min-height: 200px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 8px 10px;
-  overflow: auto;
+.sk-editor-preview {
+  flex: 1; min-height: 200px; overflow-y: auto;
+  border: 1px solid var(--color-border); border-radius: 8px;
   background: var(--color-bg);
-  font-size: 12px;
-  line-height: 1.55;
+  padding: 12px 14px;
+  font-size: 13px; line-height: 1.6;
 }
-.skill-editor-preview-empty {
-  color: var(--color-text-secondary);
-  font-size: 11px;
-}
+.sk-editor-preview-empty { color: var(--color-text-secondary); font-size: 12px; }
 
-.skill-editor-errors {
-  margin: 0;
-  padding: 6px 10px 6px 22px;
+/* Validation errors */
+.sk-editor-errors {
+  margin: 0; padding: 8px 10px 8px 24px;
   list-style: disc;
   background: rgba(229, 72, 77, .06);
   border: 1px solid rgba(229, 72, 77, .3);
-  border-radius: 6px;
-  flex-shrink: 0;
+  border-radius: 8px;
 }
-.skill-editor-errors li {
-  font-size: 11px;
-  color: #c43a3f;
-  line-height: 1.5;
-}
+.sk-editor-errors li { font-size: 11.5px; color: #c43a3f; line-height: 1.5; }
 
-.skill-editor-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-  padding-top: 4px;
-  border-top: 1px solid var(--color-border);
+/* Bottom actions */
+.sk-editor-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding-top: 4px; border-top: 1px solid var(--color-border);
 }

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
-import SideDrawer from '../ui/SideDrawer'
-import FormSwitch from '../ui/FormSwitch'
 import Tooltip from '../ui/Tooltip'
 import Markdown from '../chat/Markdown'
+import UploadDrop from '../ui/UploadDrop'
 import SkillEditor from './SkillEditor'
 import {
-  IconPlus, IconEdit, IconTrash, IconEye, IconUpload, IconDownload, IconTools, IconCopy,
+  IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools, IconCopy,
 } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
@@ -30,7 +29,6 @@ const SCOPE_LABEL: Record<string, string> = {
 
 /** skill.icon 字段 → 图标组件。未知/缺省用 IconTools。 */
 function SkillIcon({ name }: { name?: string }) {
-  // 项目内图标都是 24×24 stroke-based，直接复用。
   switch (name) {
     case 'sparkle': return <IconTools />
     case 'chart': return <IconTools />
@@ -41,19 +39,21 @@ function SkillIcon({ name }: { name?: string }) {
   }
 }
 
-type Drawer =
-  | { mode: 'view'; skill: UserSkill }
-  | { mode: 'edit'; skill: UserSkill }
-  | { mode: 'new' }
+type View =
+  | { mode: 'list' }
+  | { mode: 'detail'; skill: UserSkill }
+  | { mode: 'edit'; skill?: UserSkill }
 
 export default function SkillPanel({ onBack }: Props) {
   const [skills, setSkills] = useState<UserSkill[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [drawer, setDrawer] = useState<Drawer | null>(null)
+  const [view, setView] = useState<View>({ mode: 'list' })
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // 首次进入：加载技能；若为空则写入内置示例技能。
   useEffect(() => {
@@ -63,7 +63,6 @@ export default function SkillPanel({ onBack }: Props) {
       try {
         let list = await loadUserSkills()
         if (!list.length) {
-          // 首次使用：写入内置示例，帮助用户理解格式。
           const builtins = buildBuiltinSkills()
           await saveAllUserSkills(builtins)
           list = builtins
@@ -77,6 +76,16 @@ export default function SkillPanel({ onBack }: Props) {
     })()
     return () => { alive = false }
   }, [])
+
+  // 点击外部关闭导入/导出菜单。
+  useEffect(() => {
+    if (!menuOpen) return
+    function onClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [menuOpen])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -111,26 +120,29 @@ export default function SkillPanel({ onBack }: Props) {
     }
     if (okCount) showToast(`已导入 ${okCount} 个技能`)
     if (lastErr) setError(lastErr)
-    // 清空 input 以便重复选同一文件
     if (fileInput.current) fileInput.current.value = ''
+    setMenuOpen(false)
   }
 
   // ── 新建/编辑保存 ──
-  async function handleSave(md: string) {
+  async function handleSave(md: string, fromSkill?: UserSkill) {
     try {
-      if (drawer?.mode === 'edit') {
-        const input: UserSkillInput = { rawMarkdown: md, enabled: drawer.skill.enabled, category: drawer.skill.category }
-        const next = await saveUserSkill(input, skills, drawer.skill.id)
+      if (fromSkill) {
+        const input: UserSkillInput = { rawMarkdown: md, enabled: fromSkill.enabled, category: fromSkill.category }
+        const next = await saveUserSkill(input, skills, fromSkill.id)
         setSkills(next)
+        const updated = next.find((s) => s.id === fromSkill.id)
+        if (updated) setView({ mode: 'detail', skill: updated })
+        else setView({ mode: 'list' })
         showToast('已保存')
-      } else if (drawer?.mode === 'new') {
+      } else {
         const v = validateSkillMarkdown(md)
         const input: UserSkillInput = { rawMarkdown: md, enabled: true, category: v.meta.category }
         const next = await saveUserSkill(input, skills)
         setSkills(next)
+        setView({ mode: 'list' })
         showToast('已创建')
       }
-      setDrawer(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -142,6 +154,7 @@ export default function SkillPanel({ onBack }: Props) {
       const next = await deleteUserSkill(skill.id, skills)
       setSkills(next)
       setConfirmId(null)
+      if (view.mode === 'detail' && view.skill.id === skill.id) setView({ mode: 'list' })
       showToast('已删除')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -153,6 +166,10 @@ export default function SkillPanel({ onBack }: Props) {
     try {
       const next = await toggleUserSkill(id, skills)
       setSkills(next)
+      if (view.mode === 'detail') {
+        const updated = next.find((s) => s.id === view.skill.id)
+        if (updated) setView({ mode: 'detail', skill: updated })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -161,7 +178,6 @@ export default function SkillPanel({ onBack }: Props) {
   // ── 复制内置技能为我的技能 ──
   async function handleDuplicate(skill: UserSkill) {
     try {
-      // 生成不冲突的 slug：_copy → _copy_2 → _copy_3 …
       let suffix = '_copy'
       let n = 2
       while (slugConflict(`${skill.slug}${suffix}`, skills)) {
@@ -186,6 +202,7 @@ export default function SkillPanel({ onBack }: Props) {
     a.download = `feishu-skills-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+    setMenuOpen(false)
   }
 
   // 按 category 分组（无 category 归入「其他」）
@@ -199,166 +216,294 @@ export default function SkillPanel({ onBack }: Props) {
     return Array.from(m.entries())
   }, [skills])
 
-  const rightAction = (
-    <div className="skill-panel-actions">
-      <Tooltip content="导入 .md 文件" position="bottom">
-        <button className="skill-head-btn" onClick={() => fileInput.current?.click()} type="button" aria-label="导入技能">
-          <IconUpload />
-        </button>
-      </Tooltip>
-      <Tooltip content="导出全部" position="bottom">
-        <button className="skill-head-btn" onClick={handleExport} type="button" aria-label="导出技能" disabled={!skills.length}>
-          <IconDownload />
-        </button>
-      </Tooltip>
-      <Tooltip content="新建技能" position="bottom">
-        <button className="skill-head-btn" onClick={() => setDrawer({ mode: 'new' })} type="button" aria-label="新建技能">
-          <IconPlus />
-        </button>
-      </Tooltip>
-    </div>
-  )
+  const userSkills = useMemo(() => skills.filter((s) => !s.builtIn), [skills])
 
-  return (
-    <div className="skill-panel">
-      <TopBar title="技能库" onBack={onBack} rightAction={rightAction} />
-
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".md,.markdown,text/markdown"
-        multiple
-        hidden
-        onChange={(e) => handleFiles(e.target.files)}
-      />
-
-      <div className="skill-panel-body">
-        {error && <div className="skill-panel-err">{error}</div>}
-        {loading && <div className="skill-panel-empty">载入中…</div>}
-        {!loading && !error && skills.length === 0 && (
-          <div className="skill-panel-empty">
-            <p>还没有技能。</p>
-            <Button variant="primary" size="sm" icon={<IconPlus />} onClick={() => setDrawer({ mode: 'new' })}>
-              新建第一个技能
-            </Button>
-          </div>
-        )}
-
-        {!loading && groups.map(([cat, list]) => (
-          <div key={cat} className="skill-group">
-            <div className="skill-group-label">{cat}</div>
-            <ul className="skill-list">
-              {list.map((s) => (
-                <li key={s.id} className="skill-row">
-                  <div className="skill-row-main">
-                    <span className="skill-row-icon"><SkillIcon name={s.icon} /></span>
-                    <span className="skill-row-meta">
-                      <span className="skill-row-title">
-                        {s.name}
-                        {s.builtIn && <span className="skill-row-badge skill-row-badge--builtin">内置</span>}
-                        <span className="skill-row-badge skill-row-badge--scope">{SCOPE_LABEL[s.scope] ?? s.scope}</span>
-                      </span>
-                      <span className="skill-row-desc">{s.description}</span>
-                    </span>
-                  </div>
-                  <div className="skill-row-actions">
-                    <FormSwitch checked={s.enabled} onChange={() => handleToggle(s.id)} />
-                    <Tooltip content="查看" position="bottom">
-                      <button className="skill-row-btn" onClick={() => setDrawer({ mode: 'view', skill: s })} type="button" aria-label="查看">
-                        <IconEye />
-                      </button>
-                    </Tooltip>
-                    <Tooltip content="编辑" position="bottom">
-                      <button className="skill-row-btn" onClick={() => setDrawer({ mode: 'edit', skill: s })} type="button" aria-label="编辑">
-                        <IconEdit />
-                      </button>
-                    </Tooltip>
-                    {s.builtIn ? (
-                      <Tooltip content="复制为我的技能" position="bottom">
-                        <button className="skill-row-btn" onClick={() => handleDuplicate(s)} type="button" aria-label="复制">
-                          <IconCopy />
-                        </button>
-                      </Tooltip>
-                    ) : confirmId === s.id ? (
-                      <>
-                        <Tooltip content="确认删除" position="bottom">
-                          <button className="skill-row-btn skill-row-btn--danger" onClick={() => handleDelete(s)} type="button" aria-label="确认删除">
-                            <IconTrash />
-                          </button>
-                        </Tooltip>
-                        <button className="skill-row-cancel" onClick={() => setConfirmId(null)} type="button">取消</button>
-                      </>
-                    ) : (
-                      <Tooltip content="删除" position="bottom">
-                        <button className="skill-row-btn" onClick={() => setConfirmId(s.id)} type="button" aria-label="删除">
-                          <IconTrash />
-                        </button>
-                      </Tooltip>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      {toast && <div className="skill-panel-toast">{toast}</div>}
-
-      {/* 查看 / 编辑 / 新建 抽屉 */}
-      {drawer && (
-        <SideDrawer
-          title={drawer.mode === 'new' ? '新建技能' : drawer.mode === 'edit' ? '编辑技能' : drawer.skill.name}
-          onClose={() => setDrawer(null)}
-        >
-          {drawer.mode === 'view' ? (
-            <SkillDetailView skill={drawer.skill} />
-          ) : (
-            <SkillEditor
-              initialMarkdown={drawer.mode === 'edit' ? drawer.skill.rawMarkdown : ''}
-              existing={skills}
-              selfId={drawer.mode === 'edit' ? drawer.skill.id : undefined}
-              onSave={handleSave}
-              onClose={() => setDrawer(null)}
-            />
+  // ── List view ──
+  if (view.mode === 'list') {
+    const listAction = (
+      <div className="sk-head-actions">
+        <Tooltip content="新建技能" position="bottom">
+          <button className="sl-history-btn" onClick={() => setView({ mode: 'edit' })} type="button" aria-label="新建技能">
+            <IconPlus />
+          </button>
+        </Tooltip>
+        <div className="sk-menu-wrap" ref={menuRef}>
+          <Tooltip content="导入 / 导出" position="bottom">
+            <button className="sl-history-btn" onClick={() => setMenuOpen((v) => !v)} type="button" aria-label="导入导出">
+              <IconUpload />
+            </button>
+          </Tooltip>
+          {menuOpen && (
+            <div className="sk-menu">
+              <button type="button" className="sk-menu-item" onClick={() => fileInput.current?.click()}>
+                <IconUpload /> 导入 .md
+              </button>
+              <button type="button" className="sk-menu-item" onClick={handleExport} disabled={!skills.length}>
+                <IconDownload /> 导出全部
+              </button>
+            </div>
           )}
-        </SideDrawer>
-      )}
+        </div>
+      </div>
+    )
+
+    return (
+      <div className="scenario-panel view-enter" key="skill-list">
+        <TopBar title="技能库" onBack={onBack} rightAction={listAction} />
+
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".md,.markdown,text/markdown"
+          multiple
+          hidden
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+
+        <div className="sl-body">
+          <p className="sl-sub">上传 Markdown 技能文件或自行编写。Agent 会根据任务匹配描述，调用对应技能完成文案润色、表格填充等工作。</p>
+
+          <div className="sl-field">
+            <label className="sl-label">导入技能</label>
+            <UploadDrop
+              busy={false}
+              max={50}
+              count={userSkills.length}
+              mainText="点击或拖入 .md 技能文件"
+              hintText={`最多 ${50 - userSkills.length} 个 · 单文件 ≤64KB`}
+              onFiles={handleFiles}
+              onTrigger={() => fileInput.current?.click()}
+            />
+          </div>
+
+          {error && <p className="sl-hint sl-hint--err">{error}</p>}
+
+          {loading && <p className="sl-hint">载入中…</p>}
+
+          {!loading && !error && skills.length === 0 && (
+            <div className="sk-empty">
+              <div className="sk-empty-icon"><IconTools /></div>
+              <p className="sk-empty-title">还没有技能</p>
+              <p className="sk-empty-desc">从上方导入 .md 文件，或新建第一个技能。</p>
+              <Button variant="primary" size="sm" icon={<IconPlus />} onClick={() => setView({ mode: 'edit' })}>
+                新建第一个技能
+              </Button>
+            </div>
+          )}
+
+          {!loading && groups.map(([cat, list]) => (
+            <div key={cat} className="sl-field sk-group">
+              <label className="sl-label">{cat} <span className="sl-label-hint">{list.length} 个</span></label>
+              <div className="sk-rows">
+                {list.map((s) => (
+                  <SkillRow
+                    key={s.id}
+                    skill={s}
+                    confirmId={confirmId}
+                    onView={() => setView({ mode: 'detail', skill: s })}
+                    onEdit={() => setView({ mode: 'edit', skill: s })}
+                    onToggle={() => handleToggle(s.id)}
+                    onDuplicate={() => handleDuplicate(s)}
+                    onDelete={() => handleDelete(s)}
+                    onRequestDelete={() => setConfirmId(s.id)}
+                    onCancelDelete={() => setConfirmId(null)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {toast && <div className="sk-toast">{toast}</div>}
+      </div>
+    )
+  }
+
+  // ── Detail view ──
+  if (view.mode === 'detail') {
+    const { skill } = view
+    return (
+      <div className="scenario-panel view-enter" key="skill-detail">
+        <TopBar
+          title={skill.name}
+          onBack={() => setView({ mode: 'list' })}
+          rightAction={
+            <div className="sk-head-actions">
+              {skill.builtIn ? (
+                <Tooltip content="复制为我的技能" position="bottom">
+                  <button className="sl-history-btn" onClick={() => handleDuplicate(skill)} type="button" aria-label="复制">
+                    <IconCopy />
+                  </button>
+                </Tooltip>
+              ) : (
+                <Tooltip content="编辑" position="bottom">
+                  <button className="sl-history-btn" onClick={() => setView({ mode: 'edit', skill })} type="button" aria-label="编辑">
+                    <IconEdit />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          }
+        />
+        <SkillDetailView skill={skill} onToggle={() => handleToggle(skill.id)} />
+      </div>
+    )
+  }
+
+  // ── Edit / Create view ──
+  return (
+    <div className="scenario-panel view-enter" key="skill-edit">
+      <TopBar
+        title={view.skill ? '编辑技能' : '新建技能'}
+        onBack={() => setView({ mode: 'list' })}
+        rightAction={
+          view.skill ? (
+            <Tooltip content="删除" position="bottom">
+              <button className="sl-history-btn sk-head-btn--danger" onClick={() => view.skill && handleDelete(view.skill)} type="button" aria-label="删除">
+                <IconTrash />
+              </button>
+            </Tooltip>
+          ) : null
+        }
+      />
+      <SkillEditor
+        initialMarkdown={view.skill?.rawMarkdown ?? ''}
+        existing={skills}
+        selfId={view.skill?.id}
+        onSave={(md) => handleSave(md, view.skill)}
+        onClose={() => setView({ mode: 'list' })}
+      />
     </div>
   )
 }
 
-/** 只读详情：frontmatter 元信息 + 渲染后的指令正文。 */
-function SkillDetailView({ skill }: { skill: UserSkill }) {
+// ── Skill row (list item) ──
+
+interface SkillRowProps {
+  skill: UserSkill
+  confirmId: string | null
+  onView: () => void
+  onEdit: () => void
+  onToggle: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onRequestDelete: () => void
+  onCancelDelete: () => void
+}
+
+function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDuplicate, onDelete, onRequestDelete, onCancelDelete }: SkillRowProps) {
+  const isConfirm = confirmId === skill.id
   return (
-    <div className="skill-detail">
-      <dl className="skill-detail-meta">
-        <div><dt>名称</dt><dd>{skill.name}</dd></div>
-        <div><dt>标识</dt><dd><code>skill__{skill.slug}</code></dd></div>
-        <div><dt>描述</dt><dd>{skill.description}</dd></div>
-        <div><dt>作用域</dt><dd>{SCOPE_LABEL[skill.scope] ?? skill.scope}</dd></div>
-        {skill.category && <div><dt>分类</dt><dd>{skill.category}</dd></div>}
-        {skill.parameters?.length ? (
-          <div>
-            <dt>参数</dt>
-            <dd>
-              <ul className="skill-detail-params">
-                {skill.parameters.map((p) => (
-                  <li key={p.name}>
-                    <code>{p.name}</code>
-                    <span className="skill-detail-param-type">{p.type}</span>
-                    {p.required && <span className="skill-detail-param-req">必填</span>}
-                    {p.description && <span className="skill-detail-param-desc">{p.description}</span>}
-                  </li>
-                ))}
-              </ul>
-            </dd>
+    <div className="sk-row">
+      <button className="sk-row-main" type="button" onClick={onView} aria-label={`查看 ${skill.name}`}>
+        <span className="sk-row-icon"><SkillIcon name={skill.icon} /></span>
+        <span className="sk-row-meta">
+          <span className="sk-row-title">
+            {skill.name}
+            {skill.builtIn && <span className="sk-row-tag sk-row-tag--builtin">内置</span>}
+            <span className="sk-row-tag sk-row-tag--scope">{SCOPE_LABEL[skill.scope] ?? skill.scope}</span>
+          </span>
+          <span className="sk-row-desc">{skill.description}</span>
+        </span>
+      </button>
+      <div className="sk-row-actions">
+        {isConfirm ? (
+          <>
+            <button className="sk-row-btn sk-row-btn--danger" onClick={onDelete} type="button" aria-label="确认删除">
+              <IconTrash />
+            </button>
+            <button className="sk-row-btn" onClick={onCancelDelete} type="button" aria-label="取消">
+              <IconX />
+            </button>
+          </>
+        ) : (
+          <>
+            <Tooltip content={skill.enabled ? '已启用' : '已禁用'} position="bottom">
+              <button
+                className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
+                onClick={onToggle}
+                type="button"
+                aria-label={skill.enabled ? '禁用' : '启用'}
+              >
+                <span className="sk-row-toggle-dot" />
+              </button>
+            </Tooltip>
+            <Tooltip content="编辑" position="bottom">
+              <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
+                <IconEdit />
+              </button>
+            </Tooltip>
+            {skill.builtIn ? (
+              <Tooltip content="复制为我的技能" position="bottom">
+                <button className="sk-row-btn" onClick={onDuplicate} type="button" aria-label="复制">
+                  <IconCopy />
+                </button>
+              </Tooltip>
+            ) : (
+              <Tooltip content="删除" position="bottom">
+                <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
+                  <IconTrash />
+                </button>
+              </Tooltip>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Skill detail (readonly) ──
+
+function SkillDetailView({ skill, onToggle }: { skill: UserSkill; onToggle: () => void }) {
+  return (
+    <div className="sl-body sk-detail-body">
+      <div className="sk-detail-head">
+        <div className="sk-detail-icon"><SkillIcon name={skill.icon} /></div>
+        <div className="sk-detail-meta">
+          <div className="sk-detail-name">{skill.name}</div>
+          <div className="sk-detail-sub">
+            <code>skill__{skill.slug}</code>
+            <span className="sk-detail-scope">{SCOPE_LABEL[skill.scope] ?? skill.scope}</span>
+            {skill.builtIn && <span className="sk-detail-scope">内置</span>}
           </div>
-        ) : null}
-      </dl>
-      <div className="skill-detail-body">
-        <div className="skill-detail-body-label">指令正文</div>
-        <Markdown>{skill.bodyMarkdown}</Markdown>
+        </div>
+        <button
+          className={`sk-row-toggle${skill.enabled ? ' sk-row-toggle--active' : ''}`}
+          onClick={onToggle}
+          type="button"
+          aria-label={skill.enabled ? '禁用' : '启用'}
+        >
+          <span className="sk-row-toggle-dot" />
+        </button>
+      </div>
+
+      <div className="sl-field">
+        <label className="sl-label">描述</label>
+        <p className="sk-detail-desc">{skill.description}</p>
+      </div>
+
+      {skill.parameters && skill.parameters.length > 0 && (
+        <div className="sl-field">
+          <label className="sl-label">参数</label>
+          <div className="sk-params">
+            {skill.parameters.map((p) => (
+              <div key={p.name} className="sk-param">
+                <code>{p.name}</code>
+                <span className="sk-param-type">{p.type}</span>
+                {p.required && <span className="sk-param-req">必填</span>}
+                <span className="sk-param-desc">{p.description}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="sl-field">
+        <label className="sl-label">指令正文</label>
+        <div className="sk-detail-preview">
+          <Markdown>{skill.bodyMarkdown}</Markdown>
+        </div>
       </div>
     </div>
   )
