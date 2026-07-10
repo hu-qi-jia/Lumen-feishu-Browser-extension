@@ -19,8 +19,20 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
     if (m.role === 'tool' && m.tool_call_id) responses.set(m.tool_call_id, m.content ?? '')
   }
 
+  // 找到最新一条 user 消息：仅对它（如果带图片）做 image_url 多模态编码，
+  // 让 vision-capable 的 LLM 能直接"看图"（识别表格/内容并据此调工具）。
+  // 历史消息里的图片仍走纯文本元数据——既避免多轮历史塞多张图导致 token 爆炸，
+  // 又防止非 vision 模型在历史回放时被 image_url part 直接拒绝。
+  // 注意：判定标准是"最后一条 user 消息是否带图"，而非"最后一条带图的 user 消息"——
+  // 用户先发图后发纯文本追问时，图已成历史，应走纯文本。
+  let lastUserIdx = -1
+  for (let i = nonSystem.length - 1; i >= 0; i--) {
+    if (nonSystem[i].role === 'user') { lastUserIdx = i; break }
+  }
+
   const out: ChatCompletionMessageParam[] = []
-  for (const m of nonSystem) {
+  for (let idx = 0; idx < nonSystem.length; idx++) {
+    const m = nonSystem[idx]
     if (m.role === 'tool') continue // emitted alongside their assistant message below
 
     if (m.role === 'assistant' && m.tool_calls?.length) {
@@ -47,15 +59,20 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
 
     if (m.role === 'user') {
       const attachments = m.attachments ?? []
+      const isLastUserWithImage =
+        idx === lastUserIdx &&
+        attachments.some((a) => a.type === 'image' && a.dataUrl)
       if (attachments.length === 0) {
         out.push({ role: 'user', content: m.content ?? '' })
+      } else if (isLastUserWithImage) {
+        // 最新一条 user 消息且带图片：输出多模态 content。
+        // 关键：image_url part 旁必须保留 attachment_id 文本元数据——LLM 需要从这段文本
+        // 读出 UUID 才能正确填入 insert_image 等工具的 args.attachment_id（工具执行端按
+        // id 从 latestAttachments 数组查原图）。只对最新消息做，历史消息走下面 else 分支。
+        out.push({ role: 'user', content: attachmentToContentParts(m, attachments) })
       } else {
-        // Represent attachments as TEXT metadata (attachment_id + name) so the agent can
-        // reference them in tool calls (e.g. insert_image's attachment_id). We do NOT embed
-        // image bytes as image_url vision parts — many configured LLMs aren't vision-capable
-        // and reject the request ("unknown variant image_url, expected text"). The actual
-        // image data reaches the tool via the separate `attachments` plumbing, so the agent
-        // doesn't need to "see" the image to insert it.
+        // 历史消息的附件：纯文本元数据（attachment_id + name），不嵌图片字节。
+        // 既防止非 vision 模型在历史回放时被 image_url 拒绝，又避免 token 爆炸。
         const bits: string[] = []
         if (m.content?.trim()) bits.push(m.content.trim())
         for (const a of attachments) {
@@ -69,6 +86,35 @@ export function buildApiHistory(history: ChatMessage[]): ChatCompletionMessagePa
     }
   }
   return out
+}
+
+/** 把最新一条 user 消息的附件编码成 OpenAI 多模态 content parts。
+ *  - 图片：先输出 text part（含 attachment_id 元数据），再紧跟 image_url part。
+ *    LLM 既能"看图"识别表格/内容，又能从文本读出 UUID 调 insert_image 等工具。
+ *  - 文件/选区：走原文本元数据（attachmentToMetaData）。
+ *  - 用户输入文本：作为首个 text part。 */
+function attachmentToContentParts(
+  m: ChatMessage,
+  attachments: Attachment[],
+): Array<
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
+> {
+  const parts: ReturnType<typeof attachmentToContentParts> = []
+  if (m.content?.trim()) parts.push({ type: 'text', text: m.content.trim() })
+  for (const a of attachments) {
+    if (a.type === 'image' && a.dataUrl) {
+      // 先输出 attachment_id 文本元数据——LLM 据此填工具 args；
+      // 再紧跟 image_url part，让 vision-capable 模型直接看图。
+      const meta = attachmentToMetaData(a)
+      if (meta) parts.push({ type: 'text', text: meta })
+      parts.push({ type: 'image_url', image_url: { url: a.dataUrl, detail: 'auto' } })
+    } else {
+      const meta = attachmentToMetaData(a)
+      if (meta) parts.push({ type: 'text', text: meta })
+    }
+  }
+  return parts
 }
 
 /** 把一个附件渲染成喂给 LLM 的文本元数据。image/file 输出与历史完全一致（回归保护）；

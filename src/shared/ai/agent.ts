@@ -23,6 +23,7 @@ import {
 import { CREATE_ONCE_TOOLS, READ_ONLY_TOOLS, toolsForContext } from './agent-context'
 import { buildSystemPrompt } from './agent-prompt'
 import { buildApiHistory } from './agent-history'
+import { isVisionUnsupportedError } from './vision'
 import {
   runToolWithFallback,
   rewriteFeishuOrigins,
@@ -193,14 +194,26 @@ export async function runAgent(
     let textAccum = ''
     const rawToolCalls: OpenAI.Chat.ChatCompletionMessageToolCall[] = []
 
-    const stream = await client.chat.completions.create({
-      model: llmCfg.model,
-      messages: msgs,
-      tools: toolsForContext(context.feishu?.kind, { kbEnabled }), // only the current resource's tools (+ core)
-      tool_choice: 'auto',
-      temperature: AGENT_TEMPERATURE,
-      stream: true,
-    }, { signal })
+    let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
+    try {
+      stream = await client.chat.completions.create({
+        model: llmCfg.model,
+        messages: msgs,
+        tools: toolsForContext(context.feishu?.kind, { kbEnabled }), // only the current resource's tools (+ core)
+        tool_choice: 'auto',
+        temperature: AGENT_TEMPERATURE,
+        stream: true,
+      }, { signal })
+    } catch (e) {
+      // 非 vision 模型收到 image_url part 会直接拒绝（"unknown variant image_url, expected text"
+      // 等）。本功能基于多模态模型开发，不支持时给出明确提示，而非让原始 400 错误裸奔到用户。
+      // 仅当本轮消息确实含图片且错误匹配 vision 不支持特征时才转译；其余错误原样抛出。
+      const hasImage = latestAttachments?.some((a) => a.type === 'image' && a.dataUrl) ?? false
+      if (hasImage && e instanceof Error && e.name !== 'AbortError' && isVisionUnsupportedError(e.message)) {
+        throw new Error('当前大模型不支持图片识别，请在「设置」里配置支持视觉的模型（如 GPT-4o / Qwen-VL / GLM-4V 等）后再上传图片。')
+      }
+      throw e
+    }
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta

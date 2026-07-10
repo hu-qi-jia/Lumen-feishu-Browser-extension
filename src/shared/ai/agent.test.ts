@@ -221,6 +221,85 @@ describe('buildApiHistory', () => {
       { role: 'assistant', content: 'hello' },
     ])
   })
+
+  it('最新一条带图片的 user 消息 → 多模态 content（text + image_url parts），且保留 attachment_id', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: '看下这张图', attachments: [
+        { id: 'att1', type: 'image', name: 'a.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,xxx' },
+      ] }),
+    ])
+    expect(out).toHaveLength(1)
+    const u = out[0] as { role: string; content: Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }> }
+    expect(u.role).toBe('user')
+    expect(Array.isArray(u.content)).toBe(true)
+    expect(u.content).toHaveLength(3)
+    // 第一个 part：文本（用户输入）
+    expect(u.content[0].type).toBe('text')
+    expect(u.content[0].text).toBe('看下这张图')
+    // 第二个 part：文本元数据（attachment_id）—— LLM 据此调 insert_image
+    expect(u.content[1].type).toBe('text')
+    expect(u.content[1].text).toBe('【附件：图片 a.png（attachment_id: att1）】')
+    // 第三个 part：image_url（让 vision 模型看图）
+    expect(u.content[2].type).toBe('image_url')
+    expect(u.content[2].image_url?.url).toBe('data:image/png;base64,xxx')
+  })
+
+  it('最新一条带图片的 user 消息 → text + meta + image_url（用户输入 + 元数据 + 图片三段式）', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: '插入这张图', attachments: [
+        { id: 'att9', type: 'image', name: 's.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,zzz' },
+      ] }),
+    ])
+    const u = out[0] as { content: Array<{ type: string }> }
+    expect(u.content.map((p) => p.type)).toEqual(['text', 'text', 'image_url'])
+  })
+
+  it('历史里的图片 user 消息 → 纯文本元数据（不嵌 image_url，避免历史回放 token 爆炸 + 非 vision 模型拒绝）', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: 'u1', attachments: [
+        { id: 'old', type: 'image', name: 'old.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,old' },
+      ] }),
+      msg({ role: 'assistant', content: 'a1' }),
+      msg({ role: 'user', content: '最新消息无图' }),
+    ])
+    // 历史图片消息（第 1 条）走纯文本元数据
+    const u1 = out[0] as { role: string; content: string }
+    expect(u1.role).toBe('user')
+    expect(typeof u1.content).toBe('string')
+    expect(u1.content).toContain('attachment_id: old')
+    expect(u1.content).not.toContain('image_url')
+  })
+
+  it('最新一条带图片的 user 消息是唯一的 image_url 编码目标（多条图片历史时只编码最后一条）', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: 'u1', attachments: [
+        { id: 'old', type: 'image', name: 'old.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,old' },
+      ] }),
+      msg({ role: 'assistant', content: 'a1' }),
+      msg({ role: 'user', content: 'u2', attachments: [
+        { id: 'new', type: 'image', name: 'new.png', mimeType: 'image/png', size: 0, dataUrl: 'data:image/png;base64,new' },
+      ] }),
+    ])
+    const u1 = out[0] as { content: string }
+    const u2 = out[2] as { content: Array<{ type: string }> }
+    // 历史图片：纯文本
+    expect(typeof u1.content).toBe('string')
+    // 最新图片：多模态
+    expect(Array.isArray(u2.content)).toBe(true)
+    expect(u2.content.some((p) => p.type === 'image_url')).toBe(true)
+  })
+
+  it('无图片的附件消息 → 纯文本元数据（保持原行为）', () => {
+    const out = buildApiHistory([
+      msg({ role: 'user', content: 'u1', attachments: [
+        { id: 'f1', type: 'file', name: 'd.csv', mimeType: 'text/csv', size: 3, content: 'x,y\n1,2' },
+      ] }),
+    ])
+    const u = out[0] as { content: string }
+    expect(typeof u.content).toBe('string')
+    expect(u.content).toContain('附件：d.csv')
+    expect(u.content).toContain('x,y')
+  })
 })
 
 describe('assertApiCallAllowed — feishu_api_call security gate', () => {
