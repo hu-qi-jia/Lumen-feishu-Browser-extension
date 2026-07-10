@@ -6,6 +6,7 @@ import Markdown from '../../chat/Markdown'
 import TopBar from '../../shell/TopBar'
 import Button from '../../ui/Button'
 import { IconEdit, IconTrash } from '../../ui/icons'
+import IconButton from '../../ui/IconButton'
 import './ObsidianNoteDetail.css'
 
 interface Props {
@@ -76,9 +77,9 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
           !isNew ? (
             <div className="kb-detail-actions">
               {mode === 'view' && (
-                <button className="kb-head-btn" onClick={() => setMode('edit')} type="button" aria-label="编辑"><IconEdit /></button>
+                <IconButton onClick={() => setMode('edit')} aria-label="编辑"><IconEdit /></IconButton>
               )}
-              <button className="kb-head-btn" onClick={remove} type="button" aria-label="删除" disabled={saving}><IconTrash /></button>
+              <IconButton onClick={remove} aria-label="删除" disabled={saving}><IconTrash /></IconButton>
             </div>
           ) : undefined
         }

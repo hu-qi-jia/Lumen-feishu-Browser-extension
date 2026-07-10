@@ -131,27 +131,6 @@
 
 .input-file-hidden { display: none; }
 
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  background: none;
-  border: none;
-  border-radius: 9px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: background .15s ease, color .15s ease;
-}
-.btn-icon:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
-.btn-icon:disabled { opacity: .4; cursor: not-allowed; }
-.btn-icon--active {
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
-}
-.btn-icon--active:hover:not(:disabled) { background: var(--color-primary-soft); }
-
 .inputbar-plus-menu {
   padding: 3px;
   border-radius: 12px;

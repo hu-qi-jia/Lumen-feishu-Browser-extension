@@ -1,10 +1,6 @@
 .kb-detail { display: flex; flex-direction: column; height: 100%; }
 .kb-detail .topbar { padding-left: 12px; }
 .kb-detail-actions { display: flex; gap: 2px; }
-.kb-head-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: none; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-sm); cursor: pointer; }
-.kb-head-btn:hover:not(:disabled) { color: var(--color-primary); background: var(--color-primary-soft); }
-.kb-head-btn svg { width: 16px; height: 16px; }
-.kb-head-btn:disabled { opacity: .5; cursor: not-allowed; }
 .kb-detail-body, .kb-detail-edit { padding: 12px; overflow: auto; }
 .kb-detail-edit { display: flex; flex-direction: column; flex: 1; gap: 12px; }
 /* Ghost editor: no border/background so it uses the full panel space. */

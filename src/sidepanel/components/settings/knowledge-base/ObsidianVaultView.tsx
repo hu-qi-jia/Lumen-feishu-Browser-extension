@@ -6,6 +6,7 @@ import SearchBox from '../../ui/SearchBox'
 import SegmentedTabs from '../../ui/SegmentedTabs'
 import ObsidianNoteDetail from './ObsidianNoteDetail'
 import { IconPlus, IconFileText } from '../../ui/icons'
+import IconButton from '../../ui/IconButton'
 import './ObsidianVaultView.css'
 
 interface Props {
@@ -80,7 +81,7 @@ export default function ObsidianVaultView({ settings }: Props) {
       <div className="kb-vault-head">
         <span className="kb-vault-name">{settings.obsidianVaultName || 'Obsidian'}</span>
         <Tooltip content="新建笔记" position="bottom">
-          <button className="kb-head-btn" onClick={() => setCreating(true)} type="button" aria-label="新建笔记"><IconPlus /></button>
+          <IconButton onClick={() => setCreating(true)} aria-label="新建笔记"><IconPlus /></IconButton>
         </Tooltip>
       </div>
 

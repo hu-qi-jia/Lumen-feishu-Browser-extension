@@ -24,6 +24,7 @@ import type { RecentFile } from '../../services/recentFiles'
 import { messagesForRetry } from '../../sessions/logic'
 import SkillSuggest from './SkillSuggest'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import './ChatPanel.css'
 
 interface Props {
@@ -384,22 +385,22 @@ export default function ChatPanel({
         />
         <div className="chat-topbar-actions">
           <Tooltip content="新建会话" position="left">
-            <button className="chat-topbar-btn" onClick={onNewSession} disabled={chatBusy} type="button" aria-label="新建会话">
+            <IconButton onClick={onNewSession} disabled={chatBusy} aria-label="新建会话">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />
                 <path d="M8 12h8" />
                 <path d="M12 8v8" />
               </svg>
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content="历史会话" position="left">
-            <button className="chat-topbar-btn" onClick={onOpenSessions} type="button" aria-label="历史会话">
+            <IconButton onClick={onOpenSessions} aria-label="历史会话">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
                 <path d="M12 7v5l4 2" />
               </svg>
-            </button>
+            </IconButton>
           </Tooltip>
         </div>
       </div>

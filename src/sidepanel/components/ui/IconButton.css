@@ -1,17 +1,29 @@
-/* ── Icon button (bare, hover-bg) ──────────────────────────────────────────
-   Shared by SessionDrawer row actions and Settings tab icon buttons.
-   Extracted from SessionDrawer.css so settings doesn't depend on drawer CSS. */
-
-.icon-action {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  color: var(--color-text-secondary);
+.icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background .15s ease, color .15s ease;
 }
-.icon-action svg { display: block; width: 14px; height: 14px; }
-.icon-action:hover { background: var(--color-surface-2); color: var(--color-text); }
+.icon-btn:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
+.icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+.icon-btn svg { display: block; width: 16px; height: 16px; }
+
+.icon-btn--md {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.icon-btn--active {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.icon-btn--active:hover:not(:disabled) { background: var(--color-primary-soft); }

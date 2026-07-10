@@ -18,6 +18,7 @@ import FormSelect from '../ui/FormSelect'
 import DocLinkField from '../session/DocLinkField'
 import Markdown from '../chat/Markdown'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import { IconX, KindIcon } from '../ui/icons'
 import './ClipPanel.css'
 
@@ -409,9 +410,9 @@ export default function ClipPanel({ settings, clip, error, disabled, onClose, re
       <div className="clip-head">
         <span className="clip-title">剪藏到飞书</span>
         <Tooltip content="关闭" position="bottom">
-          <button className="icon-action" onClick={() => { abortRef.current?.abort(); onClose() }} aria-label="关闭">
+          <IconButton onClick={() => { abortRef.current?.abort(); onClose() }} aria-label="关闭">
             <IconX />
-          </button>
+          </IconButton>
         </Tooltip>
       </div>
 

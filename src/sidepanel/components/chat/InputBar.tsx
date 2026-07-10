@@ -6,6 +6,7 @@ import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
 import Dropdown from '../ui/Dropdown'
 import { IconPlus, IconUpload, IconBook, IconSparkle } from '../ui/icons'
+import IconButton from '../ui/IconButton'
 import './InputBar.css'
 
 /** Draft key used when no working doc is resolved (e.g. a non-doc page). Keeps text typed in
@@ -299,16 +300,16 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               menuClassName="inputbar-plus-menu"
               trigger={
                 <Tooltip content="添加附件、工具">
-                  <button
-                    className={`btn-icon${plusOpen ? ' btn-icon--active' : ''}`}
+                  <IconButton
+                    size="md"
+                    active={plusOpen}
                     onClick={() => setPlusOpen((v) => !v)}
                     disabled={blocked}
-                    type="button"
                     aria-label="添加附件、工具"
                     tabIndex={-1}
                   >
                     <IconPlus width={16} height={16} />
-                  </button>
+                  </IconButton>
                 </Tooltip>
               }
             >

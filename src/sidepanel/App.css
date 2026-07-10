@@ -113,22 +113,6 @@
   gap: 5px;
 }
 
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  background: none;
-  border: none;
-  border-radius: 9px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: background .18s ease, color .18s ease, transform .18s ease;
-}
-.btn-icon:hover { background: var(--color-surface-2); color: var(--color-text); transform: translateY(-1px); }
-.btn-icon:active { transform: translateY(0); }
-
 /* ── Setup banner ── */
 .setup-banner {
   display: flex;

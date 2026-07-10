@@ -3,11 +3,11 @@ import type { AppSettings } from '@/shared/types'
 import FormSwitch from '../ui/FormSwitch'
 import { IconTrash } from '../ui/icons'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import { HelpIcon, TitleWithHelp } from './HelpIcon'
 import type { SettingsTabProps } from './types'
-import '../ui/IconButton.css'
 import { loadNewsSettings, saveNewsSettings } from '@/shared/news/store'
 import type { TranslationEngine } from '@/shared/news/types'
 import { clearRecipes, recipeCount } from '@/shared/ai/recipes'
@@ -75,14 +75,9 @@ export default function GeneralTab({ form, patch, policyLocks }: Props) {
               onChange={(checked) => patch({ learnFromHistory: checked })}
             />
             <Tooltip content="清空学到的经验" position="bottom">
-              <button
-                type="button"
-                className="icon-action"
-                aria-label="清空学到的经验"
-                onClick={() => void handleClearRecipes()}
-              >
+              <IconButton aria-label="清空学到的经验" onClick={() => void handleClearRecipes()}>
                 <IconTrash />
-              </button>
+              </IconButton>
             </Tooltip>
           </span>
         </div>

@@ -7,11 +7,11 @@ import { IconDownload, IconUpload } from '../ui/icons'
 import Button from '../ui/Button'
 import ConfirmDialog from '../chat/ConfirmDialog'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import SettingsSection from './SettingsSection'
 import SettingsSelect from './SettingsSelect'
 import { TitleWithHelp } from './HelpIcon'
 import type { ConfirmRequest } from '@/shared/ai/agent'
-import '../ui/IconButton.css'
 import {
   cleanupImpact,
   clearAllUserData,
@@ -129,24 +129,14 @@ export default function BackupTab() {
           </div>
           <span className="settings-row-control">
             <Tooltip content="导出备份" position="bottom">
-              <button
-                type="button"
-                className="icon-action"
-                aria-label="导出备份"
-                onClick={() => void handleExportBackup()}
-              >
+              <IconButton aria-label="导出备份" onClick={() => void handleExportBackup()}>
                 <IconDownload />
-              </button>
+              </IconButton>
             </Tooltip>
             <Tooltip content="从文件导入" position="bottom">
-              <button
-                type="button"
-                className="icon-action"
-                aria-label="从文件导入"
-                onClick={() => fileRef.current?.click()}
-              >
+              <IconButton aria-label="从文件导入" onClick={() => fileRef.current?.click()}>
                 <IconUpload />
-              </button>
+              </IconButton>
             </Tooltip>
             <input
               ref={fileRef}

@@ -1,9 +1,9 @@
 /* Base (多维表格) context — its OWN row directly under the chat topbar (only on a Base
    page). The topbar row above is untouched; this sits flush beneath it as a quiet info
    strip. The summary on the left is the field-detail trigger (click → full-width popover);
-   the icon actions on the right reuse `.chat-topbar-btn` and sit in a `.bcb-actions` group
-   whose 2px gap matches `.chat-topbar-actions`, so the buttons are identical to the topbar's
-   new/history buttons in size, icon ratio, and spacing. */
+   the icon actions on the right use the shared <IconButton> and sit in a `.bcb-actions`
+   group whose 2px gap matches `.chat-topbar-actions`, so the buttons are identical to the
+   topbar's new/history buttons in size, icon ratio, and spacing. */
 .bcb {
   flex-shrink: 0;
   background: var(--color-surface);
@@ -45,7 +45,7 @@
   animation: spin 0.8s linear infinite;
   flex-shrink: 0;
 }
-/* Spinner sized to sit inside a chat-topbar-btn (matches the 16px icons). */
+/* Spinner sized to sit inside an IconButton (matches the 16px icons). */
 .bcb-spinner--btn { width: 16px; height: 16px; }
 
 .bcb-text { color: var(--color-text-secondary); }
@@ -94,9 +94,7 @@
   gap: 2px;
   flex-shrink: 0;
 }
-/* Icon buttons never shrink/distort. */
-.bcb .chat-topbar-btn { flex-shrink: 0; }
-/* State tints for the reused topbar icon buttons (scoped to the base bar). */
+/* State tint for the export-done IconButton (scoped to the base bar). */
 .bcb .bcb-btn--success { color: var(--color-success); }
 
 /* ── Field popover — full width of the info bar ───────────────────────────── */

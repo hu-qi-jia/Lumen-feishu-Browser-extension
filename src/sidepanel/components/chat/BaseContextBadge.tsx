@@ -6,6 +6,7 @@ import { resolveToken } from '@/shared/feishu/auth'
 import type { AppSettings } from '@/shared/types'
 import { IconDownload, IconCheck, IconAlert, IconRefresh } from '../ui/icons'
 import Tooltip from '../ui/Tooltip'
+import IconButton from '../ui/IconButton'
 import './BaseContextBadge.css'
 
 interface Props {
@@ -26,7 +27,7 @@ type ExportState = 'idle' | 'loading' | 'done' | 'error'
  * Base (多维表格) context, rendered as its OWN row directly under the chat topbar (only on a
  * Base page). The topbar row above is left untouched. This row carries a one-line structural
  * summary (N tables · M fields) on the left — clicking it opens a full-width field popover —
- * and icon-only actions on the right that reuse `.chat-topbar-btn` so they match the topbar's
+ * and icon-only actions on the right use the shared <IconButton> so they match the topbar's
  * buttons (and 2px spacing) exactly. The table NAME is omitted (the doc-selector trigger
  * already shows it); the popover shows only the current table's field chips (header tags).
  */
@@ -105,9 +106,9 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
             <span className="bcb-text bcb-text--err">{readableError(error)}</span>
             <div className="bcb-spacer" />
             <Tooltip content="重新读取" position="left">
-              <button className="chat-topbar-btn" onClick={onRefresh} type="button" aria-label="重新读取">
+              <IconButton onClick={onRefresh} aria-label="重新读取">
                 <IconRefresh />
-              </button>
+              </IconButton>
             </Tooltip>
           </>
         ) : ctx ? (
@@ -131,11 +132,10 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
 
             <div className="bcb-actions">
               <Tooltip content={exportTooltip} position="left">
-                <button
-                  className={`chat-topbar-btn${exportState === 'done' ? ' bcb-btn--success' : ''}`}
+                <IconButton
+                  className={exportState === 'done' ? 'bcb-btn--success' : ''}
                   onClick={handleExport}
                   disabled={exportState === 'loading'}
-                  type="button"
                   aria-label="导出为模版"
                 >
                   {exportState === 'loading'
@@ -143,12 +143,12 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
                     : exportState === 'done'
                     ? <IconCheck />
                     : <IconDownload />}
-                </button>
+                </IconButton>
               </Tooltip>
               <Tooltip content="重新读取" position="left">
-                <button className="chat-topbar-btn" onClick={onRefresh} type="button" aria-label="重新读取">
+                <IconButton onClick={onRefresh} aria-label="重新读取">
                   <IconRefresh />
-                </button>
+                </IconButton>
               </Tooltip>
             </div>
           </>

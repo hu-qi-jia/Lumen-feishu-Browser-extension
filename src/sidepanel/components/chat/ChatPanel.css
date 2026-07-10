@@ -26,22 +26,6 @@
   text-overflow: ellipsis;
 }
 .chat-topbar-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-.chat-topbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: background .15s ease, color .15s ease;
-}
-.chat-topbar-btn:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text); }
-.chat-topbar-btn:disabled { opacity: .4; cursor: not-allowed; }
-.chat-topbar-btn svg { width: 16px; height: 16px; }
 
 /* Current page selection shown above the input (precise-edit context) */
 .selected-ctx {
