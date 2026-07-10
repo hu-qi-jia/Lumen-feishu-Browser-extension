@@ -14,8 +14,6 @@ export interface AutoDefaultInput {
   clip: boolean
   /** An answer is streaming — don't touch the view mid-flight. */
   chatStreaming: boolean
-  /** A scenario is creating — don't touch the view mid-flight. */
-  scenarioBusy: boolean
   /** One-tick suppress flag set after a new-session / follow-switch. */
   newSessionPin: boolean
   /** Has the initial auto-default already been settled? (the latch) */
@@ -44,7 +42,7 @@ export function decideAutoDefault(i: AutoDefaultInput): AutoDefaultResult {
   if (!i.ctxResolved) return WAIT
   if (i.alreadyDefaulted) return { tab: null, settled: true, consumePin: false }
   // Transient states — wait and re-evaluate next change, don't settle yet.
-  if (i.clip || i.chatStreaming || i.scenarioBusy) return WAIT
+  if (i.clip || i.chatStreaming) return WAIT
   // Terminal: whatever we decide now, settle so later context churn can't re-yank.
   if (i.currentTab === 'scenes' || i.currentTab === 'news') return { tab: null, settled: true, consumePin: false }
   if (i.hasConversation) return { tab: null, settled: true, consumePin: false }

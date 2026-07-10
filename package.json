@@ -18,7 +18,6 @@
     "screenshots:store": "node scripts/store-screenshots.mjs",
     "promo": "node scripts/promo-tile.mjs",
     "promo:marquee": "node scripts/promo-marquee.mjs",
-    "serve:templates": "node scripts/serve-templates.mjs",
     "icons": "node scripts/generate-icons.js",
     "prepare": "npm run icons",
     "test:render": "node scripts/render-test.mjs",

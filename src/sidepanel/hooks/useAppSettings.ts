@@ -33,7 +33,6 @@ export function useAppSettings(): AppSettingsApi {
         openaiApiKey: apiKey,
         feishuAccessToken: token,
         feishuOwnerOpenId: stored.feishuOwnerOpenId ?? '',
-        templateRegistryUrl: stored.templateRegistryUrl ?? '',
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
         llmSource: (stored.llmSource as AppSettings['llmSource']) ?? undefined,
@@ -66,7 +65,6 @@ export function useAppSettings(): AppSettingsApi {
         feishuAccessToken: encToken,
         // Not sensitive — persist as-is (these were silently dropped before).
         feishuOwnerOpenId: s.feishuOwnerOpenId,
-        templateRegistryUrl: s.templateRegistryUrl,
         learnFromHistory: s.learnFromHistory !== false,
         autoConfirm: s.autoConfirm === true,
         llmSource: s.llmSource, // managed/manual choice must persist (was dropped → switch never stuck)

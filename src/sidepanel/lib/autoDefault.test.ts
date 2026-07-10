@@ -9,7 +9,6 @@ const base = {
   currentTab: 'chat' as AppTab,
   clip: false,
   chatStreaming: false,
-  scenarioBusy: false,
   newSessionPin: false,
   alreadyDefaulted: false,
 }
@@ -55,10 +54,6 @@ describe('decideAutoDefault', () => {
 
   it('waits while an answer is streaming', () => {
     expect(decideAutoDefault({ ...base, chatStreaming: true, pageSupported: false }).settled).toBe(false)
-  })
-
-  it('waits while a scenario is busy', () => {
-    expect(decideAutoDefault({ ...base, scenarioBusy: true, pageSupported: false }).settled).toBe(false)
   })
 
   it('consumes the newSessionPin and settles without switching the view', () => {

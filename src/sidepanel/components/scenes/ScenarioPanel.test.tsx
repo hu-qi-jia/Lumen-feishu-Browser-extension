@@ -8,44 +8,12 @@ import ScenarioPanel from './ScenarioPanel'
 afterEach(cleanup)
 
 const ctx: PageContext = { url: '', title: '', selectedText: '' }
-const settings = { ...DEFAULT_SETTINGS, templateRegistryUrl: '' }
+const settings = { ...DEFAULT_SETTINGS }
 
-const realCard = (c: HTMLElement) => c.querySelector('.sc-card:not(.sc-card--skeleton)') as HTMLElement | null
-const enterGallery = (c: HTMLElement) => {
-  const card = Array.from(c.querySelectorAll('.hub-card--clickable'))
-    .find((el) => el.textContent?.includes('场景模版')) as HTMLElement
-  fireEvent.click(card)
-}
-
-describe('ScenarioPanel — feature hub + template gallery', () => {
-  it('lands on the hub with a template-library entry', () => {
+describe('ScenarioPanel — feature hub', () => {
+  it('lands on the hub with feature cards', () => {
     const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
     expect(container.querySelector('.hub-card--clickable')).toBeTruthy()
-  })
-
-  it('renders builtin template cards in the gallery', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
-    enterGallery(container)
-    await waitFor(() => expect(realCard(container)).toBeTruthy())
-  })
-
-  it('clicking anywhere on a card enters the detail/config view', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
-    enterGallery(container)
-    await waitFor(() => expect(realCard(container)).toBeTruthy())
-    fireEvent.click(realCard(container)!)
-    expect(container.querySelector('.topbar-title')).toBeTruthy()
-  })
-
-  it('detail is reachable even when disabled (browsing not gated), but 创建 is blocked', async () => {
-    const { container } = render(<ScenarioPanel settings={settings} context={ctx} disabled={true} recentFiles={[]} onGoToSettings={() => {}} />)
-    enterGallery(container)
-    await waitFor(() => expect(realCard(container)).toBeTruthy())
-    fireEvent.click(realCard(container)!)
-    expect(container.querySelector('.topbar-title')).toBeTruthy()
-    const createBtn = Array.from(container.querySelectorAll('button'))
-      .find((b) => /开始创建|请先配置/.test(b.textContent || '')) as HTMLButtonElement
-    expect(createBtn?.disabled).toBe(true)
   })
 
   // ── Context-aware hub: features that don't fit the current page are dimmed, not hidden ──
@@ -91,3 +59,4 @@ describe('ScenarioPanel — feature hub + template gallery', () => {
     vi.doUnmock('../../../shared/obsidian/api')
   })
 })
+

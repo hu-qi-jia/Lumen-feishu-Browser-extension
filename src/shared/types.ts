@@ -94,9 +94,6 @@ export interface AppSettings {
    * user's own drive. Obtained from authen/v1/user_info after OAuth.
    */
   feishuOwnerOpenId: string
-  /** Any reachable template registry URL — a single bundle .json, an index.json
-   *  directory base, or http://localhost for local testing. */
-  templateRegistryUrl: string
   /** "越用越聪明": remember successful operation patterns locally and feed the most
    *  relevant back into the prompt next time. Default on. */
   learnFromHistory?: boolean
@@ -167,7 +164,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openaiModel: DEFAULT_PROVIDER.models[0],
   feishuAccessToken: '',
   feishuOwnerOpenId: '',
-  templateRegistryUrl: '',
   learnFromHistory: true,
   autoConfirm: false,
   llmFormat: 'openai',

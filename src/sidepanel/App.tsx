@@ -67,7 +67,6 @@ export default function App() {
   const [clipError, setClipError] = useState<string | null>(null)
 
   const [chatStreaming, setChatStreaming] = useState(false)
-  const [scenarioBusy, setScenarioBusy] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   // Suppresses the auto-default yank for one tick after a new session / follow-switch (both
   // can flip the effective resource to an empty session on a non-supported page). Owned here
@@ -192,14 +191,13 @@ export default function App() {
       currentTab: tabRef.current,
       clip: !!(clip || clipError),
       chatStreaming,
-      scenarioBusy,
       newSessionPin: newSessionPinRef.current,
       alreadyDefaulted: autoDefaultDoneRef.current,
     })
     if (d.settled) autoDefaultDoneRef.current = true
     if (d.consumePin) newSessionPinRef.current = false
     if (d.tab) setTab(d.tab)
-  }, [ctxResolved, pageSupported, chatStreaming, scenarioBusy, clip, clipError])
+  }, [ctxResolved, pageSupported, chatStreaming, clip, clipError])
 
   // Network check + background-message routing (clip pushes + content-script context pushes).
   // Tab-follow listeners live in usePageContext; this only routes runtime messages.
@@ -306,8 +304,6 @@ export default function App() {
                     <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />
                   </svg>
                 ),
-                disabled: scenarioBusy,
-                disabledReason: '正在创建，请稍候…',
               },
               {
                 id: 'scenes',
@@ -427,7 +423,7 @@ export default function App() {
                   }}
                 />
               ) : (
-                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} onBusyChange={setScenarioBusy} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} onGoToSettings={() => setTab('settings')} />
+                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} onGoToSettings={() => setTab('settings')} />
               )}
             </div>
           </main>

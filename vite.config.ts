@@ -30,11 +30,9 @@ export default defineConfig(({ command, mode }) => {
   const llmHosts = (env.VITE_OPENAI_ALLOWED_HOSTS || '')
     .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
   const proxyOrigin = originOf((env.VITE_OAUTH_PROXY_URL || '').trim())
-  const registryOrigin = originOf((env.VITE_DEFAULT_REGISTRY_URL || '').trim())
 
   const connect = ["'self'", `https://*.${baseDomain}`]
   if (proxyOrigin) connect.push(proxyOrigin)
-  if (registryOrigin) connect.push(registryOrigin)
   // Knowledge Base (Obsidian Local REST API) — loopback HTTP egress. Default on
   // (VITE_KNOWLEDGE_BASE); a KB-disabled build keeps CSP fully https-only. Loopback-only,
   // cannot reach the public internet (enforced again in code by isObsidianOutboundAllowed).

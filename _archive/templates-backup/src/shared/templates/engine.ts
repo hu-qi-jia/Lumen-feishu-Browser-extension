@@ -32,7 +32,7 @@ function toApiField(f: TemplateFieldDef): API.FeishuField {
   return field
 }
 
-// ─── Main execution ───────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Main execution 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 export async function executeTemplate(
   template: ScenarioTemplate,
@@ -44,7 +44,7 @@ export async function executeTemplate(
   createDashboard?: (name: string) => Promise<string | null>,
   /** Current page URL (used as the "open" link when target=current_app). */
   currentAppUrl?: string,
-  /** Deprecated — kept for signature stability. Bases are created as the user now, so
+  /** Deprecated 鈥?kept for signature stability. Bases are created as the user now, so
    *  no ownership transfer is performed. */
   _ownerOpenId?: string
 ): Promise<CreationResult> {
@@ -56,19 +56,19 @@ export async function executeTemplate(
     {
       id: 'app',
       label: template.target === 'new_app'
-        ? `创建应用「${resolve(inputs.app_name ?? template.name, inputs)}」`
-        : '使用当前应用',
+        ? `鍒涘缓搴旂敤銆?{resolve(inputs.app_name ?? template.name, inputs)}銆峘
+        : '浣跨敤褰撳墠搴旂敤',
       status: 'pending',
     },
     ...template.tables.flatMap(t => [
-      { id: `tbl-${t.ref}`, label: `创建「${resolve(t.name, inputs)}」表`, status: 'pending' as const },
-      ...(t.views?.length ? [{ id: `view-${t.ref}`, label: `  添加视图`, status: 'pending' as const }] : []),
+      { id: `tbl-${t.ref}`, label: `鍒涘缓銆?{resolve(t.name, inputs)}銆嶈〃`, status: 'pending' as const },
+      ...(t.views?.length ? [{ id: `view-${t.ref}`, label: `  娣诲姞瑙嗗浘`, status: 'pending' as const }] : []),
       ...(t.sample_records?.length
-        ? [{ id: `rec-${t.ref}`, label: `  导入 ${t.sample_records.length} 条示例数据`, status: 'pending' as const }]
+        ? [{ id: `rec-${t.ref}`, label: `  瀵煎叆 ${t.sample_records.length} 鏉＄ず渚嬫暟鎹甡, status: 'pending' as const }]
         : []),
     ]),
     ...(hasDashboards
-      ? [{ id: 'dash', label: `创建并配置仪表盘（${template.dashboards!.length} 个）`, status: 'pending' as const }]
+      ? [{ id: 'dash', label: `鍒涘缓骞堕厤缃华琛ㄧ洏锛?{template.dashboards!.length} 涓級`, status: 'pending' as const }]
       : []),
   ]
 
@@ -78,31 +78,31 @@ export async function executeTemplate(
     onProgress([...steps])
   }
 
-  const tableMap: Record<string, string> = {}       // ref → table_id
-  // field ref maps for dashboard resolution: tableRef → fieldName → field_id
+  const tableMap: Record<string, string> = {}       // ref 鈫?table_id
+  // field ref maps for dashboard resolution: tableRef 鈫?fieldName 鈫?field_id
   const fieldIdMaps: Record<string, Record<string, string>> = {}
   let appToken: string
   let appName: string
   let appUrl = ''
 
-  // ── Step 1: App ──────────────────────────────────────────────────────────────
+  // 鈹€鈹€ Step 1: App 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   set('app', 'running')
   try {
     if (template.target === 'new_app') {
       appName = resolve(inputs.app_name ?? template.name, inputs)
-      // createApp returns the real Base URL on the tenant's domain — use it.
+      // createApp returns the real Base URL on the tenant's domain 鈥?use it.
       // Building "https://base.feishu.cn/base/<token>" by hand 404s.
       const res = await API.createApp(token, appName) as { app: { app_token: string; url?: string } }
       appToken = res.app.app_token
       appUrl = res.app.url ?? ''
-      // Created with the user's token → already owned by the user; no transfer needed.
+      // Created with the user's token 鈫?already owned by the user; no transfer needed.
     } else {
-      if (!currentAppToken) throw new Error('未检测到当前 Base 应用，请先打开一个多维表格页面')
+      if (!currentAppToken) throw new Error('鏈娴嬪埌褰撳墠 Base 搴旂敤锛岃鍏堟墦寮€涓€涓缁磋〃鏍奸〉闈?)
       appToken = currentAppToken
       const info = await API.getApp(token, appToken) as { app: { name: string } }
       appName = info.app.name
-      // getApp doesn't return url — reuse the page the user is already on.
+      // getApp doesn't return url 鈥?reuse the page the user is already on.
       appUrl = currentAppUrl ?? ''
     }
     set('app', 'done')
@@ -113,19 +113,18 @@ export async function executeTemplate(
 
   let totalRecords = 0
 
-  // ── Step 2: Tables + Fields + Views + Records ────────────────────────────────
+  // 鈹€鈹€ Step 2: Tables + Fields + Views + Records 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   for (const tableDef of template.tables) {
     const tableName = resolve(tableDef.name, inputs)
 
-    // Relation/lookup fields (18 单向关联 / 19 查找引用 / 21 双向关联) require a
-    // `property` pointing at a target table that templates can't express yet —
-    // creating them bare fails with "DuplexLink field property is null" and would
+    // Relation/lookup fields (18 鍗曞悜鍏宠仈 / 19 鏌ユ壘寮曠敤 / 21 鍙屽悜鍏宠仈) require a
+    // `property` pointing at a target table that templates can't express yet 鈥?    // creating them bare fails with "DuplexLink field property is null" and would
     // abort the whole table. Skip them defensively instead of tanking creation.
     const RELATION_TYPES = new Set([18, 19, 21])
     const usable = tableDef.fields.filter(f => {
       if (RELATION_TYPES.has(f.type) && !f.formula_expression) {
-        console.warn(`跳过模板「${tableDef.name}」的关联类字段「${f.name}」(type=${f.type})：模板暂不支持需 property 的关联/查找字段`)
+        console.warn(`璺宠繃妯℃澘銆?{tableDef.name}銆嶇殑鍏宠仈绫诲瓧娈点€?{f.name}銆?type=${f.type})锛氭ā鏉挎殏涓嶆敮鎸侀渶 property 鐨勫叧鑱?鏌ユ壘瀛楁`)
         return false
       }
       return true
@@ -148,13 +147,13 @@ export async function executeTemplate(
       set(`tbl-${tableDef.ref}`, 'done')
     } catch (err) {
       set(`tbl-${tableDef.ref}`, 'error', String(err))
-      // Don't lose what's already built — surface the (half-built) Base so the user
-      // can open it, see what's there, and补建 or delete it (no silent orphan).
-      const built = Object.entries(tableMap).map(([ref, id]) => `${ref}(${id})`).join('、') || '无'
-      const link = appUrl ? `\n已建好的应用：${appUrl}` : ''
+      // Don't lose what's already built 鈥?surface the (half-built) Base so the user
+      // can open it, see what's there, and琛ュ缓 or delete it (no silent orphan).
+      const built = Object.entries(tableMap).map(([ref, id]) => `${ref}(${id})`).join('銆?) || '鏃?
+      const link = appUrl ? `\n宸插缓濂界殑搴旂敤锛?{appUrl}` : ''
       throw new Error(
-        `创建数据表「${tableName}」失败：${err instanceof Error ? err.message : String(err)}。` +
-        `应用和前面的表已创建（${built}），未回滚。${link}\n可打开上面的应用查看，或删除后重试。`
+        `鍒涘缓鏁版嵁琛ㄣ€?{tableName}銆嶅け璐ワ細${err instanceof Error ? err.message : String(err)}銆俙 +
+        `搴旂敤鍜屽墠闈㈢殑琛ㄥ凡鍒涘缓锛?{built}锛夛紝鏈洖婊氥€?{link}\n鍙墦寮€涓婇潰鐨勫簲鐢ㄦ煡鐪嬶紝鎴栧垹闄ゅ悗閲嶈瘯銆俙
       )
     }
 
@@ -166,11 +165,11 @@ export async function executeTemplate(
         const fid = ('field' in res ? res.field?.field_id : undefined) ?? (res as { field_id?: string }).field_id
         if (fid) fieldIdMaps[tableDef.ref][f.name] = fid
       } catch {
-        // Formula field creation failure is non-fatal — expression may reference fields differently
+        // Formula field creation failure is non-fatal 鈥?expression may reference fields differently
       }
     }
 
-    // Build field name → id map from list (most reliable)
+    // Build field name 鈫?id map from list (most reliable)
     try {
       const fieldsRes = await API.listFields(token, appToken, tableId) as
         { items: Array<{ field_id: string; field_name: string }> }
@@ -192,7 +191,7 @@ export async function executeTemplate(
       }
     }
 
-    // Sample records — only write to fields that exist and are writable. Feishu
+    // Sample records 鈥?only write to fields that exist and are writable. Feishu
     // rejects the WHOLE batch with FieldNameNotFound (1254045) if any key is
     // unknown, and writing to formula/relation/auto/system fields also errors. So
     // filter against the real field names, dropping (and logging) anything else.
@@ -214,10 +213,10 @@ export async function executeTemplate(
         return { fields }
       })
       if (dropped.size) {
-        console.warn(`模板「${tableDef.name}」示例数据中丢弃了不可写/不存在的字段：${[...dropped].join('、')}`)
+        console.warn(`妯℃澘銆?{tableDef.name}銆嶇ず渚嬫暟鎹腑涓㈠純浜嗕笉鍙啓/涓嶅瓨鍦ㄧ殑瀛楁锛?{[...dropped].join('銆?)}`)
       }
       try {
-        // Verify against what was ACTUALLY created, not what we sent — Feishu can
+        // Verify against what was ACTUALLY created, not what we sent 鈥?Feishu can
         // create fewer than requested. Report the real count, not a virtual success.
         const res = (await API.batchCreateRecords(token, appToken, tableId, records)) as {
           records?: unknown[]
@@ -225,7 +224,7 @@ export async function executeTemplate(
         const created = res.records?.length ?? records.length
         totalRecords += created
         if (created < records.length) {
-          set(`rec-${tableDef.ref}`, 'done', `仅写入 ${created}/${records.length} 条`)
+          set(`rec-${tableDef.ref}`, 'done', `浠呭啓鍏?${created}/${records.length} 鏉)
         } else {
           set(`rec-${tableDef.ref}`, 'done')
         }
@@ -235,7 +234,7 @@ export async function executeTemplate(
     }
   }
 
-  // ── Step 3: Dashboards ───────────────────────────────────────────────────────
+  // 鈹€鈹€ Step 3: Dashboards 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
   const dashboardWarnings: string[] = []
   const dashboardsCreated: string[] = []
@@ -261,21 +260,18 @@ export async function executeTemplate(
           } catch { /* fall through to warning */ }
         }
 
-        // 飞书 OpenAPI 不支持程序化新建仪表盘或图表（.../dashboards/{id}/blocks 实测 404）。
-        // 表/字段/视图/数据都已建好，仪表盘和图表需在飞书里手动添加——这是飞书的限制，
-        // 不需要、也不要让用户去查 block_token。
-        if (!blockToken) {
-          dashboardWarnings.push(`仪表盘「${dash.name}」需在飞书里手动添加（飞书 API 不支持程序化创建仪表盘/图表）`)
+        // 椋炰功 OpenAPI 涓嶆敮鎸佺▼搴忓寲鏂板缓浠〃鐩樻垨鍥捐〃锛?../dashboards/{id}/blocks 瀹炴祴 404锛夈€?        // 琛?瀛楁/瑙嗗浘/鏁版嵁閮藉凡寤哄ソ锛屼华琛ㄧ洏鍜屽浘琛ㄩ渶鍦ㄩ涔﹂噷鎵嬪姩娣诲姞鈥斺€旇繖鏄涔︾殑闄愬埗锛?        // 涓嶉渶瑕併€佷篃涓嶈璁╃敤鎴峰幓鏌?block_token銆?        if (!blockToken) {
+          dashboardWarnings.push(`浠〃鐩樸€?{dash.name}銆嶉渶鍦ㄩ涔﹂噷鎵嬪姩娣诲姞锛堥涔?API 涓嶆敮鎸佺▼搴忓寲鍒涘缓浠〃鐩?鍥捐〃锛塦)
           continue
         }
         if (dash.blocks.length > 0) {
-          dashboardWarnings.push(`仪表盘「${dash.name}」的图表需在飞书里手动配置（飞书 API 不支持程序化创建图表）`)
+          dashboardWarnings.push(`浠〃鐩樸€?{dash.name}銆嶇殑鍥捐〃闇€鍦ㄩ涔﹂噷鎵嬪姩閰嶇疆锛堥涔?API 涓嶆敮鎸佺▼搴忓寲鍒涘缓鍥捐〃锛塦)
         }
       }
 
       set('dash', 'done',
-        dashboardsCreated.length > 0 ? `${dashboardsCreated.length} 个空仪表盘已建，图表需手动配置` :
-        dashboardWarnings.length > 0 ? '仪表盘需在飞书里手动加' : '无仪表盘'
+        dashboardsCreated.length > 0 ? `${dashboardsCreated.length} 涓┖浠〃鐩樺凡寤猴紝鍥捐〃闇€鎵嬪姩閰嶇疆` :
+        dashboardWarnings.length > 0 ? '浠〃鐩橀渶鍦ㄩ涔﹂噷鎵嬪姩鍔? : '鏃犱华琛ㄧ洏'
       )
     } catch (err) {
       set('dash', 'error', String(err))

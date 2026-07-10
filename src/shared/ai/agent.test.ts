@@ -43,7 +43,7 @@ describe('toolsForContext — exposes only the current resource\'s tools (+ core
 describe('buildSystemPrompt — static prefix is cache-stable across pages', () => {
   // Latency: DeepSeek/OpenAI prefix-cache the longest byte-stable prompt prefix. All STATIC
   // rules must sit before the dynamic「当前上下文」block so that chunk caches across turns.
-  const s = { openaiBaseUrl: '', openaiApiKey: '', openaiModel: '', feishuAccessToken: '', feishuOwnerOpenId: '', templateRegistryUrl: '' } as AppSettings
+  const s = { openaiBaseUrl: '', openaiApiKey: '', openaiModel: '', feishuAccessToken: '', feishuOwnerOpenId: '' } as AppSettings
   const baseCtx = (over: Partial<PageContext['feishu']>): PageContext => ({
     url: 'https://acme.feishu.cn/base/AppAAA', title: 't', selectedText: '',
     feishu: { isBase: true, appToken: 'AppAAA', tableId: 'tblAAA', ...over },

@@ -55,7 +55,7 @@ export async function buildBackup(opts: { includeSecrets: boolean; exportedAt: s
   // settings_v2 — non-secret fields always; secrets decrypted only when opted in.
   const s = (all['settings_v2'] || {}) as Record<string, string>
   const settings: Record<string, unknown> = {
-    openaiBaseUrl: s.openaiBaseUrl, openaiModel: s.openaiModel, templateRegistryUrl: s.templateRegistryUrl,
+    openaiBaseUrl: s.openaiBaseUrl, openaiModel: s.openaiModel,
     feishuOwnerOpenId: s.feishuOwnerOpenId, learnFromHistory: s.learnFromHistory,
     autoConfirm: s.autoConfirm, llmSource: s.llmSource, llmFormat: s.llmFormat,
   }
@@ -118,7 +118,7 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
     const next: Record<string, unknown> = {
       ...cur,
       openaiBaseUrl: pickStr('openaiBaseUrl'), openaiModel: pickStr('openaiModel'),
-      templateRegistryUrl: pickStr('templateRegistryUrl'), feishuOwnerOpenId: pickStr('feishuOwnerOpenId'),
+      feishuOwnerOpenId: pickStr('feishuOwnerOpenId'),
       learnFromHistory: pick('learnFromHistory'),
       autoConfirm: pick('autoConfirm'), llmSource: pick('llmSource'), llmFormat: pick('llmFormat'),
     }

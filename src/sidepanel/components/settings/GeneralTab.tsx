@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
-import FormInput from '../ui/FormInput'
 import FormSwitch from '../ui/FormSwitch'
 import { IconTrash } from '../ui/icons'
 import Tooltip from '../ui/Tooltip'
@@ -19,10 +18,9 @@ interface Props extends SettingsTabProps {
 
 const AUTO_CONFIRM_TIP = '删除文档行、字段、内容块及去重等操作不再确认。文件级删除始终拦截。'
 const TRANSLATION_TIP = 'Bing 翻译免费，AI 翻译使用已配置模型。翻译结果会缓存。'
-const REGISTRY_TIP = '留空使用内置模板库。支持 HTTPS 或本地测试地址，格式为单文件 bundle 或 index.json。'
 
-/** 通用 tab：删除自动确认、本地经验、模板库地址、GitHub Trending翻译、场景模板。 */
-export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
+/** 通用 tab：删除自动确认、本地经验、GitHub Trending翻译。 */
+export default function GeneralTab({ form, patch, policyLocks }: Props) {
   const [engine, setEngine] = useState<TranslationEngine>('bing')
   useEffect(() => { void loadNewsSettings().then((s) => setEngine(s.translationEngine)) }, [])
   const changeEngine = (value: string) => {
@@ -91,19 +89,6 @@ export default function GeneralTab({ form, patch, set, policyLocks }: Props) {
         {policyLocks.has('learnFromHistory') && (
           <p className="field-hint">（由企业策略锁定）</p>
         )}
-      </SettingsSection>
-
-      {/* ── 模板库地址 ── */}
-      <SettingsSection title={<TitleWithHelp title="模板库地址" tip={REGISTRY_TIP} />}>
-        <div className="settings-field">
-          <span className="settings-field-label">自定义模板库地址</span>
-          <FormInput
-            type="text"
-            value={form.templateRegistryUrl}
-            onChange={set('templateRegistryUrl')}
-            placeholder="https://… 或 http://localhost:8787/registry.json"
-          />
-        </div>
       </SettingsSection>
 
       {/* ── GitHub Trending翻译 ── */}
