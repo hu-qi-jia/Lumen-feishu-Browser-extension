@@ -1,8 +1,9 @@
 /* ── Skill editor (redesigned) ────────────────────────────────────────────
    Clean, flat writing surface for skill Markdown.
-   - minimal underlined tabs
+   - SegmentedTabs for edit/preview switch
+   - Button icons for helper actions
    - monospace editor with subtle focus ring
-   - compact collapsible help
+   - compact collapsible help that never overflows
    - flat bottom action bar */
 
 .sk-editor { padding-top: 6px; }
@@ -14,61 +15,50 @@
   padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border);
 }
+.sk-editor-tools { display: flex; align-items: center; gap: 2px; }
 
-/* Tabs — minimal underlined style */
-.sk-editor-tabs {
-  display: flex; align-items: center; gap: 0;
-  min-width: auto; padding: 0;
-  background: transparent; border: none; border-radius: 0;
-}
-.sk-editor-tabs .sc-target-opt {
-  position: relative;
-  padding: 4px 2px;
-  margin-right: 16px;
-  background: transparent; border: none; border-radius: 0;
-  box-shadow: none;
-  font-size: 13px; font-weight: 500;
-  color: var(--color-text-secondary);
-}
-.sk-editor-tabs .sc-target-opt::after {
-  content: '';
-  position: absolute; left: 0; right: 0; bottom: -9px; height: 2px;
-  background: var(--color-primary);
-  transform: scaleX(0);
-  transition: transform .15s ease;
-}
-.sk-editor-tabs .sc-target-opt--active {
-  color: var(--color-text); font-weight: 600; background: transparent; box-shadow: none;
-}
-.sk-editor-tabs .sc-target-opt--active::after { transform: scaleX(1); }
-.sk-editor-tabs .sc-target-opt:hover:not(.sc-target-opt--active) { color: var(--color-text); }
-
-/* Tool buttons — flat text buttons */
-.sk-editor-tools { display: flex; align-items: center; gap: 4px; }
-.sk-editor-tool-btn {
-  padding: 4px 8px;
-  border: none; border-radius: 6px;
-  background: transparent; color: var(--color-text-secondary);
-  font-size: 12px; font-weight: 500; cursor: pointer;
-  transition: background .15s, color .15s;
-}
-.sk-editor-tool-btn:hover { background: var(--color-surface); color: var(--color-text); }
-
-/* Format help card — flat */
+/* Format help card */
 .sk-editor-help {
   padding: 10px 12px;
-  border: 1px solid var(--color-border); border-radius: 8px;
+  border: 1px solid var(--color-border); border-radius: 10px;
   background: var(--color-surface);
 }
-.sk-editor-help-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--color-text); }
-.sk-editor-help-list {
-  margin: 0; padding-left: 16px;
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 16px;
+.sk-editor-help-title {
+  margin: 0 0 3px;
+  font-size: 12px; font-weight: 600; color: var(--color-text);
 }
-.sk-editor-help-list li { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
-.sk-editor-help-list code {
+.sk-editor-help-sub {
+  margin: 0 0 10px;
+  font-size: 11px; color: var(--color-text-secondary); line-height: 1.5;
+}
+.sk-editor-help-list {
+  margin: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sk-editor-help-item {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 11.5px; line-height: 1.5;
+}
+.sk-editor-help-field {
+  display: flex; align-items: center; gap: 5px;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.sk-editor-help-field code {
   background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 3px;
   font-size: 10.5px; color: var(--color-text);
+}
+.sk-editor-help-req {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(229, 72, 77, .1);
+  font-size: 10px; font-weight: 500; color: #c43a3f;
+}
+.sk-editor-help-desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 /* Main edit/preview area */

@@ -1,9 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import Markdown from '../chat/Markdown'
 import Button from '../ui/Button'
+import SegmentedTabs from '../ui/SegmentedTabs'
 import Tooltip from '../ui/Tooltip'
+import { IconHelpCircle, IconFilePlus } from '../ui/icons'
 import { validateSkillMarkdown, slugConflict, type UserSkill } from '@/shared/ai/userSkills'
 import './SkillEditor.css'
+
+const TAB_OPTIONS = [
+  { value: 'edit', label: '编辑' },
+  { value: 'preview', label: '预览' },
+] as const
 
 interface Props {
   initialMarkdown: string
@@ -37,14 +44,14 @@ parameters:
 
 /** 简单的 frontmatter 字段说明，折叠展示。 */
 const FIELD_DOCS = [
-  ['name', '技能显示名（必填）'],
-  ['slug', '工具标识，仅小写字母/数字/下划线，2-40 字符（必填）'],
-  ['description', '一句话描述，模型据此判断是否调用该技能（必填）'],
-  ['scope', 'any | doc | sheet —— 限定技能在哪种页面可用'],
-  ['icon', '图标名：sparkle / chart / report / file / book（可选）'],
-  ['category', '分类名（可选）'],
-  ['parameters', '参数列表，每项含 name/type/description/required/enum/default'],
-  ['{{param}}', '正文中用双花括号引用参数值，运行时被替换'],
+  { field: 'name', desc: '技能显示名', required: true },
+  { field: 'slug', desc: '工具标识，仅小写字母/数字/下划线，2-40 字符', required: true },
+  { field: 'description', desc: '一句话描述，模型据此判断是否调用该技能', required: true },
+  { field: 'scope', desc: 'any | doc | sheet —— 限定技能在哪种页面可用', required: false },
+  { field: 'icon', desc: '图标名：sparkle / chart / report / file / book', required: false },
+  { field: 'category', desc: '分类名，用于技能库分组展示', required: false },
+  { field: 'parameters', desc: '参数列表，每项含 name/type/description/required/enum/default', required: false },
+  { field: '{{param}}', desc: '正文中用双花括号引用参数值，运行时被替换', required: false },
 ]
 
 /**
@@ -105,40 +112,46 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
   return (
     <div className="sl-body sk-editor">
       <div className="sk-editor-head">
-        <div className="sc-target-opts sk-editor-tabs">
-          <button
-            type="button"
-            className={`sc-target-opt${tab === 'edit' ? ' sc-target-opt--active' : ''}`}
-            onClick={() => setTab('edit')}
-          >
-            编辑
-          </button>
-          <button
-            type="button"
-            className={`sc-target-opt${tab === 'preview' ? ' sc-target-opt--active' : ''}`}
-            onClick={() => setTab('preview')}
-          >
-            预览
-          </button>
-        </div>
+        <SegmentedTabs
+          options={TAB_OPTIONS.slice()}
+          value={tab}
+          onChange={(v) => setTab(v as 'edit' | 'preview')}
+        />
         <div className="sk-editor-tools">
-          <button type="button" className="sk-editor-tool-btn" onClick={() => setShowHelp((v) => !v)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<IconHelpCircle />}
+            onClick={() => setShowHelp((v) => !v)}
+          >
             {showHelp ? '收起说明' : '格式说明'}
-          </button>
-          <button type="button" className="sk-editor-tool-btn" onClick={insertTemplate}>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<IconFilePlus />}
+            onClick={insertTemplate}
+          >
             插入模板
-          </button>
+          </Button>
         </div>
       </div>
 
       {showHelp && (
         <div className="sk-editor-help">
-          <p className="sk-editor-help-title">Skill 由 frontmatter + 指令正文组成</p>
-          <ul className="sk-editor-help-list">
-            {FIELD_DOCS.map(([k, d]) => (
-              <li key={k}><code>{k}</code> — {d}</li>
+          <p className="sk-editor-help-title">Skill 格式参考</p>
+          <p className="sk-editor-help-sub">由 YAML frontmatter + Markdown 指令正文组成，保存后 Agent 即可按需调用。</p>
+          <dl className="sk-editor-help-list">
+            {FIELD_DOCS.map((item) => (
+              <div key={item.field} className="sk-editor-help-item">
+                <dt className="sk-editor-help-field">
+                  <code>{item.field}</code>
+                  {item.required && <span className="sk-editor-help-req">必填</span>}
+                </dt>
+                <dd className="sk-editor-help-desc">{item.desc}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </div>
       )}
 

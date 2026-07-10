@@ -1,0 +1,22 @@
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.back-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+.back-btn-icon {
+  width: 16px;
+  height: 16px;
+}
