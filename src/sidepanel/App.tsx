@@ -383,7 +383,6 @@ export default function App() {
                   theme={theme}
                   onThemeChange={setTheme}
                   onSave={onSaveSettings}
-                  onCancel={() => setTab('chat')}
                 />
               ) : tab === 'clip' ? (
                 <ClipPanel

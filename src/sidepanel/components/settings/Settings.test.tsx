@@ -14,7 +14,6 @@ function renderSettings(overrides: Partial<Parameters<typeof Settings>[0]> = {})
     theme: 'light' as const,
     onThemeChange: vi.fn(),
     onSave: vi.fn(),
-    onCancel: vi.fn(),
     ...overrides,
   }
   return { ...render(<Settings {...props} />), props }

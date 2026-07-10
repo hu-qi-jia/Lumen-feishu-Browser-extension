@@ -8,8 +8,6 @@ import KnowledgeBaseTab from './KnowledgeBaseTab'
 import BackupTab from './BackupTab'
 import AppearanceTab from './AppearanceTab'
 import SettingsTabs from './SettingsTabs'
-import Button from '../ui/Button'
-import Tooltip from '../ui/Tooltip'
 import type { SettingsTabId } from './types'
 import './Settings.css'
 
@@ -30,7 +28,6 @@ interface Props {
   theme: 'light' | 'dark'
   onThemeChange: (theme: 'light' | 'dark') => void
   onSave: (s: AppSettings) => void
-  onCancel: () => void
 }
 
 export default function Settings({
@@ -40,7 +37,6 @@ export default function Settings({
   theme,
   onThemeChange,
   onSave,
-  onCancel,
 }: Props) {
   const [form, setForm] = useState<AppSettings>({ ...settings })
   const [tab, setTab] = useState<SettingsTabId>('general')
@@ -121,20 +117,6 @@ export default function Settings({
             onThemeChange={onThemeChange}
           />
         )}
-      </div>
-
-      <div className="settings-footer">
-        <Tooltip content="当前运行的扩展版本（用于确认是否已加载新构建）" position="top">
-          <span className="settings-version">
-            v
-            {typeof chrome !== 'undefined' && chrome.runtime?.getManifest
-              ? chrome.runtime.getManifest().version
-              : 'dev'}
-          </span>
-        </Tooltip>
-        <Button variant="secondary" onClick={() => { void onSave(form); onCancel() }}>
-          完成
-        </Button>
       </div>
     </div>
   )
