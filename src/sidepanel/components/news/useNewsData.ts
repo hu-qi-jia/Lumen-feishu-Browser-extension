@@ -15,6 +15,7 @@ export function useNewsData() {
   const [settings, setSettings] = useState<NewsSettings>({ ...DEFAULT_NEWS_SETTINGS, enabled: { ...DEFAULT_NEWS_SETTINGS.enabled } })
   const [refreshing, setRefreshing] = useState<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
   const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState<string | null>(null)
   // In-flight guard (ref, not state) so a double-click doesn't fire two SW messages.
   const inFlightRef = useRef<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
   const translatingRef = useRef(false)
@@ -85,11 +86,26 @@ export function useNewsData() {
     if (translatingRef.current) return
     translatingRef.current = true
     setTranslating(true)
+    setTranslateError(null)
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'NEWS_TRANSLATE' }) as RefreshResp
-      if (resp?.ok && resp.cache) setCache(resp.cache)
-    } catch { /* SW may be mid-startup */ }
-    finally {
+      // Race the SW response against a timeout: if the SW was terminated mid-translate
+      // (MV3 lifecycle) or never responds, the Promise would otherwise hang forever,
+      // leaving the button stuck in loading and all subsequent clicks ignored.
+      const resp = await Promise.race([
+        chrome.runtime.sendMessage({ type: 'NEWS_TRANSLATE' }) as Promise<RefreshResp>,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 30_000)),
+      ])
+      if (resp?.ok && resp.cache) {
+        setCache(resp.cache)
+        setTranslateError(null)
+      } else if (resp === null) {
+        setTranslateError('翻译超时，请重试')
+      } else {
+        setTranslateError('翻译失败，请稍后重试')
+      }
+    } catch {
+      setTranslateError('翻译服务暂不可用，请稍后重试')
+    } finally {
       translatingRef.current = false
       setTranslating(false)
     }
@@ -100,5 +116,5 @@ export function useNewsData() {
     await saveNewsSettings(next)
   }, [])
 
-  return { cache, settings, refreshing, translating, refresh, translate, updateSettings }
+  return { cache, settings, refreshing, translating, translateError, refresh, translate, updateSettings }
 }

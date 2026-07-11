@@ -303,19 +303,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'NEWS_TRANSLATE') return undefined
   void (async () => {
-    const settings = await loadNewsSettings()
-    if (settings.translationEngine === 'off') {
-      try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
-      return
+    try {
+      const settings = await loadNewsSettings()
+      if (settings.translationEngine === 'off') {
+        sendResponse({ ok: true, cache: await loadNewsCache() })
+        return
+      }
+      const newsCache = await loadNewsCache()
+      const gh = newsCache.github
+      if (gh?.items.length) {
+        const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
+        await translateDescriptions(settings.translationEngine, gh.items, app ?? undefined).catch(() => {})
+        await saveNewsCacheEntry('github', { items: gh.items, fetchedAt: gh.fetchedAt }).catch(() => {})
+      }
+      sendResponse({ ok: true, cache: await loadNewsCache() })
+    } catch {
+      // Any unexpected failure must still respond so the panel's sendMessage
+      // Promise resolves — otherwise the translate button stays stuck in loading.
+      try { sendResponse({ ok: false }) } catch { /* channel already closed */ }
     }
-    const newsCache = await loadNewsCache()
-    const gh = newsCache.github
-    if (gh?.items.length) {
-      const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
-      await translateDescriptions(settings.translationEngine, gh.items, app ?? undefined).catch(() => {})
-      await saveNewsCacheEntry('github', { items: gh.items, fetchedAt: gh.fetchedAt })
-    }
-    try { sendResponse({ ok: true, cache: await loadNewsCache() }) } catch { sendResponse({ ok: false }) }
   })()
   return true // async sendResponse
 })

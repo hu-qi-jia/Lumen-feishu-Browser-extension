@@ -15,6 +15,8 @@ interface Props {
   /** Show the translate button (GitHub tab + translation not disabled). */
   showTranslate?: boolean
   translating?: boolean
+  /** Last translate error message; shown as the tooltip until cleared. */
+  translateError?: string | null
   onTranslate?: () => void
 }
 
@@ -41,7 +43,7 @@ const INTERVAL_OPTIONS: { value: NewsInterval; label: string }[] = [
  *  the Dropdown component (the same popup used by DocSelector in the chat topbar). */
 export default function NewsRefreshBar({
   refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh,
-  showTranslate = false, translating = false, onTranslate,
+  showTranslate = false, translating = false, translateError, onTranslate,
 }: Props) {
   const [open, setOpen] = useState(false)
   const currentLabel = INTERVAL_OPTIONS.find((o) => o.value === interval)?.label ?? `${interval} 分钟`
@@ -108,10 +110,13 @@ export default function NewsRefreshBar({
           </button>
         </Tooltip>
         {showTranslate && onTranslate && (
-          <Tooltip content={translating ? '翻译中…' : '翻译项目描述'} position="bottom">
+          <Tooltip
+            content={translateError ? `翻译失败：${translateError}` : (translating ? '翻译中…' : '翻译项目描述')}
+            position="bottom"
+          >
             <button
               type="button"
-              className={`news-translate-btn${translating ? ' is-translating' : ''}`}
+              className={`news-translate-btn${translating ? ' is-translating' : ''}${translateError ? ' has-error' : ''}`}
               onClick={onTranslate}
               disabled={translating}
               aria-label="翻译项目描述"
