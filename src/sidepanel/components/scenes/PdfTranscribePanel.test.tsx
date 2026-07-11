@@ -8,8 +8,8 @@ const mockPolish = vi.fn()
 vi.mock('@/shared/ai/mdPolish', () => ({ polishMarkdown: mockPolish }))
 const mockListBlocks = vi.fn(); const mockInsertContent = vi.fn()
 vi.mock('@/shared/feishu/docx', () => ({
-  markdownToBlocks: vi.fn((md: string) => [{ text: md, style: 'text' as const }]),
-  insertContentBlocks: mockInsertContent, listBlocks: mockListBlocks,
+  markdownToSegments: vi.fn((md: string) => [{ kind: 'blocks', specs: [{ text: md, style: 'text' as const }] }]),
+  insertSegments: mockInsertContent, listBlocks: mockListBlocks,
 }))
 const mockResolveToken = vi.fn()
 vi.mock('@/shared/feishu/auth', () => ({ resolveToken: mockResolveToken }))

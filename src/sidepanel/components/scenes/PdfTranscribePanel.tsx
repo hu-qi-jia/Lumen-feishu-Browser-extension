@@ -3,7 +3,7 @@ import type { AppSettings, PageContext } from '@/shared/types'
 import type { RecentFile } from '../../services/recentFiles'
 import { resolveToken } from '@/shared/feishu/auth'
 import { polishMarkdown } from '@/shared/ai/mdPolish'
-import { markdownToBlocks, insertContentBlocks, listBlocks } from '@/shared/feishu/docx'
+import { markdownToSegments, insertSegments, listBlocks } from '@/shared/feishu/docx'
 import { cleanMarkdown, normalizeHeadingLevels } from '@/shared/mdClean'
 import { openUrlInNewTab } from '@/shared/url'
 import { loadPdfs, savePdf, deletePdf, type SavedPdf } from '../../lib/pdfHistory'
@@ -143,7 +143,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
       // block comes back without a `children` array (or with `[]`); that's a valid empty document,
       // not an error — insert at index 0 (the start). Only the truly-missing-root case throws.
       if (!root) throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
-      await insertContentBlocks(token, doc, markdownToBlocks(editMd), root.children?.length ?? 0)
+      await insertSegments(token, doc, markdownToSegments(editMd), root.children?.length ?? 0)
       setInfo(`已写入「${target.title}」末尾。`)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

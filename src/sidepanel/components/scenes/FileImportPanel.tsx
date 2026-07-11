@@ -4,7 +4,7 @@ import type { ClipCapture } from '@/shared/clip/types'
 import { fileToClip } from '@/shared/clip/file'
 import { resolveToken } from '@/shared/feishu/auth'
 import { formatMarkdown } from '@/shared/ai/mdPolish'
-import { markdownToBlocks, insertContentBlocks, listBlocks } from '@/shared/feishu/docx'
+import { markdownToSegments, insertSegments, listBlocks } from '@/shared/feishu/docx'
 import { openUrlInNewTab } from '@/shared/url'
 import type { RecentFile } from '../../services/recentFiles'
 import { loadFileImports, saveFileImport, deleteFileImport, type SavedFileImport } from '../../lib/fileImportHistory'
@@ -99,7 +99,7 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
       const v = await listBlocks(token, doc)
       const root = (v.items as Array<{ block_id?: string; children?: string[] }>).find((b) => b.block_id === doc)
       if (!root) throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
-      await insertContentBlocks(token, doc, markdownToBlocks(md), root.children?.length ?? 0)
+      await insertSegments(token, doc, markdownToSegments(md), root.children?.length ?? 0)
       setInfo(`已写入「${target.title}」末尾。`)
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : String(e))
