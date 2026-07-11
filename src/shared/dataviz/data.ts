@@ -3,7 +3,7 @@ import { resolveToken } from '../feishu/auth'
 import { fetchBaseCtx } from '../feishu/context'
 import { fetchAllRecords, cellToString } from '../feishu/compose'
 import { readRange, listSheets } from '../feishu/sheets'
-import type { VizSource, VizData, VizField, VizDataset } from './types'
+import type { VizSource, VizData, VizField } from './types'
 
 /** A1 column letter for a 1-based column index (1→A, 27→AA), clamped to a sane max. */
 const colLetter = (n: number): string => {
@@ -77,13 +77,6 @@ function baseRecordsToRows(records: Array<{ record_id?: string; fields?: unknown
   })
 }
 
-/** Doc identity (for fetchDocDatasets) extracted from a viz's primary source. */
-export function docOf(source: VizSource): { kind: 'base'; appToken: string; tableId: string } | { kind: 'sheet'; spreadsheetToken: string } {
-  return source.kind === 'base'
-    ? { kind: 'base', appToken: source.appToken, tableId: source.tableId }
-    : { kind: 'sheet', spreadsheetToken: source.spreadsheetToken }
-}
-
 /** Derive a viz source from the current Feishu page context (Base table or first worksheet). */
 export async function deriveVizSource(
   settings: AppSettings,
@@ -130,75 +123,4 @@ export async function fetchVizData(settings: AppSettings, source: VizSource, cap
   // Sheet: first row = headers, rest = data.
   const res = (await readRange(token, source.spreadsheetToken, source.range)) as { valueRange?: { values?: unknown[][] } }
   return sheetValuesToData(res.valueRange?.values ?? [], cap)
-}
-
-/**
- * Fetch EVERY sub-table of the doc (all Base data-tables / all Spreadsheet worksheets) so a
- * generated site can LINK them. The primary (current) sub-table is index 0. Capped to keep the
- * payload sane — callers pass a small cap for the codegen sample, a larger one for the render.
- */
-export async function fetchDocDatasets(
-  settings: AppSettings,
-  doc: { kind: 'base'; appToken: string; tableId?: string } | { kind: 'sheet'; spreadsheetToken: string },
-  capPerTable = 1000,
-  maxTables = 6,
-): Promise<VizDataset[]> {
-  const token = await resolveToken(settings)
-  const out: VizDataset[] = []
-
-  if (doc.kind === 'base') {
-    const ctx = await fetchBaseCtx(token, doc.appToken, doc.tableId)
-    const curId = doc.tableId || ctx.currentTableId
-    // Respect the maxTables cap but ALWAYS include the current table — fetchBaseCtx appends it
-    // beyond the top-6, so a plain slice(0,6) would DROP it and the site/report would be built
-    // on the wrong (first) table.
-    let tables = ctx.tables.slice(0, maxTables)
-    if (curId && !tables.some((t) => t.tableId === curId)) {
-      const cur = ctx.tables.find((t) => t.tableId === curId)
-      if (cur) tables = [...tables, cur]
-    }
-    // Sub-tables are independent reads → fetch them concurrently (Promise.all preserves order,
-    // so the current-table-first reorder below still works). Was a sequential for-of = sum of
-    // every table's paginated fetch time.
-    const built = (await Promise.all(
-      tables.map(async (t) => {
-        const schema = (t.fields ?? []).map((f) => ({ name: f.fieldName, type: f.typeName }))
-        if (!schema.length) return null
-        const records = await fetchAllRecords(token, doc.appToken, t.tableId, capPerTable)
-        const rows = baseRecordsToRows(records, schema)
-        return { ds: { name: t.tableName, schema: attachSamples(schema, rows), rows }, tableId: t.tableId }
-      })
-    )).filter((b): b is { ds: VizDataset; tableId: string } => b !== null)
-    // Put the current table first (match by tableId — table names aren't unique) so datasets[0]
-    // / `data` is what the user is looking at.
-    const ci = built.findIndex((b) => b.tableId === curId)
-    if (ci > 0) built.unshift(...built.splice(ci, 1))
-    return dedupeNames(built.map((b) => b.ds))
-  }
-
-  const meta = (await listSheets(token, doc.spreadsheetToken)) as {
-    sheets?: Array<{ sheet_id?: string; sheetId?: string; title?: string; grid_properties?: { row_count?: number; column_count?: number } }>
-  }
-  for (const s of (meta.sheets ?? []).slice(0, maxTables)) {
-    const sid = s.sheet_id || s.sheetId
-    if (!sid) continue
-    const res = (await readRange(token, doc.spreadsheetToken, sheetRange(sid, s.grid_properties, capPerTable))) as { valueRange?: { values?: unknown[][] } }
-    const { schema, rows } = sheetValuesToData(res.valueRange?.values ?? [], capPerTable)
-    if (!schema.length) continue // skip empty worksheets
-    out.push({ name: s.title || sid, schema, rows })
-  }
-  return dedupeNames(out)
-}
-
-/** Ensure dataset names are unique (Feishu allows duplicate table / worksheet names) so the
- *  generated site's BY-NAME dataset map (Object.fromEntries(ds.map(d => [d.name, d.rows]))) can't
- *  silently drop a collision (last-wins) or feed the wrong table's rows. */
-function dedupeNames(list: VizDataset[]): VizDataset[] {
-  const seen = new Map<string, number>()
-  return list.map((d) => {
-    const base = d.name || '未命名'
-    const n = (seen.get(base) ?? 0) + 1
-    seen.set(base, n)
-    return n === 1 ? { ...d, name: base } : { ...d, name: `${base} (${n})` }
-  })
 }

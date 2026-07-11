@@ -93,13 +93,11 @@ async function resolvePage(): Promise<Ctx> {
 export async function refreshLauncher() {
   const myRun = ++runSeq
   const f = await resolvePage()
-  // Per data-table (vizMatchesCtx); ctxDocKey just gates "on a Base/Sheet page at all". A MULTI-
-  // table site spans the whole doc, so show its pill on ANY table of that Base — not just the one
-  // table it was generated from (otherwise a multi-table 建站 vanishes the moment you switch table).
+  // Per data-table (vizMatchesCtx); ctxDocKey just gates "on a Base/Sheet page at all".
   const matches = ctxDocKey(f)
     ? (await loadVizList()).filter((v) => savedVizMatchesCtx(v, f))
     : []
-  // Saved PPT decks live in a SEPARATE store — surface them as pills too, so图表/看板/网站/PPT
+  // Saved PPT decks live in a SEPARATE store — surface them as pills too, so图表/看板/PPT
   // all get a one-click launcher on the page (not "open the matching extension tab"). Decks are
   // scoped by srcKey (= ctxScopeKey), matching how SlidesPanel filters its list.
   const deckKey = deckScopeKey(f)

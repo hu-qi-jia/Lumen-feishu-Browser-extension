@@ -66,7 +66,7 @@ function showError(msg: string) {
   errEl.textContent = '渲染失败：\n' + msg
 }
 
-// ── User-adjustable accent color (PPT / 网站 / 看板 / 图表) ───────────────────
+// ── User-adjustable accent color (PPT / 看板 / 图表) ───────────────────
 // The overlay's 配色 control posts DATAVIZ_ACCENT; we re-theme the design-system vars (--p…) and
 // the chart palette live. Persists across re-renders (a regenerate keeps the chosen color).
 const DEFAULT_PALETTE = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
@@ -615,29 +615,6 @@ function runSpec(container: HTMLElement, spec: VizSpec, data: unknown, theme: st
   } else if (spec.kind === 'slides') {
     // data carries the table rows (for embed slides); ui.slides renders the deck reliably.
     ui.slides(container, spec.slides as SlideSpec[], (Array.isArray(data) ? data : []) as Rows)
-  } else if (spec.kind === 'site') {
-    // Use the SAME design-system classes the codegen path is told to use (buildSiteCheatsheet /
-    // sandbox/index.html <style id="ds">): .site / .nav>.brand / .hero(h1/p) / .section>.section-title/.section-sub.
-    const wrap = document.createElement('div'); wrap.className = 'site'
-    if (spec.title) { const nav = document.createElement('div'); nav.className = 'nav'; nav.innerHTML = `<span class="brand">${esc(spec.title)}</span>`; wrap.appendChild(nav) }
-    for (const s of spec.sections) {
-      const sec = document.createElement('div')
-      if (s.type === 'hero') {
-        sec.className = 'hero'
-        sec.innerHTML = (s.title ? `<h1>${esc(s.title)}</h1>` : '') + (s.subtitle ? `<p>${esc(s.subtitle)}</p>` : '') + (s.body ? `<p>${esc(s.body)}</p>` : '')
-      } else {
-        sec.className = 'section'
-        sec.innerHTML =
-          (s.title ? `<div class="section-title">${esc(s.title)}</div>` : '') +
-          (s.subtitle ? `<div class="section-sub">${esc(s.subtitle)}</div>` : '') +
-          (s.body ? `<p>${esc(s.body)}</p>` : '')
-      }
-      wrap.appendChild(sec)
-    }
-    const mount = document.createElement('div'); mount.className = 'section'
-    wrap.appendChild(mount)
-    container.appendChild(wrap)
-    ui.dashboard(mount, dashToUi(spec.dashboard, rows))
   }
 }
 

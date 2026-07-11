@@ -9,7 +9,7 @@ import { NO_REMOTE_CODE } from '@/shared/config'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 import type { AppSettings, DocSelectionPayload } from '@/shared/types'
 import { decryptField } from '@/shared/crypto'
-import { fetchVizData, fetchDocDatasets, docOf } from '@/shared/dataviz/data'
+import { fetchVizData } from '@/shared/dataviz/data'
 import { loadVizList } from '@/shared/dataviz/store'
 import { loadDecks } from '@/shared/ai/slidesStore'
 import { resolveToken } from '@/shared/feishu/auth'
@@ -113,23 +113,14 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       if (!settings) return
       const viz = (await loadVizList()).find((v) => v.id === msg.vizId)
       if (!viz) return
-      // Multi-sheet site → re-fetch ALL sub-tables; otherwise just the one source.
-      let dataRows: unknown[]
-      let datasets: Record<string, unknown[]> | undefined
-      let fieldTypes: Record<string, string> | undefined
-      if (viz.multi) {
-        const ds = await fetchDocDatasets(settings, docOf(viz.source), 1000)
-        dataRows = ds[0]?.rows ?? []
-        datasets = Object.fromEntries(ds.map((d) => [d.name, d.rows]))
-      } else {
-        const vd = await fetchVizData(settings, viz.source, 2000)
-        dataRows = vd.rows
-        // Column types so edited cells coerce to the right write-back type (else batch rejected).
-        fieldTypes = vd.schema.length ? Object.fromEntries(vd.schema.map((f) => [f.name, f.type])) : undefined
-      }
-      // Single-table Base saved site → pass source so the overlay enables editable write-back.
-      const source = !viz.multi && viz.source.kind === 'base' ? viz.source : undefined
-      chrome.tabs.sendMessage(tabId, { type: 'DATAVIZ_RENDER', vizId: viz.id, code: viz.code, spec: viz.spec, data: dataRows, datasets, name: viz.name, theme: 'light', source, fieldTypes: source ? fieldTypes : undefined }).catch(() => {})
+      // Re-fetch the LIVE rows for the viz's source table.
+      const vd = await fetchVizData(settings, viz.source, 2000)
+      const dataRows = vd.rows
+      // Column types so edited cells coerce to the right write-back type (else batch rejected).
+      const fieldTypes = vd.schema.length ? Object.fromEntries(vd.schema.map((f) => [f.name, f.type])) : undefined
+      // Single-table Base → pass source so the overlay enables editable write-back.
+      const source = viz.source.kind === 'base' ? viz.source : undefined
+      chrome.tabs.sendMessage(tabId, { type: 'DATAVIZ_RENDER', vizId: viz.id, code: viz.code, spec: viz.spec, data: dataRows, name: viz.name, theme: 'light', source, fieldTypes: source ? fieldTypes : undefined }).catch(() => {})
     } catch { /* surfaced as no overlay; the pill stays */ }
   })()
   return undefined
@@ -271,7 +262,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     return
   }
   if (alarm.name === CLEANUP_ALARM) {
-    // 定期清理：清掉除配置/凭证外的全部用户数据（会话/PPT/建站/PDF/图片/经验/缓存），不可逆。
+    // 定期清理：清掉除配置/凭证外的全部用户数据（会话/PPT/PDF/图片/经验/缓存），不可逆。
     void (async () => {
       await clearAllUserData()
       const cs = await loadCleanupSettings()

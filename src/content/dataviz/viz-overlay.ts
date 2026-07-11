@@ -28,7 +28,7 @@ interface Overlay {
   nonce: string
   ready: boolean
   pending: Payload | null
-  /** Set for a single-table Base site → write-back target for the 提交 button. */
+  /** Set for a single-table Base page → write-back target for the 提交 button. */
   source?: VizBaseSource
   /** Latest pending edits the sandbox staged (cached so the 提交 button can send them). */
   pendingEdits?: Edit[]
@@ -110,7 +110,7 @@ function ensure(id: string): Overlay {
     catch { if (ov.submitTimer) clearTimeout(ov.submitTimer); submit.disabled = false; submit.textContent = `提交 ${ov.pendingEdits.length} 项修改` }
   }
   // 配色调整：a popover with the 7 brand presets + a custom color picker + reset. Picking a
-  // color re-themes the rendered PPT / 网站 / 看板 / 图表 live (design-system vars + chart palette).
+  // color re-themes the rendered PPT / 看板 / 图表 live (design-system vars + chart palette).
   const sendAccent = (color: string | null) => overlays.get(id)?.iframe.contentWindow?.postMessage({ type: 'DATAVIZ_ACCENT', color }, '*')
   const pop = document.createElement('div')
   pop.style.cssText = 'display:none;position:absolute;top:44px;right:8px;z-index:' + (zTop + 1) + ';background:#fff;border:1px solid #e3e6ef;border-radius:10px;box-shadow:0 8px 24px rgba(20,23,40,.18);padding:10px;width:196px;cursor:default;'

@@ -3,7 +3,7 @@ import { NO_REMOTE_CODE } from '../config'
 import type { VizField } from '../dataviz/types'
 import type { VizSpec } from '../dataviz/spec'
 import { validateSpec, referencedFields } from '../dataviz/spec'
-import { chatComplete, chatCompleteStream } from './llm'
+import { chatCompleteStream } from './llm'
 import { stripFences as fences } from './text'
 import { sanitizeForLlm } from './redact'
 
@@ -18,18 +18,6 @@ function buildSpecPrompt(schema: VizField[], sampleRows: Record<string, string>[
     `· 纯明细表：{"kind":"table","columns":[{"key":"真实字段","label":""}],"pageSize":20,"search":true,"actions":[{"label":"建任务","template":"跟进 {字段} 的 {字段}"}]}\n` +
     `【规则】dimension/field/filters/columns.key 只用【字段】里**真实存在**的字段名；聚合 op 只用 count/countDistinct/sum/avg/min/max；图表类型只用 bar/line/pie/scatter；不编造数据。可选 measure.where 过滤：[{"field":"","op":"eq|ne|gt|gte|lt|lte|contains|in","value":""}]。\n` +
     `只输出那个 JSON 对象本身，不要任何解释、前言或代码围栏。\n` +
-    `\n【字段】${fieldList(schema)}\n\n【样本数据（前 ${sampleRows.length} 行）】\n${sanitizeForLlm(JSON.stringify(sampleRows))}\n\n【需求】${request}`
-  )
-}
-
-/** Declarative-spec SITE prompt: a SiteSpec = static text sections + one dashboard. */
-function buildSiteSpecPrompt(schema: VizField[], sampleRows: Record<string, string>[], request: string, planText?: string): string {
-  return (
-    `你是数据网站生成器。根据【字段】【样本】【需求】，输出 JSON：{"title":"标题","spec":{"kind":"site","title":"页面标题","sections":[{"type":"hero","title":"","subtitle":""},{"type":"section","title":"","body":"纯文本说明"}],"dashboard":<看板规格>}}。\n` +
-    `sections 仅**静态文本**(hero/section，body 为纯文本)；数据区全部放进 dashboard。\n` +
-    `dashboard 规格：{"kind":"dashboard","filters":["字段"…],"kpis":[{"label":"","value":{"op":"sum","field":"金额"}}…],"charts":[{"title":"","chartType":"bar|line|pie","series":{"dimension":"字段","measure":{"op":"count|sum","field":""}}}…],"table":{"columns":[{"key":"真实字段"}],"pageSize":20}}\n` +
-    `【规则】只用真实存在的字段名；op 只用 count/countDistinct/sum/avg/min/max；图表只用 bar/line/pie/scatter；不编造数据。只输出该 JSON，无解释/围栏。\n` +
-    (planText ? `【已确认方案】${planText}\n` : '') +
     `\n【字段】${fieldList(schema)}\n\n【样本数据（前 ${sampleRows.length} 行）】\n${sanitizeForLlm(JSON.stringify(sampleRows))}\n\n【需求】${request}`
   )
 }
@@ -75,15 +63,6 @@ export function hasForbiddenCalls(code: string): boolean {
 function fieldList(schema: VizField[]): string {
   return schema.map((f) => `${f.name}（${f.type}）${f.samples?.length ? `｜样本: ${f.samples.join(', ')}` : ''}`).join('\n')
 }
-
-/** Type-aware charting/format guidance for the site prompt (only applies to fields that exist). */
-const TYPE_HINTS =
-  `【按字段类型选图与格式化（只对【字段】里真实存在的字段套用）】\n` +
-  `  · DateTime / CreatedTime / ModifiedTime → 解析后按时间排序做时间序列（折线/面积）；\n` +
-  `  · SingleSelect / MultiSelect / Checkbox → 作筛选维度或分组（饼 / 堆叠柱）；\n` +
-  `  · Person / CreatedBy / ModifiedBy → 按负责人维度聚合排名；\n` +
-  `  · Number（样本带 ¥/$ 视为货币、Percent 为百分比）→ 进 KPI 与数值轴，按样本格式展示，数值都远大于 0 时数值轴 {scale:true}；\n` +
-  `  · SingleLink / DuplexLink / Lookup → 关联字段，可与对应子表（datasets）按共同键 join。\n`
 
 function buildPrompt(schema: VizField[], sampleRows: Record<string, string>[], request: string): string {
   const schemaText = fieldList(schema)
@@ -164,106 +143,4 @@ export async function generateViz(
   if (!code) throw new Error('模型没有生成可视化代码。')
   if (hasForbiddenCalls(code)) throw new Error('生成的代码包含被禁止的网络 / 导入调用，已拒绝。')
   return { name: (parsed.title || parsed.name || '可视化').slice(0, 40), code }
-}
-
-// ─── AI 建站：把表做成一个完整网站页面（复用沙箱/渲染/保存管线）─────────────
-
-/** The injected design-system class menu the model must build with (kept in sync with
- *  sandbox/index.html `<style id="ds">`). Advertised verbatim in the site prompt. */
-export function buildSiteCheatsheet(): string {
-  return (
-    `页面已注入一套设计系统 CSS（**只用这些 class 搭页面，不要自带配色/字体、不要写 <style> 标签、不要设 backgroundColor、不要任何外链**）：\n` +
-    `布局：.site(页面外壳) · .nav(静态标题栏，仅 .brand/.dot) · .hero(h1/p) · .section(.section-title/.section-sub) · .grid(/.grid--2/3/4) · .row\n` +
-    `组件：.card(.card-title/.card-body) · .stat(.num/.label/.delta--up/.delta--down) · .table-wrap>table.table · .btn(/.btn--primary) · .badge · .tag · .muted\n` +
-    `**可靠交互助手 ui（数据区一律用它们，别手写任何交互/事件——手写极易失效）**：\n` +
-    `  • ui.dashboard(容器, {data, filters:['字段'…], kpis:[{label,calc:rows=>值}…], charts:[{title,build:rows=>echarts配置}…], columns:[{key,label,editable?}], actions?:[{label,build:行=>任务标题}]})\n` +
-    `    ——自带【筛选下拉条】，用户筛选时**自动联动重算** KPI 卡 / 图表 / 明细表；你只写纯函数 calc/build（行数组→值 / echarts 配置），交互由它负责，保证可用。这是数据区首选。\n` +
-    `    · 写回 / 工作台（仅多维表格单表时自动生效，其它情况自动忽略、安全）：给某列 columns 项加 editable:true，该列就地可编辑（状态 / 标记类自动出下拉），用户改多行后由插件统一一键写回飞书；actions 为每行加按钮（如「建任务」，build 返回任务标题）。无需你写任何事件——勾上即可。\n` +
-    `  • ui.chart(容器, echarts配置)——画一个 echarts 图（自动处理重绘/释放）。\n` +
-    `  • ui.table(容器, data, {columns:[{key:'真实字段名',label}]})——带搜索/排序/分页、覆盖全部行的明细表。\n` +
-    `单页骨架（从上到下、不分页不跳转）：<div class="site"><nav class="nav">…静态标题…</nav><div class="hero"><h1>…</h1></div><div class="section"><div id="dash"></div></div></div> 然后 ui.dashboard(container.querySelector('#dash'), {data, filters, kpis, charts, columns})`
-  )
-}
-
-interface OtherTable { name: string; schema: VizField[]; sampleRows: Record<string, string>[] }
-
-function buildSitePrompt(schema: VizField[], sampleRows: Record<string, string>[], request: string, refUrl?: string, planText?: string, otherTables?: OtherTable[]): string {
-  const schemaText = fieldList(schema)
-  const others = (otherTables ?? []).filter((t) => t.schema.length)
-  const multiText = others.length
-    ? `【本文档还有这些子表，可与主表联动——用 datasets['表名'] 取它们的全部行】\n` +
-      others.map((t) => `  • ${t.name}：${t.schema.map((f) => f.name).join('、')}`).join('\n') + '\n' +
-      `需要时按共同字段（如 ID / 名称）把它们与主表关联（建 Map 索引再 join），让页面体现跨表关系；只用真实字段名。\n`
-    : ''
-  return (
-    `你是顶尖前端工程师 + 设计师。根据【字段】【样本数据】【需求】，生成一个**完整、好看、自包含**的网站页面，渲染在飞书页面的浮窗里。\n` +
-    `输出一个 JSON 对象：{"title":"简短标题","code":"..."}。code 是构建页面的 JS（可直接写"函数体"，也可是完整 function render(data, echarts, container, theme, ui, datasets){...}），运行时可用：\n` +
-    `  - data：主表的完整数据数组（每项一行对象，键=字段名，值是字符串，数字用 Number() 转）。\n` +
-    `  - datasets：{表名: 行数组} —— 当前文档的**所有子表**（多维表格的多张数据表 / 电子表格的多个工作表）；data 即其中主表。跨表联动用它。\n` +
-    `  - container：根容器（已撑满浮窗、可滚动，写 container.innerHTML 即可）。  - echarts：图表可用。  - theme：'light'/'dark'。  - **ui：可靠交互助手（见下，务必用它）**。\n` +
-    buildSiteCheatsheet() + '\n' +
-    TYPE_HINTS +
-    multiText +
-    `【做成一个【单页】、交互真能用的数据网站】：同一页面从上到下——静态标题栏 + 英雄区 + 数据区（指标 / 图表 / 明细）。\n` +
-    `  **绝不要**多页面 / 标签页(tab)切换 / 点击跳转 / 路由 / "查看更多"跳转——这些极易失效；导航栏只作静态标题，**不要任何可点击切换内容的链接或按钮**。\n` +
-    `  ① 数据区**优先用 ui.dashboard**：声明 filters / kpis(calc) / charts(build) / columns，它会渲染筛选条并在筛选时**联动重算** KPI、图表、明细表——这是页面交互的主体，丰富且保证可用。\n` +
-    `  ② 需要独立图表用 ui.chart(容器, echarts配置)，独立明细表用 ui.table；**绝不要自己手写筛选 / 分页 / 排序 / tab 的事件逻辑**。\n` +
-    `  ③ calc/build 必须是**纯函数**（行数组 → 值 / echarts 配置），不要在里面碰 DOM 或绑事件；④ 导航 / 英雄区 / 卡片是静态 DOM。\n` +
-    `**数据绑定**：KPI / 图表 / 表格全部从 data / datasets 实时算或取，**绝不写死、不编造数据**；只用真实存在的字段名（见下【字段】）；columns.key、filters、calc/build 里引用的字段都必须真实存在。\n` +
-    `**自检**：输出前确认——是【单页】、无 tab/跳转；数据区用了 ui.dashboard（或 ui.chart/ui.table）；字段名真实；筛选能联动 KPI/图表/明细表。\n` +
-    (refUrl ? `【参考站点】${refUrl}：请参考这个站点的实际布局、信息层级、版式密度与视觉风格来组织页面（你了解或能预览它，就照它的版式来）；` +
-      `但**只能用上面注入的设计系统 class 实现**，生成的页面本身不得包含任何外链（图片 / 字体 / 脚本 / CDN）。\n` : '') +
-    (planText ? `【已和用户确认的方案，请据此实现】${planText}\n` : '') +
-    `【硬规则】**禁止 fetch / XMLHttpRequest / WebSocket / EventSource / sendBeacon / import / require / localStorage / indexedDB 等任何网络与 IO；不要外链图片 / 字体 / CDN**；只输出那个 JSON 对象本身，不要任何解释、前言或代码围栏。\n` +
-    `\n【字段】${schemaText}\n\n【样本数据（前 ${sampleRows.length} 行）】\n${sanitizeForLlm(JSON.stringify(sampleRows))}\n\n【需求】${request}`
-  )
-}
-
-export async function generateSite(
-  settings: AppSettings,
-  input: {
-    schema: VizField[]; sampleRows: Record<string, string>[]; request: string
-    refUrl?: string; planText?: string; previousCode?: string; previousSpec?: VizSpec; otherTables?: OtherTable[]
-    signal?: AbortSignal; onProgress?: (chars: number) => void
-  },
-): Promise<{ name: string; code?: string; spec?: VizSpec; warning?: string }> {
-  // Language-adjust reuses the chart edit prompt (minimal-diff, keep-the-rest semantics are generic).
-  const content = NO_REMOTE_CODE
-    ? (input.previousSpec ? buildSpecEditPrompt(input.previousSpec, input.request, input.schema) : buildSiteSpecPrompt(input.schema, input.sampleRows, input.request, input.planText))
-    : (input.previousCode ? buildEditPrompt(input.previousCode, input.request, input.schema) : buildSitePrompt(input.schema, input.sampleRows, input.request, input.refUrl, input.planText, input.otherTables))
-  // Stream so the panel can show live progress + offer cancel (a full website is a big call).
-  const out = fences(await chatCompleteStream(settings, content, { signal: input.signal, onChunk: (f) => input.onProgress?.(f.length) }))
-  if (!out) throw new Error('模型未返回内容。')
-  if (NO_REMOTE_CODE) return parseSpec(out, input.schema)
-  let parsed: { title?: string; code?: string }
-  try { parsed = JSON.parse(out) } catch { throw new Error('模型输出不是有效 JSON，无法解析网站代码。请重试或换一个支持 JSON 输出的模型。') }
-  const code = (parsed.code ?? '').trim()
-  if (!code) throw new Error('模型没有生成网站代码。')
-  if (hasForbiddenCalls(code)) throw new Error('生成的代码包含被禁止的网络 / 导入调用，已拒绝。')
-  return { name: (parsed.title || '网站').slice(0, 40), code }
-}
-
-export interface SitePlan { title: string; sections: string[]; fields: string[]; question?: string }
-
-/** A cheap one-shot "build plan" so the user can confirm/adjust before full codegen. */
-export async function planSite(
-  settings: AppSettings,
-  input: { schema: VizField[]; sampleRows: Record<string, string>[]; request: string; refUrl?: string },
-): Promise<SitePlan> {
-  const schemaText = fieldList(input.schema)
-  const content =
-    `根据【字段】【样本】【需求】，先给一个"建站方案"，**不要写代码**。\n` +
-    `输出一个 JSON 对象：{"title":"页面标题","sections":["英雄区","指标概览","数据明细表"...],` +
-    `"fields":["将用到的真实字段名"...],"question":"若有关键缺失 / 歧义就用一句话问用户，否则省略该字段"}。\n` +
-    (input.refUrl ? `参考站点（请参考其布局 / 信息层级 / 风格）：${input.refUrl}\n` : '') +
-    `只输出那个 JSON 对象本身，不要解释或代码围栏。\n【字段】${schemaText}\n【样本】\n${sanitizeForLlm(JSON.stringify(input.sampleRows))}\n【需求】${input.request}`
-  const out = fences(await chatComplete(settings, content))
-  let p: Partial<SitePlan>
-  try { p = JSON.parse(out) } catch { throw new Error('方案解析失败，请重试或换一个支持 JSON 输出的模型。') }
-  return {
-    title: String(p.title ?? '数据网站').slice(0, 40),
-    sections: Array.isArray(p.sections) ? p.sections.map(String).slice(0, 12) : [],
-    fields: Array.isArray(p.fields) ? p.fields.map(String).slice(0, 30) : [],
-    question: p.question ? String(p.question).slice(0, 200) : undefined,
-  }
 }

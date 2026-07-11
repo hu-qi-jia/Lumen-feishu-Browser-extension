@@ -60,24 +60,11 @@ export interface DashboardSpec {
   table?: { columns?: ColumnSpec[]; pageSize?: number; actions?: RowActionSpec[] }
 }
 
-export interface SiteSection {
-  type: 'hero' | 'section'
-  title?: string
-  subtitle?: string
-  body?: string
-}
-export interface SiteSpec {
-  kind: 'site'
-  title?: string
-  sections: SiteSection[]
-  dashboard: DashboardSpec
-}
-
 /** A slide deck (AI 幻灯片 / 文档转PPT). `slides` are already-sanitized content slides (the
  *  SlideSpec shape the sandbox ui.slides renders); app-constructed, not raw model output. */
 export interface SlidesSpec { kind: 'slides'; slides: unknown[] }
 
-export type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec | SlidesSpec
+export type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SlidesSpec
 
 /** All field names a spec references (dimensions, aggregate fields, filters, columns). Used to
  *  warn the user when the model invented a field name not in the real table → empty widget. */
@@ -96,7 +83,6 @@ export function referencedFields(spec: VizSpec): string[] {
     case 'chart': series(spec.series); break
     case 'table': spec.columns?.forEach((c) => c.key && out.add(c.key)); break
     case 'dashboard': dash(spec); break
-    case 'site': dash(spec.dashboard); break
   }
   return Array.from(out)
 }
@@ -195,14 +181,6 @@ export function validateSpec(input: unknown, fields: string[] = []): VizSpec {
       return cleanDash(obj)
     case 'slides':
       return { kind: 'slides', slides: Array.isArray(obj.slides) ? obj.slides : [] }
-    case 'site': {
-      const sections = Array.isArray(obj.sections)
-        ? (obj.sections as SiteSection[]).filter((s) => s && (s.type === 'hero' || s.type === 'section'))
-          .map((s) => ({ type: s.type, title: s.title, subtitle: s.subtitle, body: s.body }))
-        : []
-      const dashboard = obj.dashboard && typeof obj.dashboard === 'object' ? cleanDash(obj.dashboard as Record<string, unknown>) : { kind: 'dashboard' as const }
-      return { kind: 'site', title: typeof obj.title === 'string' ? obj.title : undefined, sections, dashboard }
-    }
     default:
       throw new Error(`未知的可视化规格类型：${String(obj.kind)}`)
   }

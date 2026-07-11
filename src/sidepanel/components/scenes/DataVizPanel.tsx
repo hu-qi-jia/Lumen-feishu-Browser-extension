@@ -39,7 +39,7 @@ async function sendToOverlay(artifact: { code?: string; spec?: VizSpec }, data: 
 
 type LastViz = { name: string; code?: string; spec?: VizSpec; request?: string; source: VizSource }
 // The just-generated (maybe-unsaved) 小程序, kept OUTSIDE React state keyed by the doc — survives
-// the AISitePanel/DataVizPanel unmount a browser-tab switch causes, so returning doesn't force a
+// the DataVizPanel unmount a browser-tab switch causes, so returning doesn't force a
 // regenerate (the side panel page itself stays loaded across tab switches).
 const genCache = new Map<string, LastViz>()
 
@@ -57,9 +57,8 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
   const [canSave, setCanSave] = useState(false)
   const [hasGen, setHasGen] = useState(false)
 
-  // This panel manages 小程序 (everything that isn't a full 网站); 网站 live in the AISite panel.
-  const onlyVizzes = (all: SavedViz[]) => all.filter((v) => v.kind !== 'site')
-  useEffect(() => { loadVizList().then((all) => setList(onlyVizzes(all))) }, [])
+  // Saved-viz list (created in this panel). Loaded once on mount.
+  useEffect(() => { loadVizList().then((all) => setList(all)) }, [])
 
   // Render result from the sandbox (relayed by the content script).
   useEffect(() => {
@@ -153,7 +152,7 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
       code: last.current.code, spec: last.current.spec, request: last.current.request,
       createdAt: Date.now(), kind: 'viz',
     }
-    setList(onlyVizzes(await saveViz(v))); setCanSave(false); setStatus(`已保存「${v.name}」到「我的小程序」`)
+    setList(await saveViz(v)); setCanSave(false); setStatus(`已保存「${v.name}」到「我的小程序」`)
   }
 
   // Re-open a saved viz: re-fetch LIVE data and render with the SAVED code/spec — zero LLM.
@@ -169,7 +168,7 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
         const { spec, warning } = await generateViz(settings, { schema: full.schema, sampleRows: full.rows.slice(0, SAMPLE_CAP), request: v.request || v.name })
         await sendToOverlay({ spec }, full.rows, v.name)
         // KEEP original `code` (self-dist still renders it; only store builds use the spec).
-        setList(onlyVizzes(await saveViz({ ...v, spec })))
+        setList(await saveViz({ ...v, spec }))
         setStatus(`已重建并渲染「${v.name}」（已保存，下次秒开）${warning ? `　${warning}` : ''}`)
         return
       }
@@ -181,7 +180,7 @@ export default function DataVizPanel({ settings, context, disabled, onBack }: Pr
     } finally { setBusy(false) }
   }
 
-  async function remove(v: SavedViz) { setList(onlyVizzes(await deleteViz(v.id))) }
+  async function remove(v: SavedViz) { setList(await deleteViz(v.id)) }
 
   return (
     <div className="scenario-panel view-enter" key="dataviz">

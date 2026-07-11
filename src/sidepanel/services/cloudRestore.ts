@@ -9,7 +9,7 @@ import { getValidUserToken } from '@/shared/feishu/auth'
 import { loadVizList, replaceVizList } from '@/shared/dataviz/store'
 import { loadDecks, replaceDecks } from '@/shared/ai/slidesStore'
 
-/** 手动「从企业云端恢复」：拉回小程序/网站/看板(dataviz) + PPT(slides)，返回新增条数合计。 */
+/** 手动「从企业云端恢复」：拉回小程序/看板(dataviz) + PPT(slides)，返回新增条数合计。 */
 export async function restoreAllArtifacts(): Promise<number> {
   const [a, b] = await Promise.all([
     restoreAndMerge('dataviz', loadVizList, replaceVizList),

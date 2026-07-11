@@ -118,7 +118,7 @@ export function deriveAccent(hex: string, isDark: boolean): Record<string, strin
 export const ACCENT_VAR_NAMES = Object.keys(deriveAccent(DEFAULT_ACCENT, false))
 
 /**
- * Accent for the data-viz overlay (PPT / 网站 / 看板 / 图表). The sandbox design system uses
+ * Accent for the data-viz overlay (PPT / 看板 / 图表). The sandbox design system uses
  * --p / --p-strong / --p-soft (not the panel's --color-primary set), so map an accent hex →
  * those three + a harmonious chart color palette, mode-aware. Leads the palette with the accent
  * itself so charts read as branded.

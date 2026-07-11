@@ -20,7 +20,7 @@ import {
   type CleanupIntervalDays,
 } from '@/shared/dataCleanup'
 
-const BACKUP_TIP = '导出配置、小程序、AI 建站、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
+const BACKUP_TIP = '导出配置、小程序、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
 
 
 /**
@@ -104,7 +104,7 @@ export default function BackupTab() {
     try {
       const sum = await applyBackup(JSON.parse(await f.text()))
       setBackupMsg(
-        `已恢复：小程序/网站 ${sum.dataviz}、PPT ${sum.slides}、经验 ${sum.recipes}、会话 ${sum.sessions}${sum.settings ? '、配置已更新' : ''}。即将刷新生效…`,
+        `已恢复：小程序 ${sum.dataviz}、PPT ${sum.slides}、经验 ${sum.recipes}、会话 ${sum.sessions}${sum.settings ? '、配置已更新' : ''}。即将刷新生效…`,
       )
       setTimeout(() => {
         try {
@@ -190,13 +190,13 @@ export default function BackupTab() {
         <div className="settings-field">
           <div className="settings-row-main">
             <span className="settings-row-title">清除全部数据</span>
-            <span className="settings-row-desc">清除会话、PPT、建站、PDF 等数据，仅保留设置</span>
+            <span className="settings-row-desc">清除会话、PPT、PDF 等数据，仅保留设置</span>
           </div>
           <Button
             variant="danger"
             block
             loading={clearing}
-            onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、建站、PDF、图片等，只保留设置，且不可恢复。' })}
+            onClick={() => setClearDialog({ kind: 'delete', summary: '即将清除全部会话、PPT、PDF、图片等，只保留设置，且不可恢复。' })}
           >
             清除全部数据
           </Button>
@@ -209,7 +209,7 @@ export default function BackupTab() {
         <SettingsSection title="企业云备份">
           <div className="settings-row">
             <div className="settings-row-main">
-              <span className="settings-row-title">小程序 / 建站 / PPT</span>
+              <span className="settings-row-title">小程序 / PPT</span>
               <span className="settings-row-desc">自动备份至企业自有对象存储，本地清空后可恢复</span>
             </div>
             <span className="settings-row-control">
@@ -258,7 +258,7 @@ export default function BackupTab() {
 }
 
 function cleanupTip(impactBytes: number | null, lastCleanedAt: number | null): string {
-  let tip = '清除会话、PPT、建站、PDF、图片附件及本地经验，仅保留设置。不可恢复。'
+  let tip = '清除会话、PPT、PDF、图片附件及本地经验，仅保留设置。不可恢复。'
   if (impactBytes != null && impactBytes > 0) tip += ` 当前约 ${formatBytes(impactBytes)} 可清除。`
   if (lastCleanedAt) tip += ` 上次清理：${relTime(lastCleanedAt)}。`
   return tip

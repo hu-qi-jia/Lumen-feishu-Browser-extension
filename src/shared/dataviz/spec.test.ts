@@ -47,16 +47,6 @@ describe('validateSpec', () => {
     expect(r.option.series[0].type).toBe('pie')
   })
 
-  it('sanitizes a site spec (sections + nested dashboard)', () => {
-    const s = validateSpec({
-      kind: 'site', title: 'X',
-      sections: [{ type: 'hero', title: 'Hi' }, { type: 'bogus' }],
-      dashboard: { kind: 'dashboard', charts: [{ kind: 'chart', chartType: 'bar', series: { dimension: '区域' } }] },
-    }, FIELDS) as any
-    expect(s.sections).toHaveLength(1)
-    expect(s.dashboard.charts).toHaveLength(1)
-  })
-
   it('referencedFields collects dimensions/measures/filters/columns for the unmatched-field warning', () => {
     const d = validateSpec({
       kind: 'dashboard',
