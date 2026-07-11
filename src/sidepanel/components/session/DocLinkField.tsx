@@ -85,12 +85,12 @@ export default function DocLinkField({ value, onValueChange, recentFiles, onPick
         onFocus={() => setOpen(true)} onChange={(e) => onValueChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && onSubmit) { e.preventDefault(); onSubmit() } }}
       />
-      <IconButton
-        className="dc-chevron" disabled={disabled}
+      <button
+        type="button" className="dc-chevron" disabled={disabled}
         onClick={() => setOpen((o) => !o)} aria-label="展开最近文档" aria-expanded={open}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-      </IconButton>
+      </button>
       {value && (
         <IconButton className="dc-clear" data-testid="dc-clear" aria-label="清除" onClick={() => onValueChange('')}><IconX /></IconButton>
       )}

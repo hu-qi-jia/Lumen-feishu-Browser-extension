@@ -1,0 +1,82 @@
+/* 文件导入面板 —— 复用 PdfTranscribePanel / ClipPanel 的共享类
+   (.scenario-panel / .sc-detail-body / .sc-field / .pdf-result-box / .sc-target-opt /
+    .sc-pdf-editor / .sc-error-box / .sc-refresh-err / .sc-registry-info / .sl-sub 等)，
+   此处只定义本页独有的 fi-* 样式。 */
+
+.fi-body { padding: 12px; gap: 14px; }
+
+/* ── 文件信息卡（预览阶段顶部） ─────────────────────────────────────────── */
+.fi-source-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface);
+}
+.fi-source-ic {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-primary); background: rgba(51,112,255,.1);
+}
+.fi-source-ic svg { width: 18px; height: 18px; display: block; }
+.fi-source-meta { min-width: 0; flex: 1; }
+.fi-source-name {
+  font-size: 13px; font-weight: 600; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fi-source-sub { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.fi-source-tag {
+  flex-shrink: 0; font-size: 10px; padding: 2px 7px; border-radius: 999px;
+  background: var(--color-bg-subtle); color: var(--color-text-secondary);
+  letter-spacing: .04em;
+}
+
+/* ── 「或新建一个」三列等宽 ───────────────────────────────────────────────
+   与上方 DocCombobox / 识别结果模块同宽（.sc-field 已是全宽）。
+   Editorial Mono 风格：1px 边框、3px 圆角、无阴影、无抬起，悬停仅换边框色。 */
+.fi-new-section { display: flex; flex-direction: column; gap: 8px; }
+.fi-divider {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--color-text-secondary);
+}
+.fi-divider::before, .fi-divider::after { content: ''; flex: 1; height: 1px; background: var(--color-border); }
+.fi-new-grid { display: flex; gap: 8px; }
+.fi-new-chip {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; font-size: 12.5px; font-weight: 500; font-family: inherit;
+  color: var(--color-text); border: 1px solid var(--color-border); border-radius: 3px;
+  background: var(--color-bg); cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.fi-new-chip:hover:not(:disabled) {
+  border-color: var(--color-primary); color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.fi-new-chip:active:not(:disabled) { background: var(--color-bg-subtle); }
+.fi-new-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+.fi-new-ic { display: flex; color: var(--color-text-secondary); flex-shrink: 0; }
+.fi-new-ic svg { width: 15px; height: 15px; }
+.fi-new-chip:hover:not(:disabled) .fi-new-ic { color: var(--color-primary); }
+
+/* ── 运行中 / 完成 ─────────────────────────────────────────────────────── */
+.fi-running { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 12px; }
+.fi-status { font-size: 11px; color: var(--color-text-secondary); margin: 0; }
+.fi-spinner {
+  width: 22px; height: 22px;
+  border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%;
+  animation: fi-spin .8s linear infinite;
+}
+@keyframes fi-spin { to { transform: rotate(360deg); } }
+.fi-result-preview {
+  font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  max-height: 40vh; overflow-y: auto; margin: 0; padding: 8px 10px;
+  background: var(--color-bg-subtle); border-radius: var(--radius);
+}
+
+.fi-done { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 8px; }
+.fi-done-icon { font-size: 28px; }
+.fi-done-text { font-size: 13px; text-align: center; white-space: pre-wrap; }
+.fi-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── 历史抽屉 ──────────────────────────────────────────────────────────── */
+.fi-history-list { display: flex; flex-direction: column; gap: 2px; }
+.fi-history-empty { padding: 24px 8px; text-align: center; color: var(--color-text-secondary); font-size: 13px; }

@@ -7,6 +7,7 @@ import AISitePanel from './AISitePanel'
 import SmartFillPanel from './SmartFillPanel'
 import SlidesPanel from './SlidesPanel'
 import PdfTranscribePanel from './PdfTranscribePanel'
+import FileImportPanel from './FileImportPanel'
 import SkillPanel from './SkillPanel'
 import KnowledgeBasePanel from '../settings/knowledge-base/KnowledgeBasePanel'
 import type { RecentFile } from '../../services/recentFiles'
@@ -35,6 +36,7 @@ type View =
   | { mode: 'smartfill' }
   | { mode: 'slides' }
   | { mode: 'pdfTranscribe' }
+  | { mode: 'fileImport' }
   | { mode: 'skill' }
   | { mode: 'knowledgeBase' }
 
@@ -142,7 +144,7 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
               <div className="sc-hub-section">网页采集</div>
               <div className="sc-hub-grid">
                 <HubCard icon={HUB_ICONS.camera} title="截图识别" desc="视觉模型识别图片中的表格数据" />
-                <HubCard icon={HUB_ICONS.file} title="文件导入" desc="拖入 CSV 文件，AI 整理写入飞书" />
+                <HubCard icon={HUB_ICONS.file} title="文件导入" desc="拖入 CSV 文件，AI 整理写入飞书" onClick={() => setView({ mode: 'fileImport' })} />
               </div>
             </div>
           )}
@@ -183,6 +185,10 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
 
   if (view.mode === 'pdfTranscribe') {
     return <PdfTranscribePanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
+  }
+
+  if (view.mode === 'fileImport') {
+    return <FileImportPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} />
   }
 
   if (view.mode === 'skill') {
