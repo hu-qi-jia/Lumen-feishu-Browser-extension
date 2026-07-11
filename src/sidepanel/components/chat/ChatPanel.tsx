@@ -124,8 +124,12 @@ export default function ChatPanel({
   // window-global timer whose callback closed over the Base that was active when it was scheduled).
   const contextRef = useRef(context); contextRef.current = context
   const loadBaseCtxRef = useRef<() => void>(() => {})
-  const ctxRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => { if (ctxRefreshTimer.current) clearTimeout(ctxRefreshTimer.current) }, [])
+  // Structural-change refresh uses TWO timers (fast 1.5s + slow 4s) so a newly-created
+  // table that takes a moment to appear in the API list is still picked up.
+  const ctxRefreshTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => { ctxRefreshTimers.current.forEach(clearTimeout) }, [])
+  // Focus-triggered refresh throttle — avoids re-fetching on every micro focus blip.
+  const lastFocusRefresh = useRef(0)
 
   // Auto-load Base context when URL changes to a Base page
   useEffect(() => {
@@ -165,6 +169,28 @@ export default function ChatPanel({
     }
   }
   loadBaseCtxRef.current = loadBaseCtx
+
+  // Auto-refresh Base context when the sidepanel regains focus or becomes visible —
+  // the user may have created/deleted a table directly in the Feishu page. Throttled
+  // to ≥3s between focus-triggered refreshes to avoid spamming the API.
+  useEffect(() => {
+    function maybeRefresh() {
+      if (!contextRef.current.feishu?.isBase) return
+      if (!contextRef.current.feishu?.appToken) return
+      const now = Date.now()
+      if (now - lastFocusRefresh.current < 3000) return
+      lastFocusRefresh.current = now
+      lastLoadedApp.current = ''
+      loadBaseCtxRef.current()
+    }
+    function onVis() { if (document.visibilityState === 'visible') maybeRefresh() }
+    window.addEventListener('focus', maybeRefresh)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', maybeRefresh)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   // Refresh context on demand (also re-fetches after structural changes)
   function refreshCtx() {
@@ -347,18 +373,23 @@ export default function ChatPanel({
     }
   }
 
-  // Silently refresh context after field/table edits. Debounced on a per-instance ref timer
+  // Silently refresh context after field/table edits. Debounced on per-instance ref timers
   // (cleared on unmount) and reading the LATEST context/loadBaseCtx via refs — the old
   // window-global timer's callback closed over the Base active when it was scheduled, so a tool
   // finishing on Base A after the user navigated to B would re-load A and overwrite B's context.
+  // Two refreshes (1.5s + 4s) ensure a newly-created table that's slow to appear in the API
+  // list is still picked up.
   function refreshCtxIfStructuralChange(_toolCallId: string) {
-    if (ctxRefreshTimer.current) clearTimeout(ctxRefreshTimer.current)
-    ctxRefreshTimer.current = setTimeout(() => {
+    ctxRefreshTimers.current.forEach(clearTimeout)
+    ctxRefreshTimers.current = []
+    const doRefresh = () => {
       if (contextRef.current.feishu?.appToken) {
         lastLoadedApp.current = ''
         loadBaseCtxRef.current()
       }
-    }, 1500)
+    }
+    ctxRefreshTimers.current.push(setTimeout(doRefresh, 1500))
+    ctxRefreshTimers.current.push(setTimeout(doRefresh, 4000))
   }
 
   // Abort the in-flight turn — called by the send button's stop state. The agent loop's

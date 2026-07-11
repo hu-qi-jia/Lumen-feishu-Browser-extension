@@ -37,6 +37,10 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
   const [exportMsg, setExportMsg] = useState('')
   const summaryRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  // Track whether the table-tab strip has content overflowing on either edge, so we can
+  // show a subtle fade hint that there's more to scroll to.
+  const [tabsOverflow, setTabsOverflow] = useState<{ left: boolean; right: boolean }>({ left: false, right: false })
 
   async function handleExport() {
     if (!ctx || exportState === 'loading') return
@@ -73,6 +77,40 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
       document.removeEventListener('keydown', onKey)
     }
   }, [expanded])
+
+  // Horizontal wheel scroll on the table-tab strip + edge-overflow detection. When the
+  // tab names exceed the popover width, vertical wheel is translated to horizontal scroll
+  // so the user can reach off-screen tabs without a visible scrollbar.
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    function onWheel(e: WheelEvent) {
+      // Only intercept when the wheel is primarily vertical (standard mouse wheel) —
+      // trackpads with horizontal scroll (deltaX) are left alone.
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault()
+        el.scrollLeft += e.deltaY
+      }
+    }
+    function updateOverflow() {
+      const { scrollLeft, scrollWidth, clientWidth } = el
+      setTabsOverflow({
+        left: scrollLeft > 1,
+        right: scrollLeft + clientWidth < scrollWidth - 1,
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('scroll', updateOverflow, { passive: true })
+    updateOverflow() // initial state
+    // Re-check on resize — popover width can change when the sidepanel is dragged.
+    const ro = new ResizeObserver(updateOverflow)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('scroll', updateOverflow)
+      ro.disconnect()
+    }
+  }, [expanded, ctx?.tables.length])
 
   // The selected table drives the field popover. Precedence: user selection (if it still
   // matches a loaded table) → URL-derived current table → first table. Tabs at the top of
@@ -161,7 +199,12 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
       {expanded && ctx && ctx.tables.length > 0 && (
         <div className="bcb-detail" ref={popoverRef} role="dialog" aria-label="字段详情">
           {ctx.tables.length > 1 && (
-            <div className="bcb-table-tabs" role="tablist" aria-label="选择数据表">
+            <div
+              className={`bcb-table-tabs${tabsOverflow.left ? ' bcb-table-tabs--ovl' : ''}${tabsOverflow.right ? ' bcb-table-tabs--ovr' : ''}`}
+              ref={tabsRef}
+              role="tablist"
+              aria-label="选择数据表"
+            >
               {ctx.tables.map((t) => (
                 <button
                   key={t.tableId}

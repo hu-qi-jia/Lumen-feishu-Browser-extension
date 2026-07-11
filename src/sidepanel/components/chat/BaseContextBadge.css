@@ -132,6 +132,21 @@
   scrollbar-width: none; /* Firefox — the row reads as a static strip */
 }
 .bcb-table-tabs::-webkit-scrollbar { display: none; } /* Chrome/Safari — same */
+/* Edge fade hints — show a subtle gradient when there are off-screen tabs to scroll to.
+   Mouse wheel is translated to horizontal scroll (see BaseContextBadge.tsx), so the user
+   can reach hidden tabs even though the scrollbar is invisible. */
+.bcb-table-tabs--ovl {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
+}
+.bcb-table-tabs--ovr {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 14px, #000 100%);
+  mask-image: linear-gradient(to left, transparent 0, #000 14px, #000 100%);
+}
+.bcb-table-tabs--ovl.bcb-table-tabs--ovr {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
 .bcb-table-tab {
   flex-shrink: 0;
   padding: 2px 8px;
