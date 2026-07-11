@@ -475,6 +475,9 @@ export default function ChatPanel({
         workDocToken={workDocToken}
         kbEnabled={kbEnabled}
         onToggleKb={onToggleKb}
+        recentFiles={recentFiles}
+        resolveWikiKind={resolveWikiKind}
+        settings={settings}
       />
 
       {pendingConfirm && (

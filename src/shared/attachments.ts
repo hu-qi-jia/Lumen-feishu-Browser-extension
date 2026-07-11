@@ -1,5 +1,11 @@
-import type { Attachment, DocSelectionPayload } from './types'
+import type { Attachment, DocRefAttachmentData, DocSelectionPayload } from './types'
 import { fileToClip } from './clip/file'
+import { parseFeishuContext, buildFeishuUrl } from './feishu/pageUrl'
+import { resolveToken } from './feishu/auth'
+import { getDocumentMeta } from './feishu/docx'
+import { getSpreadsheet } from './feishu/sheets'
+import { getApp, getWikiNode } from './feishu/api'
+import type { AppSettings, SessionKind } from './types'
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 const MAX_IMAGE_LONG_EDGE = 1280
@@ -279,4 +285,127 @@ export function tryAddSelectionAttachment(
   )
   if (dup) return { attachments: current, added: false, reason: 'dup' }
   return { attachments: [...current, selectionToAttachment(payload)], added: true }
+}
+
+// ─── Document references (whole-doc context) ──────────────────────────────────
+
+/** Max referenced-document chips staged in the input box at once. */
+export const MAX_DOCREF_CHIPS = 5
+
+/** Build a docref Attachment from resolved data. */
+export function docRefToAttachment(data: DocRefAttachmentData): Attachment {
+  return {
+    id: crypto.randomUUID(),
+    type: 'docref',
+    name: data.docTitle || '文档',
+    mimeType: 'text/x-feishu-docref',
+    size: 0,
+    docref: data,
+  }
+}
+
+/** Pure: try to append a docref chip, enforcing the cap + duplicate-token dedup. */
+export function tryAddDocRefAttachment(
+  current: Attachment[],
+  data: DocRefAttachmentData,
+): { attachments: Attachment[]; added: boolean; reason?: 'dup' | 'limit' } {
+  const count = current.filter((a) => a.type === 'docref').length
+  if (count >= MAX_DOCREF_CHIPS) return { attachments: current, added: false, reason: 'limit' }
+  const dup = current.some((a) => a.type === 'docref' && a.docref?.docToken === data.docToken)
+  if (dup) return { attachments: current, added: false, reason: 'dup' }
+  return { attachments: [...current, docRefToAttachment(data)], added: true }
+}
+
+/** Map a wiki node's obj_type to a SessionKind. */
+function wikiObjTypeToKind(objType: string): SessionKind | undefined {
+  if (objType === 'bitable') return 'base'
+  if (objType === 'sheet') return 'sheet'
+  if (objType === 'docx' || objType === 'doc') return 'doc'
+  return undefined
+}
+
+/** Fetch the real title of a resource by token + kind (read-only GETs). Returns '' on failure. */
+async function fetchResourceTitle(kind: SessionKind, token: string, userToken: string): Promise<string> {
+  try {
+    if (kind === 'doc') {
+      const m = await getDocumentMeta(userToken, token) as { document?: { title?: string } }
+      return m?.document?.title?.trim() ?? ''
+    }
+    if (kind === 'sheet') {
+      const m = await getSpreadsheet(userToken, token) as { spreadsheet?: { title?: string } }
+      return m?.spreadsheet?.title?.trim() ?? ''
+    }
+    if (kind === 'base') {
+      const m = await getApp(userToken, token) as { app?: { name?: string } }
+      return m?.app?.name?.trim() ?? ''
+    }
+    if (kind === 'wiki') {
+      const r = await getWikiNode(userToken, token) as { node?: { title?: string } }
+      return r?.node?.title?.trim() ?? ''
+    }
+  } catch { /* not authorized / network / not found */ }
+  return ''
+}
+
+/**
+ * Resolve a pasted Feishu link (or bare token) into a DocRefAttachmentData: parses the kind +
+ * token from the URL, resolves wiki nodes to their real kind + obj_token, and fetches the real
+ * title via the Feishu API. Returns null when the URL isn't a recognized Feishu resource.
+ */
+export async function resolveDocRefFromUrl(
+  url: string,
+  settings: AppSettings,
+): Promise<DocRefAttachmentData | null> {
+  const s = (url ?? '').trim()
+  if (!s) return null
+
+  // Try parsing as a full Feishu URL first.
+  const feishu = parseFeishuContext(s)
+  let token: string | undefined
+  let kind: SessionKind | undefined
+
+  if (feishu?.kind === 'wiki' && feishu.wikiToken) {
+    // Wiki node → resolve to real kind + obj_token via the API.
+    const userToken = await resolveToken(settings).catch(() => undefined)
+    if (!userToken) return null
+    try {
+      const res = await getWikiNode(userToken, feishu.wikiToken) as {
+        node?: { obj_type: string; obj_token: string; title?: string }
+      }
+      const n = res.node
+      if (!n) return null
+      const realKind = wikiObjTypeToKind(n.obj_type)
+      if (!realKind || !n.obj_token) return null
+      kind = realKind
+      token = n.obj_token
+      const title = (n.title ?? '').trim()
+      return {
+        kind,
+        docToken: token,
+        docTitle: title || '',
+        url: s,
+      }
+    } catch { return null }
+  }
+
+  if (feishu?.kind === 'doc' && feishu.documentId) { kind = 'doc'; token = feishu.documentId }
+  else if (feishu?.kind === 'sheet' && feishu.spreadsheetToken) { kind = 'sheet'; token = feishu.spreadsheetToken }
+  else if (feishu?.kind === 'base' && feishu.appToken) { kind = 'base'; token = feishu.appToken }
+
+  // Fallback: a bare token (no / ? #) — assume doc, the most common paste.
+  if (!kind || !token) {
+    if (!/[/?#]/.test(s) && /^[\w-]{10,}$/.test(s)) { kind = 'doc'; token = s }
+    else return null
+  }
+
+  const userToken = await resolveToken(settings).catch(() => undefined)
+  let title = ''
+  if (userToken) title = await fetchResourceTitle(kind, token, userToken)
+
+  return {
+    kind,
+    docToken: token,
+    docTitle: title,
+    url: feishu ? s : buildFeishuUrl(kind, token) || s,
+  }
 }

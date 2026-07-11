@@ -283,3 +283,187 @@
 }
 .attachment-chip--skill .attachment-remove { color: #2f54eb; }
 .attachment-chip--skill .attachment-remove:hover { color: #1d39c4; }
+
+/* ── Doc-ref chip in attachment list ── */
+.attachment-chip--docref {
+  padding: 2px 6px 2px 4px;
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+.attachment-docref {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 180px;
+}
+.attachment-docref-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+.attachment-docref-icon svg { width: 13px; height: 13px; }
+.attachment-docref-name {
+  font-size: 11px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Reference-document popup ── */
+.refdoc-popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  z-index: 21;
+}
+.refdoc-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 6px;
+}
+.refdoc-popup-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.refdoc-popup-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.refdoc-popup-close:hover { background: var(--color-surface); color: var(--color-text); }
+
+.refdoc-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 0 2px;
+}
+.refdoc-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-surface);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color .15s ease;
+}
+.refdoc-input:focus { border-color: var(--color-primary); }
+.refdoc-input::placeholder { color: var(--color-text-secondary); }
+.refdoc-add-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 7px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter .15s ease, opacity .15s ease;
+}
+.refdoc-add-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.refdoc-add-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.refdoc-error {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  color: #d33;
+}
+
+.refdoc-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+.refdoc-recent-label {
+  padding: 4px 2px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.refdoc-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.refdoc-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--color-text);
+  transition: background .1s ease;
+}
+.refdoc-recent-item:hover { background: var(--color-surface); }
+.refdoc-recent-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+}
+.refdoc-recent-icon svg { width: 12px; height: 12px; }
+.refdoc-recent-name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.refdoc-empty {
+  margin: 8px 2px 2px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Plus-menu icon variant for reference-doc */
+.plus-menu-icon--refdoc { color: var(--color-primary); }
+
+/* ── Dark theme overrides ── */
+[data-theme="dark"] .attachment-chip--docref {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+[data-theme="dark"] .refdoc-popup { background: var(--color-surface); }

@@ -27,7 +27,17 @@ export interface DocSelectionPayload {
   selectedText: string
 }
 
-export type AttachmentType = 'image' | 'file' | 'selection'
+/** A whole Feishu resource referenced as context (doc / sheet / base / wiki). Unlike a
+ *  selection (a text snippet), this points at the entire document — the agent reads it on
+ *  demand via the matching read tool (get_document_content / list_tables / read_range …). */
+export interface DocRefAttachmentData {
+  kind: SessionKind
+  docToken: string
+  docTitle: string
+  url: string
+}
+
+export type AttachmentType = 'image' | 'file' | 'selection' | 'docref'
 
 export interface Attachment {
   id: string
@@ -41,6 +51,8 @@ export interface Attachment {
   content?: string
   /** type === 'selection' — a doc snippet staged as chat context. */
   selection?: SelectionAttachmentData
+  /** type === 'docref' — a whole document referenced as context. */
+  docref?: DocRefAttachmentData
 }
 
 export interface ChatMessage {

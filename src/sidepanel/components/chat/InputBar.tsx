@@ -1,12 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardEvent, DragEvent, ChangeEvent } from 'react'
-import type { Attachment, DocSelectionPayload } from '@/shared/types'
-import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText } from '@/shared/attachments'
+import type { AppSettings, Attachment, DocRefAttachmentData, DocSelectionPayload, SessionKind } from '@/shared/types'
+import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText, tryAddDocRefAttachment, resolveDocRefFromUrl } from '@/shared/attachments'
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { loadUserSkills, type UserSkill } from '@/shared/ai/userSkills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
+import { buildFeishuUrl } from '@/shared/feishu/pageUrl'
+import type { RecentFile } from '../../services/recentFiles'
+import { displayName } from '../../services/recentFiles'
 import Tooltip from '../ui/Tooltip'
 import Dropdown from '../ui/Dropdown'
-import { IconPlus, IconUpload, IconBook, IconSparkle, IconTools } from '../ui/icons'
+import { IconPlus, IconUpload, IconBook, IconSparkle, IconTools, IconLink, KindIcon } from '../ui/icons'
 import IconButton from '../ui/IconButton'
 import './InputBar.css'
 
@@ -46,10 +49,16 @@ interface Props {
   kbEnabled: boolean
   /** 切换本会话知识库。 */
   onToggleKb: (on: boolean) => void
+  /** Persisted recently-opened Feishu resources — the "引用文档" picker's recent list. */
+  recentFiles?: RecentFile[]
+  /** Resolve a wiki-wrapped resource to its real kind so its icon is right. */
+  resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** App settings — needed to resolve the user token for link → title lookups. */
+  settings: AppSettings
 }
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken, kbEnabled, onToggleKb },
+  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken, kbEnabled, onToggleKb, recentFiles, resolveWikiKind, settings },
   ref,
 ) {
   // Per-doc draft: typed text is scoped to the working doc, mirroring how selection chips are
@@ -70,6 +79,14 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const [slashQuery, setSlashQuery] = useState('')
   const [slashIndex, setSlashIndex] = useState(0)
   const [selectedSkills, setSelectedSkills] = useState<UserSkill[]>([])
+  // ── Reference-document picker state ──
+  const [refDocOpen, setRefDocOpen] = useState(false)
+  const [refDocInput, setRefDocInput] = useState('')
+  const [refDocLoading, setRefDocLoading] = useState(false)
+  const [refDocError, setRefDocError] = useState('')
+  const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
+  const refDocInputRef = useRef<HTMLInputElement>(null)
+  const refDocPopupRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textRef = useRef('')
   textRef.current = text
@@ -212,6 +229,116 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     setSelectedSkills((prev) => prev.filter((s) => s.id !== id))
   }
 
+  // ── Reference-document picker ──
+  function openRefDocPicker() {
+    setPlusOpen(false)
+    setRefDocOpen(true)
+    setRefDocInput('')
+    setRefDocError('')
+    // Focus the input after the popup mounts
+    setTimeout(() => refDocInputRef.current?.focus(), 0)
+  }
+
+  function closeRefDocPicker() {
+    setRefDocOpen(false)
+    setRefDocInput('')
+    setRefDocError('')
+    setRefDocLoading(false)
+  }
+
+  function addDocRef(data: DocRefAttachmentData): boolean {
+    const r = tryAddDocRefAttachment(attachments, data)
+    if (!r.added) return false
+    setAttachments(r.attachments)
+    return true
+  }
+
+  function pickRecentDoc(f: RecentFile) {
+    const url = buildFeishuUrl(f.kind, f.token) || ''
+    const added = addDocRef({ kind: f.kind, docToken: f.token, docTitle: displayName(f), url })
+    if (added) closeRefDocPicker()
+    textareaRef.current?.focus()
+  }
+
+  async function handleRefDocSubmit() {
+    const url = refDocInput.trim()
+    if (!url || refDocLoading) return
+    setRefDocLoading(true)
+    setRefDocError('')
+    try {
+      const data = await resolveDocRefFromUrl(url, settings)
+      if (!data) {
+        setRefDocError('无法识别该链接，请粘贴飞书文档/表格/多维表格链接')
+        return
+      }
+      // Backfill a display title from the recent list when the API returned none.
+      if (!data.docTitle) {
+        const match = (recentFiles ?? []).find((f) => f.token === data.docToken)
+        if (match) data.docTitle = displayName(match)
+      }
+      const added = addDocRef(data)
+      if (!added) {
+        setRefDocError('该文档已添加，或引用数量已达上限')
+        return
+      }
+      closeRefDocPicker()
+      textareaRef.current?.focus()
+    } catch {
+      setRefDocError('解析链接失败，请检查链接是否正确')
+    } finally {
+      setRefDocLoading(false)
+    }
+  }
+
+  function onRefDocInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      void handleRefDocSubmit()
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeRefDocPicker()
+    }
+  }
+
+  // Resolve wiki display kinds when the ref-doc popup opens (icons only).
+  useEffect(() => {
+    if (!refDocOpen) return
+    const wikiTokens = (recentFiles ?? []).filter((d) => d.kind === 'wiki').map((d) => d.token)
+    if (!wikiTokens.length || !resolveWikiKind) return
+    let cancelled = false
+    void Promise.all(wikiTokens.map(async (tok) => {
+      const real = await resolveWikiKind(tok)
+      return real && real !== 'wiki' ? ([tok, real] as const) : null
+    })).then((entries) => {
+      if (cancelled) return
+      const m: Record<string, SessionKind> = {}
+      for (const e of entries) if (e) m[e[0]] = e[1]
+      setWikiKinds(m)
+    }).catch(() => { /* leave wiki icons as the doc fallback */ })
+    return () => { cancelled = true }
+  }, [refDocOpen, recentFiles, resolveWikiKind])
+
+  // Close the ref-doc popup on outside click.
+  useEffect(() => {
+    if (!refDocOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (refDocPopupRef.current && !refDocPopupRef.current.contains(e.target as Node)) {
+        closeRefDocPicker()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [refDocOpen])
+
+  const refDocDisplayKind = (f: RecentFile): SessionKind =>
+    f.kind === 'wiki' ? (wikiKinds[f.token] ?? 'doc') : f.kind
+
+  const refDocQuery = refDocInput.trim().toLowerCase()
+  const filteredRefDocs = refDocQuery
+    ? (recentFiles ?? []).filter((f) => f.title.toLowerCase().includes(refDocQuery) || f.token.toLowerCase().includes(refDocQuery))
+    : (recentFiles ?? [])
+
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (slashOpen && filteredSlashSkills.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -331,7 +458,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               </div>
             )}
             {visibleAttachments.map((a) => (
-              <div key={a.id} className="attachment-chip">
+              <div key={a.id} className={`attachment-chip${a.type === 'docref' ? ' attachment-chip--docref' : ''}`}>
                 {a.type === 'image' && a.dataUrl ? (
                   <img className="attachment-thumb" src={a.dataUrl} alt={a.name} />
                 ) : a.type === 'selection' && a.selection ? (
@@ -339,6 +466,15 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                     <span className="attachment-sel-doc">{a.selection.docTitle || '文档片段'}</span>
                     <span className="attachment-sel-text">{previewSelectionText(a.selection.selectedText)}</span>
                   </span>
+                ) : a.type === 'docref' && a.docref ? (
+                  <Tooltip content={a.docref.docTitle || a.docref.url} position="top">
+                    <span className="attachment-docref">
+                      <span className="attachment-docref-icon">
+                        <KindIcon kind={a.docref.kind} />
+                      </span>
+                      <span className="attachment-docref-name">{a.docref.docTitle || '未命名文档'}</span>
+                    </span>
+                  </Tooltip>
                 ) : (
                   <span className="attachment-name">{a.name}</span>
                 )}
@@ -394,6 +530,74 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
           </div>
         )}
 
+        {/* Reference-document picker — pops up above the textarea, matches input width */}
+        {refDocOpen && (
+          <div className="refdoc-popup" ref={refDocPopupRef} role="dialog" aria-label="引用文档">
+            <div className="refdoc-popup-header">
+              <span className="refdoc-popup-title">引用文档</span>
+              <button
+                className="refdoc-popup-close"
+                onClick={closeRefDocPicker}
+                aria-label="关闭"
+                type="button"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="refdoc-input-row">
+              <input
+                ref={refDocInputRef}
+                className="refdoc-input"
+                placeholder="粘贴飞书文档/表格/多维表格链接"
+                value={refDocInput}
+                onChange={(e) => { setRefDocInput(e.target.value); setRefDocError('') }}
+                onKeyDown={onRefDocInputKeyDown}
+                disabled={refDocLoading}
+              />
+              <button
+                className="refdoc-add-btn"
+                onClick={() => void handleRefDocSubmit()}
+                disabled={refDocLoading || !refDocInput.trim()}
+                type="button"
+              >
+                {refDocLoading ? '解析中…' : '添加'}
+              </button>
+            </div>
+            {refDocError && <p className="refdoc-error">{refDocError}</p>}
+            {filteredRefDocs.length > 0 && (
+              <div className="refdoc-recent">
+                <div className="refdoc-recent-label">最近打开</div>
+                <div className="refdoc-recent-list">
+                  {filteredRefDocs.slice(0, 8).map((f) => {
+                    const k = refDocDisplayKind(f)
+                    const name = displayName(f)
+                    return (
+                      <button
+                        key={f.token}
+                        className="refdoc-recent-item"
+                        onClick={() => pickRecentDoc(f)}
+                        type="button"
+                        title={name}
+                      >
+                        <span className={`refdoc-recent-icon refdoc-recent-icon--${k}`}>
+                          <KindIcon kind={k} />
+                        </span>
+                        <span className="refdoc-recent-name">{name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {filteredRefDocs.length === 0 && !refDocInput && (
+              <p className="refdoc-empty">暂无最近文档，请粘贴链接添加</p>
+            )}
+          </div>
+        )}
+
         <div className="input-bar-toolbar">
           <div className="toolbar-left">
             <input
@@ -436,6 +640,18 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   <IconUpload width={15} height={15} />
                 </span>
                 <span className="plus-menu-title">添加附件</span>
+              </button>
+              <button
+                className="plus-menu-item"
+                onClick={openRefDocPicker}
+                disabled={blocked}
+                type="button"
+                role="menuitem"
+              >
+                <span className="plus-menu-icon plus-menu-icon--refdoc">
+                  <IconLink width={15} height={15} />
+                </span>
+                <span className="plus-menu-title">引用文档</span>
               </button>
               {HAS_KNOWLEDGE_BASE && (
                 <button

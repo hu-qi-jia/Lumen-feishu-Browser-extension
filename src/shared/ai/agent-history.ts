@@ -123,6 +123,7 @@ function attachmentToContentParts(
 
 /** 把一个附件渲染成喂给 LLM 的文本元数据。image/file 输出与历史完全一致（回归保护）；
  *  selection 是新增：把用户选中的文档片段（带定位上下文）作为可编辑目标交给 agent。
+ *  docref 是引用整篇文档：告诉 agent 这是一个可参考的文档及其 token，agent 可按需读取。
  *  返回 null 表示该附件无可渲染元数据（调用方跳过）。 */
 export function attachmentToMetaData(a: Attachment): string | null {
   if (a.type === 'image' && a.dataUrl) return `【附件：图片 ${a.name}（attachment_id: ${a.id}）】`
@@ -132,6 +133,19 @@ export function attachmentToMetaData(a: Attachment): string | null {
     const head = s.headingText ? `｜标题：${s.headingText}` : ''
     const para = s.paragraphText ? `\n所在段落：${s.paragraphText}` : ''
     return `【引用文档片段｜文档：${s.docTitle || '当前文档'}${head}】${para}\n选中的内容：\n${s.selectedText}`
+  }
+  if (a.type === 'docref' && a.docref) {
+    const d = a.docref
+    const kindLabel =
+      d.kind === 'base' ? '多维表格' :
+      d.kind === 'sheet' ? '电子表格' :
+      d.kind === 'wiki' ? '知识库节点' : '文档'
+    const toolHint =
+      d.kind === 'doc' ? 'get_document_content / list_blocks（document_id' :
+      d.kind === 'sheet' ? 'get_spreadsheet / read_range（spreadsheetToken' :
+      d.kind === 'base' ? 'list_tables / list_fields / list_records（appToken' :
+      'get_document_content / list_blocks（document_id'
+    return `【引用${kindLabel}｜标题：${d.docTitle || '未命名'}｜链接：${d.url}】\n用户希望参考此文档的内容。你可使用 ${toolHint}=${d.docToken}）按需读取其内容后，在当前工作文档中进行引用或参考。`
   }
   return null
 }

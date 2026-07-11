@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import InputBar from './InputBar'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
+import { DEFAULT_SETTINGS } from '@/shared/types'
 
 vi.mock('@/shared/ai/skills', () => ({ preloadSkills: () => Promise.resolve([]) }))
 
@@ -18,6 +19,7 @@ describe('InputBar 知识库开关', () => {
         kbEnabled={false}
         onToggleKb={() => {}}
         resourceKind="general"
+        settings={DEFAULT_SETTINGS}
       />,
     )
     fireEvent.click(screen.getByLabelText('添加附件、工具'))
@@ -34,6 +36,7 @@ describe('InputBar 知识库开关', () => {
         kbEnabled={false}
         onToggleKb={toggle}
         resourceKind="general"
+        settings={DEFAULT_SETTINGS}
       />,
     )
     fireEvent.click(screen.getByLabelText('添加附件、工具'))
@@ -50,6 +53,7 @@ describe('InputBar 知识库开关', () => {
         kbEnabled={true}
         onToggleKb={() => {}}
         resourceKind="general"
+        settings={DEFAULT_SETTINGS}
       />,
     )
     expect(screen.getByText('知识库')).toBeTruthy()
@@ -65,6 +69,7 @@ describe('InputBar 知识库开关', () => {
         kbEnabled={true}
         onToggleKb={toggle}
         resourceKind="general"
+        settings={DEFAULT_SETTINGS}
       />,
     )
     fireEvent.click(screen.getByLabelText('关闭知识库'))
