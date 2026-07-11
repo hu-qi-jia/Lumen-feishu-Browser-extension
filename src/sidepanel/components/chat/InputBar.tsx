@@ -6,7 +6,7 @@ import { loadUserSkills, type UserSkill } from '@/shared/ai/userSkills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import Tooltip from '../ui/Tooltip'
 import Dropdown from '../ui/Dropdown'
-import { IconPlus, IconUpload, IconBook, IconSparkle } from '../ui/icons'
+import { IconPlus, IconUpload, IconBook, IconSparkle, IconFileText } from '../ui/icons'
 import IconButton from '../ui/IconButton'
 import './InputBar.css'
 
@@ -383,7 +383,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   onMouseEnter={() => setSlashIndex(i)}
                   onClick={() => selectSkill(s)}
                 >
-                  <span className="slash-item-icon"><IconSparkle width={14} height={14} /></span>
+                  <span className="slash-item-icon"><IconFileText width={12} height={12} /></span>
                   <span className="slash-item-meta">
                     <span className="slash-item-title">{s.name}</span>
                     <span className="slash-item-desc">{s.description || '调用此技能完成任务'}</span>

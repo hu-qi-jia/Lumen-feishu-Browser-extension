@@ -7,7 +7,8 @@ import SkillEditor from './SkillEditor'
 import ListView from '../ui/ListView'
 import IconButton from '../ui/IconButton'
 import FormSwitch from '../ui/FormSwitch'
-import { IconPlus, IconEdit, IconTrash, IconX, IconUpload, IconDownload, IconTools } from '../ui/icons'
+import ConfirmModal from '../ui/ConfirmModal'
+import { IconPlus, IconEdit, IconTrash, IconUpload, IconDownload, IconTools } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
   validateSkillMarkdown, exportUserSkills,
@@ -116,8 +117,11 @@ export default function SkillPanel({ onBack }: Props) {
     }
   }
 
-  // ── 删除（内置不可删）──
-  async function handleDelete(skill: UserSkill) {
+  // ── 删除（内置不可删，二次确认后执行）──
+  async function handleDelete() {
+    if (!confirmId) return
+    const skill = skills.find((s) => s.id === confirmId)
+    if (!skill) return
     try {
       const next = await deleteUserSkill(skill.id, skills)
       setSkills(next)
@@ -212,18 +216,31 @@ export default function SkillPanel({ onBack }: Props) {
               renderItem={(s) => (
                 <SkillRow
                   skill={s}
-                  confirmId={confirmId}
-                  onView={() => setView({ mode: 'detail', skill: s })}
                   onEdit={() => setView({ mode: 'edit', skill: s })}
                   onToggle={() => handleToggle(s.id)}
-                  onDelete={() => handleDelete(s)}
                   onRequestDelete={() => setConfirmId(s.id)}
-                  onCancelDelete={() => setConfirmId(null)}
                 />
               )}
             />
           )}
         </div>
+
+        <ConfirmModal
+          open={!!confirmId}
+          title="确认删除技能"
+          message={
+            confirmId ? (
+              <>
+                删除后无法恢复，是否删除技能「<b>{skills.find((s) => s.id === confirmId)?.name}</b>」？
+              </>
+            ) : null
+          }
+          danger
+          confirmText="删除"
+          cancelText="取消"
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmId(null)}
+        />
 
         {toast && <div className="sk-toast">{toast}</div>}
       </div>
@@ -247,7 +264,7 @@ export default function SkillPanel({ onBack }: Props) {
                   </button>
                 </Tooltip>
                 <Tooltip content="删除" position="bottom">
-                  <button className="sl-history-btn sk-head-btn--danger" onClick={() => handleDelete(skill)} type="button" aria-label="删除">
+                  <button className="sl-history-btn sk-head-btn--danger" onClick={() => setConfirmId(skill.id)} type="button" aria-label="删除">
                     <IconTrash />
                   </button>
                 </Tooltip>
@@ -269,7 +286,7 @@ export default function SkillPanel({ onBack }: Props) {
         rightAction={
           view.skill && !view.skill.builtIn ? (
             <Tooltip content="删除" position="bottom">
-              <button className="sl-history-btn sk-head-btn--danger" onClick={() => view.skill && handleDelete(view.skill)} type="button" aria-label="删除">
+              <button className="sl-history-btn sk-head-btn--danger" onClick={() => view.skill && setConfirmId(view.skill.id)} type="button" aria-label="删除">
                 <IconTrash />
               </button>
             </Tooltip>
@@ -291,52 +308,34 @@ export default function SkillPanel({ onBack }: Props) {
 
 interface SkillRowProps {
   skill: UserSkill
-  confirmId: string | null
-  onView: () => void
   onEdit: () => void
   onToggle: () => void
-  onDelete: () => void
   onRequestDelete: () => void
-  onCancelDelete: () => void
 }
 
-function SkillRow({ skill, confirmId, onView, onEdit, onToggle, onDelete, onRequestDelete, onCancelDelete }: SkillRowProps) {
-  const isConfirm = confirmId === skill.id
+function SkillRow({ skill, onEdit, onToggle, onRequestDelete }: SkillRowProps) {
   return (
     <>
-      <button className="sk-row-main" type="button" onClick={onView} aria-label={`查看 ${skill.name}`}>
+      <button className="sk-row-main" type="button" onClick={onEdit} aria-label={`编辑 ${skill.name}`}>
         <span className="sk-row-title">{skill.name}</span>
         <span className="sk-row-desc">{skill.description}</span>
       </button>
       <div className="sk-row-actions">
-        {isConfirm ? (
-          <>
-            <button className="sk-row-btn sk-row-btn--danger" onClick={onDelete} type="button" aria-label="确认删除">
+        {!skill.builtIn && (
+          <Tooltip content="编辑" position="bottom">
+            <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
+              <IconEdit />
+            </button>
+          </Tooltip>
+        )}
+        {!skill.builtIn && (
+          <Tooltip content="删除" position="bottom">
+            <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
               <IconTrash />
             </button>
-            <button className="sk-row-btn" onClick={onCancelDelete} type="button" aria-label="取消">
-              <IconX />
-            </button>
-          </>
-        ) : (
-          <>
-            {!skill.builtIn && (
-              <Tooltip content="编辑" position="bottom">
-                <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
-                  <IconEdit />
-                </button>
-              </Tooltip>
-            )}
-            {!skill.builtIn && (
-              <Tooltip content="删除" position="bottom">
-                <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
-                  <IconTrash />
-                </button>
-              </Tooltip>
-            )}
-            <FormSwitch checked={skill.enabled} onChange={onToggle} />
-          </>
+          </Tooltip>
         )}
+        <FormSwitch checked={skill.enabled} onChange={onToggle} />
       </div>
     </>
   )

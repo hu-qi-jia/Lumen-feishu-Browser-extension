@@ -250,8 +250,8 @@
   color: var(--color-text-secondary);
 }
 .slash-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 6px 8px;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 5px 8px;
   border: none; border-radius: 6px;
   background: none; cursor: pointer; text-align: left;
   font-family: inherit; color: var(--color-text);
@@ -259,15 +259,20 @@
 }
 .slash-item--active { background: var(--color-surface); }
 .slash-item-icon {
-  width: 22px; height: 22px; flex-shrink: 0;
+  width: 18px; height: 18px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 5px; color: #2f54eb; background: #f0f5ff;
+  border-radius: 4px; color: var(--color-text-secondary); background: var(--color-surface-2);
 }
-.slash-item-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.slash-item-title { font-size: 12px; font-weight: 600; }
+.slash-item-icon svg { width: 12px; height: 12px; }
+.slash-item-meta {
+  display: flex; align-items: baseline; gap: 6px;
+  min-width: 0; flex: 1;
+}
+.slash-item-title { font-size: 12px; font-weight: 600; flex-shrink: 0; }
 .slash-item-desc {
   font-size: 11px; color: var(--color-text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
 }
 
 /* ── Skill chip in attachment list ── */
