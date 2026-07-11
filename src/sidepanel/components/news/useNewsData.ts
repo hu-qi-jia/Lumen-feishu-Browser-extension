@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NewsCache, NewsSettings, NewsSourceId } from '@/shared/news/types'
 import { DEFAULT_NEWS_SETTINGS } from '@/shared/news/types'
 import { loadNewsCache, loadNewsSettings, saveNewsSettings } from '@/shared/news/store'
+import type { TranslateResult } from '@/shared/news/github'
 
-type RefreshResp = { ok: true; cache: NewsCache } | { ok: false }
+type RefreshResp = { ok: true; cache: NewsCache; result?: TranslateResult } | { ok: false }
 
 /** Side-panel hook for the news feature. Reads the cache the background SW writes, subscribes
  *  to chrome.storage.onChanged so the alarm-driven refresh shows up live, and exposes a
@@ -16,6 +17,7 @@ export function useNewsData() {
   const [refreshing, setRefreshing] = useState<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
   const [translating, setTranslating] = useState(false)
   const [translateError, setTranslateError] = useState<string | null>(null)
+  const [translateSuccess, setTranslateSuccess] = useState<string | null>(null)
   // In-flight guard (ref, not state) so a double-click doesn't fire two SW messages.
   const inFlightRef = useRef<Record<NewsSourceId, boolean>>({ github: false, weibo: false })
   const translatingRef = useRef(false)
@@ -87,6 +89,7 @@ export function useNewsData() {
     translatingRef.current = true
     setTranslating(true)
     setTranslateError(null)
+    setTranslateSuccess(null)
     try {
       // Race the SW response against a timeout: if the SW was terminated mid-translate
       // (MV3 lifecycle) or never responds, the Promise would otherwise hang forever,
@@ -97,7 +100,16 @@ export function useNewsData() {
       ])
       if (resp?.ok && resp.cache) {
         setCache(resp.cache)
-        setTranslateError(null)
+        const r = resp.result
+        if (r?.error) {
+          // Engine failed — show the specific error so the user knows why descriptions
+          // didn't translate (instead of silently looking like the button did nothing).
+          setTranslateError(r.error)
+        } else if (r && r.translated + r.cached > 0) {
+          setTranslateSuccess(`已翻译 ${r.translated} 条${r.cached ? `（缓存 ${r.cached} 条）` : ''}`)
+        } else {
+          setTranslateSuccess('没有需要翻译的内容')
+        }
       } else if (resp === null) {
         setTranslateError('翻译超时，请重试')
       } else {
@@ -116,5 +128,5 @@ export function useNewsData() {
     await saveNewsSettings(next)
   }, [])
 
-  return { cache, settings, refreshing, translating, translateError, refresh, translate, updateSettings }
+  return { cache, settings, refreshing, translating, translateError, translateSuccess, refresh, translate, updateSettings }
 }

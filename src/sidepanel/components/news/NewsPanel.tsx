@@ -18,7 +18,7 @@ const NEWS_TABS = [
  *  in the background SW. The refresh bar refreshes ONLY the active tab's source — switch
  *  tabs to refresh the other one. */
 export default function NewsPanel() {
-  const { cache, settings, refreshing, translating, translateError, refresh, translate, updateSettings } = useNewsData()
+  const { cache, settings, refreshing, translating, translateError, translateSuccess, refresh, translate, updateSettings } = useNewsData()
   const [tab, setTab] = useState<NewsTabId>('github')
 
   const gh = cache.github
@@ -62,6 +62,7 @@ export default function NewsPanel() {
         showTranslate={activeTab === 'github' && settings.translationEngine !== 'off'}
         translating={translating}
         translateError={translateError}
+        translateSuccess={translateSuccess}
         onTranslate={translate}
       />
 

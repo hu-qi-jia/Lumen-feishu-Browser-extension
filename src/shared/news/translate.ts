@@ -40,9 +40,36 @@ async function getBingToken(): Promise<string> {
  * order as the input. The Bing API accepts up to 100 texts per request and 10000 chars total;
  * 25 short GitHub descriptions fit easily. Throws on HTTP/parse failure (caller falls back
  * to English).
+ *
+ * On 429 (rate limit) the batch request is retried one-by-one with a short delay — slower
+ * but completes instead of leaving all descriptions untranslated.
  */
 export async function translateViaBing(texts: string[]): Promise<(string | undefined)[]> {
   if (texts.length === 0) return []
+  try {
+    return await bingTranslateBatch(texts)
+  } catch (e) {
+    // 429 rate-limit → fall back to one-by-one so a single throttled batch request doesn't
+    // kill the entire translation. Each sub-request gets its own error boundary.
+    if (e instanceof Error && e.message.includes('429')) {
+      const results: (string | undefined)[] = []
+      for (const t of texts) {
+        try {
+          const r = await bingTranslateBatch([t])
+          results.push(r[0])
+        } catch {
+          results.push(undefined)
+        }
+        await new Promise((r) => setTimeout(r, 200))
+      }
+      return results
+    }
+    throw e
+  }
+}
+
+/** Single Bing translate API call (batch). Handles 401 token refresh internally. */
+async function bingTranslateBatch(texts: string[]): Promise<(string | undefined)[]> {
   const token = await getBingToken()
   const body = texts.map((t) => ({ Text: t }))
   const url = `${BING_TRANSLATE_URL}?api-version=3.0&from=en&to=zh-Hans`

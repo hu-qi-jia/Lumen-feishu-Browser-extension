@@ -18,6 +18,7 @@ import { applyInBatches } from '@/shared/feishu/compose'
 import { createTask } from '@/shared/feishu/task'
 import { fetchGitHubTrending } from '@/shared/news/github'
 import { translateDescriptions, applyTranslationCache } from '@/shared/news/github'
+import type { TranslateResult } from '@/shared/news/github'
 import { fetchWeiboHotSearch } from '@/shared/news/weibo'
 import { loadNewsSettings, saveNewsCacheEntry, loadNewsCache } from '@/shared/news/store'
 import { NEWS_ALARM_NAME, syncNewsAlarm } from '@/shared/news/alarm'
@@ -300,23 +301,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // Manual translate button: translate GitHub descriptions via the selected engine.
 // Unlike NEWS_REFRESH, this calls the translation API (Bing or AI) for descriptions not
 // yet in the cache. The panel shows a loading state on the translate icon while this runs.
+// Returns a TranslateResult so the panel can show success/failure feedback — without it a
+// silent engine failure looks identical to success (descriptions just stay in English).
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'NEWS_TRANSLATE') return undefined
   void (async () => {
     try {
       const settings = await loadNewsSettings()
       if (settings.translationEngine === 'off') {
-        sendResponse({ ok: true, cache: await loadNewsCache() })
+        sendResponse({ ok: true, cache: await loadNewsCache(), result: { translated: 0, cached: 0, skipped: 0, error: '翻译已关闭' } })
         return
       }
       const newsCache = await loadNewsCache()
       const gh = newsCache.github
+      let result: TranslateResult = { translated: 0, cached: 0, skipped: 0 }
       if (gh?.items.length) {
         const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
-        await translateDescriptions(settings.translationEngine, gh.items, app ?? undefined).catch(() => {})
+        result = await translateDescriptions(settings.translationEngine, gh.items, app ?? undefined)
         await saveNewsCacheEntry('github', { items: gh.items, fetchedAt: gh.fetchedAt }).catch(() => {})
+      } else {
+        result = { translated: 0, cached: 0, skipped: 0, error: '暂无 GitHub 数据，请先刷新榜单' }
       }
-      sendResponse({ ok: true, cache: await loadNewsCache() })
+      sendResponse({ ok: true, cache: await loadNewsCache(), result })
     } catch {
       // Any unexpected failure must still respond so the panel's sendMessage
       // Promise resolves — otherwise the translate button stays stuck in loading.

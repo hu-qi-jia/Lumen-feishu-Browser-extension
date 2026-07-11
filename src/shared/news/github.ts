@@ -113,12 +113,26 @@ export async function applyTranslationCache(repos: GitHubTrendingRepo[]): Promis
   }
 }
 
+/** Result of a translateDescriptions call — lets the SW report success/failure to the UI. */
+export interface TranslateResult {
+  /** New translations from the engine (API calls). */
+  translated: number
+  /** Descriptions filled from the hash-keyed translation cache (no API call). */
+  cached: number
+  /** Descriptions skipped (empty or already translated). */
+  skipped: number
+  /** Engine error message; set when the translation engine failed. Cached items may still
+   *  be applied even when this is set. */
+  error?: string
+}
+
 /**
  * Translate repo descriptions to Chinese using the selected engine, with a hash-based
  * cache so repeat refreshes skip the network for ~90%+ of items. Mutates repos in place,
- * setting `descriptionZh` on each. Non-fatal: on any failure the descriptions are left
- * untranslated and the UI falls back to the original English. Called by the SW when the
- * user clicks the translate button.
+ * setting `descriptionZh` on each. Called by the SW when the user clicks the translate
+ * button. Returns a TranslateResult so the UI can show success/failure feedback — the
+ * previous void return silently swallowed engine errors, leaving the user with no indication
+ * that translation had failed.
  *
  * Engines:
  * - 'bing': free Bing Translator endpoint (~1-2s for 25 items, no key needed)
@@ -129,23 +143,27 @@ export async function translateDescriptions(
   engine: TranslationEngine,
   repos: GitHubTrendingRepo[],
   settings?: AppSettings,
-): Promise<void> {
-  if (engine === 'off') return
+): Promise<TranslateResult> {
+  if (engine === 'off') return { translated: 0, cached: 0, skipped: repos.length }
+
   const toTranslate = repos.filter((r) => r.description && !r.descriptionZh)
-  if (toTranslate.length === 0) return
+  if (toTranslate.length === 0) return { translated: 0, cached: 0, skipped: repos.length }
 
   // Partition into cached (skip) vs uncached (translate).
   const cache = await loadTranslationCache()
   const uncached: GitHubTrendingRepo[] = []
+  let cachedCount = 0
   for (const r of toTranslate) {
     const hit = cache[hashDescription(r.description)]
     if (hit?.zh) {
       r.descriptionZh = hit.zh
+      cachedCount++
     } else {
       uncached.push(r)
     }
   }
-  if (uncached.length === 0) return // all cache hits
+  const skippedCount = repos.length - toTranslate.length
+  if (uncached.length === 0) return { translated: 0, cached: cachedCount, skipped: skippedCount }
 
   const texts = uncached.map((r) => r.description)
   let translations: (string | undefined)[]
@@ -155,20 +173,30 @@ export async function translateDescriptions(
     } else if (engine === 'ai' && settings) {
       translations = await translateViaAI(settings, texts)
     } else {
-      return
+      return { translated: 0, cached: cachedCount, skipped: skippedCount, error: '翻译引擎未配置' }
     }
-  } catch {
-    return // engine failed — leave descriptions untranslated
+  } catch (e) {
+    // Engine failed — cached items are still applied, but the user needs to know the API
+    // call failed so they can retry instead of assuming the feature is broken.
+    return {
+      translated: 0,
+      cached: cachedCount,
+      skipped: skippedCount,
+      error: e instanceof Error ? e.message : String(e),
+    }
   }
 
   // Apply translations + write back to cache.
   const cacheUpdates: Record<string, string> = {}
+  let translatedCount = 0
   uncached.forEach((r, i) => {
     const t = translations[i]
     if (typeof t === 'string' && t.trim()) {
       r.descriptionZh = t.trim()
       cacheUpdates[hashDescription(r.description)] = t.trim()
+      translatedCount++
     }
   })
   await saveTranslationCache(cacheUpdates).catch(() => {})
+  return { translated: translatedCount, cached: cachedCount, skipped: skippedCount }
 }

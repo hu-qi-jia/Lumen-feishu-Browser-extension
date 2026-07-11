@@ -17,6 +17,8 @@ interface Props {
   translating?: boolean
   /** Last translate error message; shown as the tooltip until cleared. */
   translateError?: string | null
+  /** Last translate success message; shown as the tooltip until cleared. */
+  translateSuccess?: string | null
   onTranslate?: () => void
 }
 
@@ -43,7 +45,7 @@ const INTERVAL_OPTIONS: { value: NewsInterval; label: string }[] = [
  *  the Dropdown component (the same popup used by DocSelector in the chat topbar). */
 export default function NewsRefreshBar({
   refreshing, lastUpdated, error, interval, onIntervalChange, onRefresh,
-  showTranslate = false, translating = false, translateError, onTranslate,
+  showTranslate = false, translating = false, translateError, translateSuccess, onTranslate,
 }: Props) {
   const [open, setOpen] = useState(false)
   const currentLabel = INTERVAL_OPTIONS.find((o) => o.value === interval)?.label ?? `${interval} 分钟`
@@ -111,7 +113,11 @@ export default function NewsRefreshBar({
         </Tooltip>
         {showTranslate && onTranslate && (
           <Tooltip
-            content={translateError ? `翻译失败：${translateError}` : (translating ? '翻译中…' : '翻译项目描述')}
+            content={
+              translating ? '翻译中…'
+                : translateError ? `翻译失败：${translateError}`
+                : translateSuccess ?? '翻译项目描述'
+            }
             position="bottom"
           >
             <button
