@@ -3,6 +3,7 @@ import type { AppSettings, PageContext } from '@/shared/types'
 import type { ClipCapture } from '@/shared/clip/types'
 import { fileToClip } from '@/shared/clip/file'
 import { resolveToken } from '@/shared/feishu/auth'
+import { formatMarkdown } from '@/shared/ai/mdPolish'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '@/shared/feishu/docx'
 import { openUrlInNewTab } from '@/shared/url'
 import type { RecentFile } from '../../services/recentFiles'
@@ -50,6 +51,8 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<CreateResult | null>(null)
   const [createErr, setCreateErr] = useState('')
+  // 写入/新建时的当前步骤文案（优化格式 → 写入/新建），驱动内联 loading。
+  const [busyLabel, setBusyLabel] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [imports, setImports] = useState<SavedFileImport[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -80,46 +83,58 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
     }
   }
 
-  // 写入已有文档 —— 直接插入 blocks（同 PdfTranscribePanel handleAddToDoc，不走 agent）。
+  // 写入已有文档 —— 先 AI 优化格式（仅排版、不改内容），再插入 blocks。
   async function handleAddToDoc() {
     if (!target?.token) { setErrMsg('请先选择目标文档。'); return }
-    setWriting(true); setErrMsg(''); setInfo('')
+    setWriting(true); setErrMsg(''); setInfo(''); setBusyLabel('正在优化格式…')
     try {
       const token = await resolveToken(settings)
+      // AI 优化格式；失败则降级用原 markdown（不阻断写入）。
+      let md = editMd
+      if (!disabled) {
+        try { md = await formatMarkdown(settings, editMd) } catch { /* 降级 */ }
+      }
+      setBusyLabel('正在写入…')
       const doc = target.token
       const v = await listBlocks(token, doc)
       const root = (v.items as Array<{ block_id?: string; children?: string[] }>).find((b) => b.block_id === doc)
       if (!root) throw new Error('无法确定文档末尾位置，请确认链接指向飞书文档。')
-      await insertContentBlocks(token, doc, markdownToBlocks(editMd), root.children?.length ?? 0)
+      await insertContentBlocks(token, doc, markdownToBlocks(md), root.children?.length ?? 0)
       setInfo(`已写入「${target.title}」末尾。`)
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : String(e))
     } finally {
-      setWriting(false)
+      setWriting(false); setBusyLabel('')
     }
   }
 
-  // ── 新建目标：直插（不整理、不优化），内联展示，不跳转 ──────────────────────
+  // ── 新建目标：先 AI 优化格式（仅排版、不改内容），再直插创建，内联展示 ──────────
   function titleFor(kind: string): string {
     const base = clip?.title?.replace(/\.[^.]+$/, '') || '文件导入'
     return `${base} - ${kind}`
   }
   async function runCreate(kind: 'doc' | 'base' | 'sheet') {
     if (!clip) return
-    setCreating(true); setCreateErr(''); setCreated(null); setErrMsg(''); setInfo('')
+    setCreating(true); setCreateErr(''); setCreated(null); setErrMsg(''); setInfo(''); setBusyLabel('正在优化格式…')
     try {
       const token = await resolveToken(settings)
+      // AI 优化格式；失败则降级用原 markdown（不阻断创建）。
+      let md = editMd
+      if (!disabled) {
+        try { md = await formatMarkdown(settings, editMd) } catch { /* 降级 */ }
+      }
+      setBusyLabel('正在新建并写入…')
       const title = titleFor(kind === 'base' ? '多维表格' : kind === 'sheet' ? '电子表格' : '文档')
       const r = kind === 'doc'
-        ? await createDocDirect(token, title, editMd, settings)
+        ? await createDocDirect(token, title, md, settings)
         : kind === 'sheet'
-          ? await createSheetDirect(token, title, editMd, settings)
-          : await createBaseDirect(token, title, editMd, settings)
+          ? await createSheetDirect(token, title, md, settings)
+          : await createBaseDirect(token, title, md, settings)
       setCreated(r)
     } catch (e) {
       setCreateErr(e instanceof Error ? e.message : String(e))
     } finally {
-      setCreating(false)
+      setCreating(false); setBusyLabel('')
     }
   }
 
@@ -134,7 +149,7 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
     setClip(null); setEditMd(''); setErrMsg(''); setInfo(''); setStatus0()
     setActiveId(null); setPhase('idle')
   }
-  function setStatus0() { setCreated(null); setCreateErr(''); setCreating(false) }
+  function setStatus0() { setCreated(null); setCreateErr(''); setCreating(false); setBusyLabel('') }
 
   const hasFile = phase === 'preview'
 
@@ -227,17 +242,17 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
                   busy={creating}
                 />
 
-                {/* 新建结果：内联展示，不跳转 */}
-                {creating && (
+                {/* 写入/新建进行中：显示当前步骤（优化格式 → 写入/新建） */}
+                {busyLabel && (
                   <div className="wt-create-running">
-                    <span className="wt-create-spinner" /> 正在新建并写入…
+                    <span className="wt-create-spinner" /> {busyLabel}
                   </div>
                 )}
                 {createErr && <div className="wt-create-err">{createErr}</div>}
                 {created && (
                   <div className="wt-create-done">
                     <span className="wt-create-done-text">已新建「{created.name}」并写入内容</span>
-                    <Button size="sm" variant="primary" onClick={() => openUrlInNewTab(created.url)}>打开 ↗</Button>
+                    <Button size="sm" variant="primary" onClick={() => openUrlInNewTab(created.url)}>打开</Button>
                   </div>
                 )}
 

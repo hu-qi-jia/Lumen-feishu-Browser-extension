@@ -330,7 +330,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
             {created && (
               <div className="wt-create-done">
                 <span className="wt-create-done-text">已新建「{created.name}」并写入内容</span>
-                <Button size="sm" variant="primary" onClick={() => openUrlInNewTab(created.url)}>打开 ↗</Button>
+                <Button size="sm" variant="primary" onClick={() => openUrlInNewTab(created.url)}>打开</Button>
               </div>
             )}
           </>

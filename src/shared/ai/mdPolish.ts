@@ -52,3 +52,24 @@ export async function polishMarkdown(settings: AppSettings, rawMd: string): Prom
   }
   return out.join('\n\n')
 }
+
+const FORMAT_PROMPT =
+  '你是一个 Markdown 排版助手。下面给你一段 Markdown，请仅优化格式与排版，严格保留原文内容。\n' +
+  '- 不得增删、改写、翻译任何文字；不得合并或拆分单元格数据。\n' +
+  '- 仅可调整：标题层级、列表结构、表格对齐、空行与换行、代码块围栏。\n' +
+  '- 表格的行列数与每个单元格的文本必须与输入完全一致，仅修正表格语法。\n' +
+  '- 直接输出优化后的 Markdown，不要加任何解释、前言或代码围栏。'
+
+/** 仅优化格式与排版（不改内容）：用于文件导入写入前的轻量整理。
+ *  与 polishMarkdown 的区别：polish 允许修语义/断句；format 只动结构，逐字保留文本。
+ *  长文档自动分块。失败由上层降级到 rawMd。 */
+export async function formatMarkdown(settings: AppSettings, rawMd: string): Promise<string> {
+  const chunks = chunkMarkdown(rawMd)
+  const out: string[] = []
+  for (const chunk of chunks) {
+    const text = await chatComplete(settings, chunk, FORMAT_PROMPT)
+    if (!text) throw new Error('模型未返回内容。')
+    out.push(text)
+  }
+  return out.join('\n\n')
+}
