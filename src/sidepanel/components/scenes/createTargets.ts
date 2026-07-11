@@ -31,6 +31,26 @@ function extractRows(md: string): { header: string[]; rows: string[][] } {
   return { header: ['内容'], rows: lines.map((l) => [l]) }
 }
 
+/** 清洗多维表格字段名：去除非法字符 ?:\/[]* ，截断 100 字符，空名/重名回退为 列N。
+ *  飞书 bitable createTable 对字段名限制：非空、不含 ?:\/[]* 、≤100 字符、且不可重名。 */
+function sanitizeFieldNames(names: string[]): string[] {
+  const seen = new Set<string>()
+  return names.map((raw, i) => {
+    let n = (raw || '').replace(/[?:\\\/\[\]*]/g, '').trim()
+    if (n.length > 100) n = n.slice(0, 100).trim()
+    if (!n) n = `列${i + 1}`
+    // 去重：同名追加 _2、_3…
+    let final = n
+    let seq = 2
+    while (seen.has(final)) {
+      const suffix = `_${seq++}`
+      final = `${n.slice(0, 100 - suffix.length)}${suffix}`
+    }
+    seen.add(final)
+    return final
+  })
+}
+
 /** 新建文档并直接写入 Markdown（表格感知，一次成型）。 */
 export async function createDocDirect(token: string, title: string, markdown: string, settings?: AppSettings): Promise<CreateResult> {
   const res = (await createDocFromMarkdown(token, title, markdown)) as { document?: { document_id?: string } }
@@ -61,14 +81,16 @@ export async function createBaseDirect(token: string, title: string, markdown: s
   if (!appToken) throw new Error('创建多维表格失败：未返回 app_token。')
   await maybeTransfer(token, appToken, 'bitable', settings)
   const { header, rows } = extractRows(markdown)
-  const fields = header.map((name) => ({ field_name: name, type: FieldType.Text }))
+  // 字段名需清洗：去除非法字符、截断、去重，避免 createTable 报 code=1254029。
+  const fieldNames = sanitizeFieldNames(header)
+  const fields = fieldNames.map((name) => ({ field_name: name, type: FieldType.Text }))
   const tableRes = (await createTable(token, appToken, '数据', fields)) as { table_id?: string }
   const tableId = tableRes.table_id
   if (!tableId) throw new Error('创建多维表格失败：未返回 table_id。')
   if (rows.length) {
     const records = rows.map((row) => {
       const f: Record<string, string> = {}
-      header.forEach((h, i) => { f[h] = row[i] ?? '' })
+      fieldNames.forEach((h, i) => { f[h] = row[i] ?? '' })
       return { fields: f }
     })
     await batchCreateRecords(token, appToken, tableId, records)
