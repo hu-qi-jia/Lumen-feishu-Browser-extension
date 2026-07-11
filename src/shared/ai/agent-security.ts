@@ -110,6 +110,8 @@ export function describeDestructiveOp(name: string, args: Record<string, unknown
     }
     case 'cross_table_lookup':
       return `跨表回填并写入「${String(args.into_field ?? '')}」列${args.create_field_if_missing === false ? '' : '（列不存在时会新建）'}`
+    case 'smart_fill_apply':
+      return '智能填充·写入预览的推断结果（批量补全空缺单元格）'
     case 'feishu_api_call':
       return `${String(args.method ?? '')} ${String(args.path ?? '')}（修改写入）`
     default:
@@ -137,7 +139,7 @@ export const DESTRUCTIVE_TOOLS = new Set([
 // Non-delete BULK WRITE tools that also need a confirmation gate: they modify many records at
 // once (update_where overwrites every matched row; cross_table_lookup back-fills a column on
 // every source row and can auto-create the column). Without this they ran with no confirm card.
-export const WRITE_TOOLS = new Set(['update_where', 'cross_table_lookup'])
+export const WRITE_TOOLS = new Set(['update_where', 'cross_table_lookup', 'smart_fill_apply'])
 
 // Returns true only if the most recent user message contains a clear "yes" signal.
 const CONFIRM_PATTERNS = /^(确认|是|是的|好|好的|yes|ok|okay|confirm|delete|删除|继续|执行)$/i

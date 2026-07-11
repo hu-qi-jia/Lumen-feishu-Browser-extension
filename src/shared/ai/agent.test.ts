@@ -635,6 +635,83 @@ describe('记录读取与字段缓存', () => {
   })
 })
 
+describe('smart_fill · chat-agent 工具分发', () => {
+  const baseCtx = { url: 'https://acme.feishu.cn/base/AppAAA', title: 't', selectedText: '', feishu: { isBase: true, kind: 'base' as const, appToken: 'AppAAA', tableId: 'tblAAA' } }
+
+  it('smart_fill_preview：解析数据源→buildPlan→缓存→返回 summarizePlan 摘要', async () => {
+    vi.resetModules()
+    const src = { kind: 'base', appToken: 'AppAAA', tableId: 'tblAAA' }
+    const mockResolve = vi.fn().mockResolvedValue(src)
+    const plan = { source: src, field: { id: 'f', name: '行业', type: 3 }, totalRows: 5, eligibleRows: 2, consideredRows: 2, morePending: false, examples: 1, overwrite: false, capped: false, proposed: [{ recordId: 'r1', rowLabel: '甲', value: '互联网', display: '互联网' }], skipped: [] }
+    const mockBuild = vi.fn().mockResolvedValue(plan)
+    const mockCache = vi.fn()
+    const mockSummarize = vi.fn().mockReturnValue({ target_field: '行业', proposed_count: 1, note: '已缓存' })
+    vi.doMock('../smartfill/data', () => ({ resolveFillSource: mockResolve }))
+    vi.doMock('../smartfill/plan', () => ({ buildPlan: mockBuild, applyPlan: vi.fn(), cachePlan: mockCache, getCachedPlan: vi.fn(), clearCachedPlan: vi.fn(), summarizePlan: mockSummarize }))
+    const { executeTool } = await import('./agent-executor')
+    const out = await executeTool('smart_fill_preview', { target_field: '行业', instruction: '按公司推断' }, 'tok', baseCtx as never, { ...DEFAULT_SETTINGS })
+    expect(mockResolve).toHaveBeenCalled()
+    expect(mockBuild).toHaveBeenCalledWith(expect.anything(), src, { targetField: '行业', instruction: '按公司推断', sourceFields: undefined, overwrite: false })
+    expect(mockCache).toHaveBeenCalledWith(plan)
+    expect(mockSummarize).toHaveBeenCalledWith(plan)
+    expect(out).toMatchObject({ target_field: '行业', proposed_count: 1 })
+  })
+
+  it('smart_fill_preview：非表格页面返回错误，不调 buildPlan', async () => {
+    vi.resetModules()
+    const mockBuild = vi.fn()
+    vi.doMock('../smartfill/data', () => ({ resolveFillSource: vi.fn() }))
+    vi.doMock('../smartfill/plan', () => ({ buildPlan: mockBuild, applyPlan: vi.fn(), cachePlan: vi.fn(), getCachedPlan: vi.fn(), clearCachedPlan: vi.fn(), summarizePlan: vi.fn() }))
+    const { executeTool } = await import('./agent-executor')
+    const docCtx = { url: 'https://acme.feishu.cn/docx/D1', title: 't', selectedText: '', feishu: { isBase: false, kind: 'doc' as const, documentId: 'D1' } }
+    const out = await executeTool('smart_fill_preview', { target_field: '行业' }, 'tok', docCtx as never, { ...DEFAULT_SETTINGS })
+    expect(out).toMatch(/仅支持多维表格和电子表格/)
+    expect(mockBuild).not.toHaveBeenCalled()
+  })
+
+  it('smart_fill_apply：取缓存 plan→applyPlan→成功后清缓存', async () => {
+    vi.resetModules()
+    const src = { kind: 'base', appToken: 'AppAAA', tableId: 'tblAAA' }
+    const plan = { source: src, field: { id: 'f', name: '行业', type: 3 }, totalRows: 1, eligibleRows: 1, consideredRows: 1, morePending: false, examples: 0, overwrite: false, capped: false, proposed: [{ recordId: 'r1', rowLabel: '甲', value: '互联网', display: '互联网' }], skipped: [] }
+    const mockGet = vi.fn().mockReturnValue(plan)
+    const mockClear = vi.fn()
+    const mockApply = vi.fn().mockResolvedValue({ done: 1, total: 1, remaining: 0 })
+    vi.doMock('../smartfill/data', () => ({ resolveFillSource: vi.fn() }))
+    vi.doMock('../smartfill/plan', () => ({ buildPlan: vi.fn(), applyPlan: mockApply, cachePlan: vi.fn(), getCachedPlan: mockGet, clearCachedPlan: mockClear, summarizePlan: vi.fn() }))
+    const { executeTool } = await import('./agent-executor')
+    const out = await executeTool('smart_fill_apply', {}, 'tok', baseCtx as never, { ...DEFAULT_SETTINGS })
+    expect(mockGet).toHaveBeenCalled()
+    expect(mockApply).toHaveBeenCalledWith(expect.anything(), plan)
+    expect(mockClear).toHaveBeenCalled()
+    expect(out).toEqual({ done: 1, total: 1, remaining: 0 })
+  })
+
+  it('smart_fill_apply：无缓存时返回错误，不调 applyPlan', async () => {
+    vi.resetModules()
+    const mockApply = vi.fn()
+    vi.doMock('../smartfill/data', () => ({ resolveFillSource: vi.fn() }))
+    vi.doMock('../smartfill/plan', () => ({ buildPlan: vi.fn(), applyPlan: mockApply, cachePlan: vi.fn(), getCachedPlan: vi.fn().mockReturnValue(null), clearCachedPlan: vi.fn(), summarizePlan: vi.fn() }))
+    const { executeTool } = await import('./agent-executor')
+    const out = await executeTool('smart_fill_apply', {}, 'tok', baseCtx as never, { ...DEFAULT_SETTINGS })
+    expect(out).toMatch(/没有可应用的预览结果/)
+    expect(mockApply).not.toHaveBeenCalled()
+  })
+
+  it('smart_fill_apply：applyPlan 报错时不清缓存（保留重试机会）', async () => {
+    vi.resetModules()
+    const src = { kind: 'base', appToken: 'AppAAA', tableId: 'tblAAA' }
+    const plan = { source: src, field: { id: 'f', name: '行业', type: 3 }, totalRows: 1, eligibleRows: 1, consideredRows: 1, morePending: false, examples: 0, overwrite: false, capped: false, proposed: [{ recordId: 'r1', rowLabel: '甲', value: '互联网', display: '互联网' }], skipped: [] }
+    const mockClear = vi.fn()
+    const mockApply = vi.fn().mockResolvedValue({ done: 0, total: 1, remaining: 1, failed: '权限不足' })
+    vi.doMock('../smartfill/data', () => ({ resolveFillSource: vi.fn() }))
+    vi.doMock('../smartfill/plan', () => ({ buildPlan: vi.fn(), applyPlan: mockApply, cachePlan: vi.fn(), getCachedPlan: vi.fn().mockReturnValue(plan), clearCachedPlan: mockClear, summarizePlan: vi.fn() }))
+    const { executeTool } = await import('./agent-executor')
+    const out = await executeTool('smart_fill_apply', {}, 'tok', baseCtx as never, { ...DEFAULT_SETTINGS }) as Record<string, unknown>
+    expect(out.failed).toBe('权限不足')
+    expect(mockClear).not.toHaveBeenCalled()
+  })
+})
+
 describe('isVisionUnsupportedError — 非 vision 模型拒绝 image_url 的错误检测', () => {
   it('matches provider image-rejection errors', () => {
     expect(isVisionUnsupportedError('This model does not support image input')).toBe(true)

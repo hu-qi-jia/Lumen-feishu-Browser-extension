@@ -217,4 +217,41 @@ export const COMPOSE_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'smart_fill_preview',
+      description:
+        '智能填充·预览（只读不写）：根据每行其它列的已有值，推断指定列中空缺单元格的值，返回可填充行数、跳过行数及前若干行预览。' +
+        '数据源是当前页面（多维表格 / 电子表格），无需 app_token。' +
+        '适用：目标值无法直接计算、需根据上下文综合判断——如根据公司名+职位推断所属行业、按金额区间归类客户等级、看地区和品类猜仓库归属。' +
+        '触发信号：用户提到"填充/补全/填空缺/推断/按规律填"且值需要判断而非直接给出。' +
+        '不适用：① 统一公式填列（用 fill_column）；② 值已知只按条件批量改（用 update_where）；③ 用户已明确给出要填的值（用 batch_update_records 或 write_range）。' +
+        '确认预览后须调用 smart_fill_apply 写回。',
+      parameters: {
+        type: 'object',
+        required: ['target_field'],
+        properties: {
+          target_field: { type: 'string', description: '要填充的目标列名' },
+          instruction: { type: 'string', description: '可选，填充规则说明（如"按金额区间归类客户等级：>10万为A，5-10万为B，其余为C"）' },
+          source_fields: {
+            type: 'array', items: { type: 'string' },
+            description: '可选，推断时参考的列名列表；默认参考除目标列外的所有列',
+          },
+          overwrite: { type: 'boolean', description: '是否覆盖已有值，默认 false（只填空白单元格）' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'smart_fill_apply',
+      description:
+        '智能填充·写回（写操作）：将最近一次 smart_fill_preview 预览的推断结果写入表格。' +
+        '调用前必须先调 smart_fill_preview、把预览展示给用户、并获得用户明确确认（"确认"/"是"/"yes"）。' +
+        '无参数——使用最近一次预览缓存的填充方案。若缓存已被清空或预览失败会报错。',
+      parameters: { type: 'object', required: [], properties: {} },
+    },
+  },
 ]

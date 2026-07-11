@@ -5,7 +5,7 @@ import { readRange, writeRange } from '../feishu/sheets'
 import { cellToString } from '../feishu/compose'
 import { fetchFillContext } from './data'
 import { inferFills, type InferRow } from '../ai/smartfill'
-import { isFillable, coerceValue } from './coerce'
+import { isFillable, coerceValue, TYPE_LABEL } from './coerce'
 import type { FillField, FillPlan, FillRecord, FillRequest, FillSource, ProposedFill, SkippedFill, ApplyResult } from './types'
 
 const INFER_BATCH = 40    // empty rows per LLM call (context-bound)
@@ -158,5 +158,38 @@ async function applySheet(token: string, plan: FillPlan, source: { spreadsheetTo
     return { done, total, remaining: total - done }
   } catch (e) {
     return { done: 0, total, failed: e instanceof Error ? e.message : String(e), remaining: total }
+  }
+}
+
+// ─── Plan cache (for chat-agent smart_fill tools) ───────────────────────────
+// Module-level single-slot cache: smart_fill_preview stores the plan here, and
+// smart_fill_apply reads it. The sidepanel stays mounted across chat turns, so
+// this survives between the user's "preview" request and their "确认" reply.
+let cachedPlan: FillPlan | null = null
+
+export function cachePlan(p: FillPlan): void { cachedPlan = p }
+export function getCachedPlan(): FillPlan | null { return cachedPlan }
+export function clearCachedPlan(): void { cachedPlan = null }
+
+/**
+ * Compact preview summary for the LLM — returns counts + a small sample instead of the
+ * full proposed list, so the result stays well under the 8000-char truncation limit even
+ * for large tables. The full plan remains in the cache for smart_fill_apply to consume.
+ */
+export function summarizePlan(plan: FillPlan): Record<string, unknown> {
+  return {
+    target_field: plan.field.name,
+    field_type: TYPE_LABEL[plan.field.type] ?? `type_${plan.field.type}`,
+    total_rows: plan.totalRows,
+    eligible_rows: plan.eligibleRows,
+    considered_rows: plan.consideredRows,
+    proposed_count: plan.proposed.length,
+    skipped_count: plan.skipped.length,
+    more_pending: plan.morePending,
+    capped: plan.capped,
+    overwrite: plan.overwrite,
+    preview: plan.proposed.slice(0, 15).map((p) => ({ row: p.rowLabel, value: p.display })),
+    skipped_samples: plan.skipped.slice(0, 5).map((s) => ({ row: s.rowLabel, reason: s.reason })),
+    note: '已缓存预览结果。请把预览展示给用户（行→值），获得明确确认后调用 smart_fill_apply 写回。',
   }
 }

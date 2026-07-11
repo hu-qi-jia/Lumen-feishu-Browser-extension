@@ -8,7 +8,7 @@ vi.mock('../ai/smartfill', () => ({ inferFills: (...a: unknown[]) => inferFills(
 vi.mock('../feishu/api', () => ({ batchUpdateRecords: (...a: unknown[]) => batchUpdate(...a) }))
 vi.mock('../feishu/auth', () => ({ resolveToken: async () => 'u-token' }))
 
-const { buildPlan, applyPlan } = await import('./plan')
+const { buildPlan, applyPlan, cachePlan, getCachedPlan, clearCachedPlan, summarizePlan } = await import('./plan')
 const { DEFAULT_SETTINGS } = await import('../types')
 
 const field = { id: 'f', name: '行业', type: 3, options: ['互联网', '金融', '教育'] }
@@ -108,5 +108,50 @@ describe('applyPlan', () => {
     const sentBatch = batchUpdate.mock.calls[0][3] as Array<{ record_id: string; fields: Record<string, unknown> }>
     expect(sentBatch).toHaveLength(1)
     expect(sentBatch[0]).toEqual({ record_id: 'rec1', fields: { 行业: '金融' } })
+  })
+})
+
+describe('plan cache (chat-agent smart_fill_apply)', () => {
+  beforeEach(() => clearCachedPlan())
+
+  it('cachePlan / getCachedPlan round-trips a plan; clearCachedPlan empties the slot', () => {
+    expect(getCachedPlan()).toBeNull()
+    const plan = { source: baseSrc, field, totalRows: 0, eligibleRows: 0, consideredRows: 0, morePending: false, examples: 0, overwrite: false, capped: false, proposed: [], skipped: [] }
+    cachePlan(plan)
+    expect(getCachedPlan()).toBe(plan)
+    clearCachedPlan()
+    expect(getCachedPlan()).toBeNull()
+  })
+})
+
+describe('summarizePlan — compact LLM-facing preview', () => {
+  it('returns counts + a capped sample, never the full proposed list', () => {
+    const proposed = Array.from({ length: 30 }, (_, i) => ({ recordId: `r${i}`, rowLabel: `行${i}`, value: '互联网', display: '互联网' }))
+    const plan = {
+      source: baseSrc, field, totalRows: 100, eligibleRows: 30, consideredRows: 30,
+      morePending: false, examples: 3, overwrite: false, capped: false, proposed, skipped: [],
+    }
+    const s = summarizePlan(plan) as Record<string, unknown>
+    expect(s.target_field).toBe('行业')
+    expect(s.proposed_count).toBe(30)
+    expect(s.eligible_rows).toBe(30)
+    // Preview sample is capped (15), not the whole 30-row proposed list
+    expect((s.preview as unknown[]).length).toBe(15)
+    expect(JSON.stringify(s).length).toBeLessThan(2000)
+  })
+
+  it('includes skipped samples and the "confirm before apply" note', () => {
+    const plan = {
+      source: baseSrc, field, totalRows: 2, eligibleRows: 1, consideredRows: 1,
+      morePending: true, examples: 0, overwrite: false, capped: true,
+      proposed: [{ recordId: 'r0', rowLabel: '甲', value: '金融', display: '金融' }],
+      skipped: [{ rowLabel: '乙', reason: '模型未填充（不确定）' }],
+    }
+    const s = summarizePlan(plan) as Record<string, unknown>
+    expect(s.skipped_count).toBe(1)
+    expect((s.skipped_samples as unknown[])[0]).toMatchObject({ row: '乙', reason: '模型未填充（不确定）' })
+    expect(String(s.note)).toContain('smart_fill_apply')
+    expect(s.more_pending).toBe(true)
+    expect(s.capped).toBe(true)
   })
 })

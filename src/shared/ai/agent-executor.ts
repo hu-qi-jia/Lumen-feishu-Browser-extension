@@ -16,6 +16,8 @@ import { deriveVizSource, fetchVizData } from '../dataviz/data'
 import { buildDataReport } from '../report/build'
 import { runDocAudit } from './docaudit'
 import { runDocSummary } from './docsummary'
+import { resolveFillSource } from '../smartfill/data'
+import { buildPlan, applyPlan, cachePlan, getCachedPlan, clearCachedPlan, summarizePlan } from '../smartfill/plan'
 import { uploadMedia } from '../feishu/upload'
 import { downloadMedia } from '../feishu/media'
 import { reloadActiveTab } from '@/sidepanel/services/tabReload'
@@ -632,6 +634,36 @@ export async function executeTool(
     const docId = context.feishu?.kind === 'doc' ? context.feishu.documentId : undefined
     if (!docId) return 'Error: 请在一篇飞书文档页面使用。'
     return runDocSummary(settings, docId, args.prompt ? String(args.prompt) : undefined)
+  }
+
+  // Smart fill — preview (read-only) and apply (write). Source resolved from current page,
+  // so dispatched before the Base app_token guard. Wraps the same buildPlan/applyPlan the
+  // dedicated SmartFillPanel uses, giving the chat agent the same key-mapping + type-coercion
+  // + write-back-re-read safety guarantees.
+  if (name === 'smart_fill_preview') {
+    if (!settings) return 'Error: 缺少配置。'
+    const f = context.feishu
+    if (!f || (f.kind !== 'base' && f.kind !== 'sheet')) {
+      return 'Error: 智能填充仅支持多维表格和电子表格，请先打开相应页面。'
+    }
+    const source = await resolveFillSource(settings, f)
+    if (!source) return 'Error: 识别到表格，但找不到可填充的数据，请刷新页面后重试。'
+    const plan = await buildPlan(settings, source, {
+      targetField: String(args.target_field ?? ''),
+      instruction: String(args.instruction ?? '').trim(),
+      sourceFields: args.source_fields as string[] | undefined,
+      overwrite: Boolean(args.overwrite),
+    })
+    cachePlan(plan)
+    return summarizePlan(plan)
+  }
+  if (name === 'smart_fill_apply') {
+    if (!settings) return 'Error: 缺少配置。'
+    const plan = getCachedPlan()
+    if (!plan) return 'Error: 没有可应用的预览结果。请先调用 smart_fill_preview 生成预览，展示给用户确认后再调用本工具。'
+    const r = await applyPlan(settings, plan)
+    if (!r.failed) clearCachedPlan()
+    return r
   }
 
   // Resolve app token — prefer explicit arg, fall back to current page

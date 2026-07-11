@@ -27,6 +27,9 @@ export const SHEET_TOOLS = new Set([
   'read_range', 'write_range', 'append_rows', 'fill_column', 'find_replace',
   'set_number_format', 'insert_dimension', 'delete_dimension',
 ])
+// Smart-fill tools work on BOTH Base and Sheet (source resolved from page context), so they
+// are exposed on both pages regardless of the SHEET/DOC tool partition below.
+export const SMART_FILL_TOOLS = new Set(['smart_fill_preview', 'smart_fill_apply'])
 export const DOC_TOOLS = new Set([
   'create_document', 'create_doc_from_markdown', 'get_document_content', 'list_blocks',
   'add_document_content', 'insert_table', 'insert_sheet', 'delete_document_blocks',
@@ -61,6 +64,7 @@ export function toolsForContext(
   const base = FEISHU_TOOLS.filter((t) => {
     const name = (t as { function?: { name?: string } }).function?.name ?? ''
     if (CORE_TOOLS.has(name)) return true
+    if (SMART_FILL_TOOLS.has(name)) return kind === 'base' || kind === 'sheet'
     if (kind === 'sheet') return SHEET_TOOLS.has(name)
     if (kind === 'doc') return DOC_TOOLS.has(name)
     if (kind === 'base') return !SHEET_TOOLS.has(name) && !DOC_TOOLS.has(name)
