@@ -22,7 +22,7 @@ const PdfTranscribePanel = (await import('./PdfTranscribePanel')).default
 const { DEFAULT_SETTINGS } = await import('@/shared/types')
 
 function ctx() {
-  return { feishu: { kind: 'doc', appToken: 'CURDOC', isBase: false }, url: 'https://x.feishu.cn/docx/CURDOC' } as any
+  return { feishu: { kind: 'doc', documentId: 'CURDOC', isBase: false }, url: 'https://x.feishu.cn/docx/CURDOC' } as any
 }
 function pickFile(name = 'demo.pdf') {
   fireEvent.change(screen.getByTestId('pdf-input'), {

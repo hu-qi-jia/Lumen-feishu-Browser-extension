@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AppSettings, PageContext } from '@/shared/types'
 import type { ClipCapture } from '@/shared/clip/types'
 import { fileToClip } from '@/shared/clip/file'
 import { resolveToken } from '@/shared/feishu/auth'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '@/shared/feishu/docx'
 import { openUrlInNewTab } from '@/shared/url'
-import { runAgent } from '@/shared/ai/agent'
 import type { RecentFile } from '../../services/recentFiles'
 import { loadFileImports, saveFileImport, deleteFileImport, type SavedFileImport } from '../../lib/fileImportHistory'
+import { createDocDirect, createBaseDirect, createSheetDirect, type CreateResult } from './createTargets'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
 import Markdown from '../chat/Markdown'
@@ -16,7 +16,7 @@ import IconButton from '../ui/IconButton'
 import UploadDrop from '../ui/UploadDrop'
 import SideDrawer from '../ui/SideDrawer'
 import HistoryRow from '../session/HistoryRow'
-import WriteTargetSection, { buildCreateInstructions } from './WriteTargetSection'
+import WriteTargetSection from './WriteTargetSection'
 import { KindIcon, IconPlus, IconHistory } from '../ui/icons'
 import './FileImportPanel.css'
 
@@ -29,7 +29,7 @@ interface Props {
   onRemoveRecent?: (token: string) => void
 }
 
-type Phase = 'idle' | 'parsing' | 'preview' | 'running' | 'done' | 'failed'
+type Phase = 'idle' | 'parsing' | 'preview' | 'failed'
 type BodyView = 'preview' | 'markdown'
 
 export default function FileImportPanel({ settings, context, disabled, onBack, recentFiles, onRemoveRecent }: Props) {
@@ -38,21 +38,22 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
   const [editMd, setEditMd] = useState('')
   const [bodyView, setBodyView] = useState<BodyView>('preview')
   const [activeId, setActiveId] = useState<string | null>(null)
-  // 目标文档（DocCombobox 单目标，同 PdfTranscribePanel）。当前页是飞书文档时预填。
+  // 目标文档（DocCombobox 单目标）。当前页是飞书文档时预填。
   const [target, setTarget] = useState<{ token: string; title: string } | null>(
     context.feishu?.kind === 'doc' && context.feishu?.documentId
       ? { token: context.feishu.documentId, title: '当前文档' } : null,
   )
   const [writing, setWriting] = useState(false)
-  const [status, setStatus] = useState<string[]>([])
-  const [result, setResult] = useState('')
   const [errMsg, setErrMsg] = useState('')
   const [info, setInfo] = useState('')
+  // 新建目标（直插，内联展示，不跳转）
+  const [creating, setCreating] = useState(false)
+  const [created, setCreated] = useState<CreateResult | null>(null)
+  const [createErr, setCreateErr] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [imports, setImports] = useState<SavedFileImport[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => { loadFileImports().then(setImports) }, [])
 
@@ -65,12 +66,11 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
   }, [editMd, bodyView])
 
   async function handleFile(file: File) {
-    setPhase('parsing'); setErrMsg(''); setInfo('')
+    setPhase('parsing'); setErrMsg(''); setInfo(''); setCreated(null); setCreateErr('')
     try {
       const c = await fileToClip(file)
       setClip(c); setEditMd(c.content); setBodyView('preview')
-      setActiveId(null); setResult('')
-      setPhase('preview')
+      setActiveId(null); setPhase('preview')
       const id = crypto.randomUUID()
       setActiveId(id)
       const ext = file.name.toLowerCase().split('.').pop() || ''
@@ -99,68 +99,44 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
     }
   }
 
-  // ── 新建目标（agent 创建 + 写入，指令复用 WriteTargetSection.buildCreateInstructions） ──
-  const createInstructions = useMemo(() => buildCreateInstructions({
-    sourceLabel: '文件导入',
-    content: editMd,
-    sourceUrl: clip?.url ?? '',
-    sourceTitle: clip?.title ?? '',
-  }), [editMd, clip])
-
-  async function runCreate(instruction: string) {
+  // ── 新建目标：直插（不整理、不优化），内联展示，不跳转 ──────────────────────
+  function titleFor(kind: string): string {
+    const base = clip?.title?.replace(/\.[^.]+$/, '') || '文件导入'
+    return `${base} - ${kind}`
+  }
+  async function runCreate(kind: 'doc' | 'base' | 'sheet') {
     if (!clip) return
-    setPhase('running'); setStatus([]); setResult(''); setErrMsg(''); setInfo('')
-    const ac = new AbortController()
-    abortRef.current = ac
+    setCreating(true); setCreateErr(''); setCreated(null); setErrMsg(''); setInfo('')
     try {
-      await runAgent(
-        [{ id: crypto.randomUUID(), role: 'user', content: instruction, createdAt: Date.now() }],
-        settings,
-        { url: clip.url, title: clip.title, selectedText: '' },
-        {
-          onChunk: (c) => setResult((r) => r + c),
-          onAssistantMessage: (m) => { if (m.content) setResult(m.content) },
-          onToolStart: (name) => setStatus((s) => [...s, name]),
-          onToolEnd: () => {},
-          onToolMessage: () => {},
-          // 导入只新建/插入（非破坏性），删除一律不自动确认。
-          requestConfirmation: (req) => Promise.resolve(req.kind === 'delete' ? 'cancel' : 'confirm'),
-        },
-        undefined,
-        ac.signal,
-      )
-      setPhase('done')
+      const token = await resolveToken(settings)
+      const title = titleFor(kind === 'base' ? '多维表格' : kind === 'sheet' ? '电子表格' : '文档')
+      const r = kind === 'doc'
+        ? await createDocDirect(token, title, editMd, settings)
+        : kind === 'sheet'
+          ? await createSheetDirect(token, title, editMd, settings)
+          : await createBaseDirect(token, title, editMd, settings)
+      setCreated(r)
     } catch (e) {
-      const aborted = ac.signal.aborted || (e instanceof Error && e.name === 'AbortError')
-      if (!aborted) { setErrMsg(e instanceof Error ? e.message : String(e)); setPhase('failed') }
+      setCreateErr(e instanceof Error ? e.message : String(e))
     } finally {
-      if (abortRef.current === ac) abortRef.current = null
+      setCreating(false)
     }
   }
-  function createNewBase() { if (clip) void runCreate(createInstructions.newBase) }
-  function createNewSheet() { if (clip) void runCreate(createInstructions.newSheet) }
-  function createNewDoc() { if (clip) void runCreate(createInstructions.newDoc) }
-
-  // done 阶段：从 agent 结果里提取链接（同 ClipPanel）
-  const resultUrl = useMemo(() => {
-    const m = result.match(/https?:\/\/[^\s)\]]+/)
-    return m ? m[0].replace(/[.,。，、）)]+$/, '') : ''
-  }, [result])
 
   function openHistory(p: SavedFileImport) {
     setClip({ url: 'file://' + p.fileName, title: p.fileName, selectedText: '', content: p.content, capturedAt: p.createdAt, truncated: p.truncated })
     setEditMd(p.content); setBodyView('preview'); setActiveId(p.id)
-    setResult(''); setErrMsg(''); setInfo(''); setPhase('preview'); setHistoryOpen(false)
+    setErrMsg(''); setInfo(''); setCreated(null); setCreateErr(''); setPhase('preview'); setHistoryOpen(false)
   }
   async function removeHistory(id: string) { setImports(await deleteFileImport(id)) }
 
   function newTask() {
-    abortRef.current?.abort()
-    setClip(null); setEditMd(''); setResult(''); setErrMsg(''); setInfo(''); setStatus([])
+    setClip(null); setEditMd(''); setErrMsg(''); setInfo(''); setStatus0()
     setActiveId(null); setPhase('idle')
   }
+  function setStatus0() { setCreated(null); setCreateErr(''); setCreating(false) }
 
-  const hasFile = phase === 'preview' || phase === 'running' || phase === 'done'
+  const hasFile = phase === 'preview'
 
   return (
     <div className="scenario-panel view-enter" key="fileImport">
@@ -214,7 +190,7 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
 
             {phase === 'preview' && clip && (
               <>
-                {/* 文件信息卡（与 PDF 转写共用 file-source-card 样式） */}
+                {/* 文件信息卡 */}
                 <div className="file-source-card">
                   <span className="file-source-ic"><KindIcon kind="doc" /></span>
                   <div className="file-source-meta">
@@ -246,39 +222,29 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
                 <WriteTargetSection
                   recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
                   target={target} onTargetChange={setTarget}
-                  onConfirm={handleAddToDoc} writing={writing}
-                  onNewDoc={createNewDoc} onNewBase={createNewBase} onNewSheet={createNewSheet}
-                  disabled={disabled}
+                  onConfirm={handleAddToDoc} writing={writing || creating}
+                  onNewDoc={() => runCreate('doc')} onNewBase={() => runCreate('base')} onNewSheet={() => runCreate('sheet')}
+                  busy={creating}
                 />
 
-                {disabled && <p className="sc-pdf-hint">AI 整理需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
+                {/* 新建结果：内联展示，不跳转 */}
+                {creating && (
+                  <div className="wt-create-running">
+                    <span className="wt-create-spinner" /> 正在新建并写入…
+                  </div>
+                )}
+                {createErr && <div className="wt-create-err">{createErr}</div>}
+                {created && (
+                  <div className="wt-create-done">
+                    <span className="wt-create-done-text">已新建「{created.name}」并写入内容</span>
+                    <Button size="sm" variant="primary" onClick={() => openUrlInNewTab(created.url)}>打开 ↗</Button>
+                  </div>
+                )}
+
+                {disabled && <p className="sc-pdf-hint">写入飞书需要完成 API Key / 飞书授权。</p>}
                 {errMsg && <div className="sc-refresh-err">{errMsg}</div>}
                 {!errMsg && info && <div className="sc-registry-info">{info}</div>}
               </>
-            )}
-
-            {phase === 'running' && (
-              <div className="fi-running">
-                <div className="fi-spinner" />
-                <p>AI 正在整理并写入…</p>
-                {status.length > 0 && <p className="fi-status">{status.join(' · ')}</p>}
-                {result && <pre className="fi-result-preview">{result}</pre>}
-              </div>
-            )}
-
-            {phase === 'done' && (
-              <div className="fi-done">
-                <div className="fi-done-icon"></div>
-                <p className="fi-done-text">{result || '已写入。'}</p>
-                {resultUrl && (
-                  <Button variant="primary" block onClick={() => openUrlInNewTab(resultUrl)}>
-                    在飞书中打开 ↗
-                  </Button>
-                )}
-                <div className="fi-actions">
-                  <Button variant="ghost" onClick={newTask}>新任务</Button>
-                </div>
-              </div>
             )}
           </>
         )}

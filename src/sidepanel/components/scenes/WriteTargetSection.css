@@ -9,6 +9,37 @@
 .wt-new-grid { display: flex; gap: 8px; }
 .wt-new-btn { flex: 1 1 0; min-width: 0; }
 
+/* ── 新建结果：内联紧凑展示（不跳转、不溢出） ───────────────────────────── */
+.wt-create-running {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--color-text-secondary);
+}
+.wt-create-spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%;
+  animation: wt-spin .8s linear infinite;
+}
+@keyframes wt-spin { to { transform: rotate(360deg); } }
+
+/* 成功横条：单行说明 + 打开链接，超长截断，不撑高屏幕。 */
+.wt-create-done {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px;
+  background: var(--color-surface); font-size: 12px;
+}
+.wt-create-done-text {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--color-text);
+}
+.wt-create-done .btn { flex-shrink: 0; }
+
+.wt-create-err {
+  font-size: 12px; color: #e5484d;
+  word-break: break-word; line-height: 1.5;
+}
+
+
 /* ── 文件信息卡（上传 / 解析后展示，两面板共用） ────────────────────────── */
 .file-source-card {
   display: flex; align-items: center; gap: 10px;
