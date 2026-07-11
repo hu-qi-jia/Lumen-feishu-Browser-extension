@@ -87,8 +87,8 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
       ] },
 
       { key: 'pdf', label: '内容转写', requires: 'any', feats: [
-        { icon: 'file', title: 'PDF 转 Markdown', desc: 'PDF 转换为 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
-        { icon: 'file', title: '文件导入', desc: '拖入 CSV 文件，AI 整理写入飞书', go: () => setView({ mode: 'fileImport' }) },
+        { icon: 'file', title: 'PDF 格式转换', desc: 'PDF 转换为可编辑的 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
+        { icon: 'file', title: '表格文件转写', desc: '导入 CSV/TSV/TXT，AI 整理后写入飞书文档或表格', go: () => setView({ mode: 'fileImport' }) },
       ] },
     ]
     // 'content' (PPT) works on a doc OR a table, so it's active whenever the page is either (and on
