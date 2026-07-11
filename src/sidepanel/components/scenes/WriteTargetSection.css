@@ -1,0 +1,38 @@
+/* 共享写入目标区 + 文件信息卡 —— 文件导入 / PDF 转写共用 */
+
+/* ── 「或新建一个」分隔线 + 三列等宽 Button ──────────────────────────────── */
+.wt-divider {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 2px;
+  font-size: 11px; color: var(--color-text-secondary);
+}
+.wt-divider::before, .wt-divider::after { content: ''; flex: 1; height: 1px; background: var(--color-border); }
+.wt-new-grid { display: flex; gap: 8px; }
+.wt-new-btn { flex: 1 1 0; min-width: 0; }
+
+/* ── 文件信息卡（上传 / 解析后展示，两面板共用） ────────────────────────── */
+.file-source-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px;
+  background: var(--color-surface);
+}
+.file-source-card.is-busy { opacity: .6; }
+.file-source-card[role="button"] { cursor: pointer; }
+.file-source-card[role="button"]:hover { border-color: var(--color-primary); }
+.file-source-ic {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-primary); background: rgba(51,112,255,.1);
+}
+.file-source-ic svg { width: 18px; height: 18px; display: block; }
+.file-source-meta { min-width: 0; flex: 1; }
+.file-source-name {
+  font-size: 13px; font-weight: 600; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.file-source-sub { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.file-source-tag {
+  flex-shrink: 0; font-size: 10px; padding: 2px 7px; border-radius: 999px;
+  background: var(--color-bg-subtle); color: var(--color-text-secondary);
+  letter-spacing: .04em;
+}
+.file-source-x { flex-shrink: 0; }

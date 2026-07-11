@@ -13,36 +13,27 @@
 .sc-field { display: flex; flex-direction: column; gap: 6px; }
 .sc-field-label { font-size: 12px; font-weight: 600; color: var(--color-text); }
 
-/* The picked file shows as a compact row (small doc glyph + name). No file size — kept lean.
-   In `selected` phase the row becomes the replace affordance (click / drag) — role=button is set
-   on the element in TS; here we only paint the hover. `converting` dims it (.is-busy, non-interactive). */
-.pdf-picked-file {
-  display: flex; align-items: center; gap: 7px;
-  padding: 6px 10px;
-  background: var(--color-bg-subtle, #fafafa);
-  border: 1px solid var(--color-border, #ececec);
-  border-radius: 7px;
-  font-size: 12px;
-  cursor: default;
-  transition: border-color .15s, background .15s;
+/* 已选文件展示复用共享 .file-source-card（WriteTargetSection.css）。
+   仅保留移除按钮在卡片内的紧凑覆写。 */
+.file-source-x { width: auto; height: auto; padding: 2px; border-radius: 4px; }
+.file-source-x svg { width: 14px; height: 14px; }
+
+/* ── 新建目标：运行中 / 完成 ─────────────────────────────────────────────── */
+.pdf-create-running { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 10px; }
+.pdf-create-spinner {
+  width: 22px; height: 22px;
+  border: 2px solid var(--color-border, #ececec); border-top-color: var(--color-primary, #3370ff); border-radius: 50%;
+  animation: pdf-create-spin .8s linear infinite;
 }
-.pdf-picked-file[role="button"] { cursor: pointer; }
-.pdf-picked-file[role="button"]:hover {
-  border-color: var(--color-primary-border, #b3d0ff);
-  background: var(--color-primary-soft, #f0f5ff);
+@keyframes pdf-create-spin { to { transform: rotate(360deg); } }
+.pdf-create-status { font-size: 11px; color: var(--color-text-secondary, #8a8f99); margin: 0; }
+.pdf-create-preview {
+  font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  max-height: 36vh; overflow-y: auto; margin: 0; padding: 8px 10px;
+  background: var(--color-bg-subtle, #fafafa); border-radius: var(--radius, 6px);
 }
-.pdf-picked-file.is-busy { opacity: .55; }
-.pdf-picked-file-ic { display: inline-flex; color: var(--color-text-secondary, #8a8f99); flex-shrink: 0; }
-.pdf-picked-file-ic svg { width: 15px; height: 15px; }
-.pdf-picked-file-name {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-weight: 500; color: var(--color-text, #1f2329);
-}
-.pdf-picked-hint { font-size: 11px; color: var(--color-text-secondary, #b3b8c2); flex-shrink: 0; }
-/* IconButton override: shrink to fit the picked-file row */
-.pdf-picked-x { width: auto; height: auto; padding: 2px; border-radius: 4px; flex-shrink: 0; }
-.pdf-picked-x svg { width: 14px; height: 14px; }
+.pdf-create-done { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 8px; }
+.pdf-create-text { font-size: 13px; text-align: center; white-space: pre-wrap; margin: 0; }
 .pdf-result-box {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border, #e3e3e3);

@@ -3,18 +3,21 @@ import type { AppSettings, PageContext } from '@/shared/types'
 import type { RecentFile } from '../../services/recentFiles'
 import { resolveToken } from '@/shared/feishu/auth'
 import { polishMarkdown } from '@/shared/ai/mdPolish'
+import { runAgent } from '@/shared/ai/agent'
 import { markdownToBlocks, insertContentBlocks, listBlocks } from '@/shared/feishu/docx'
 import { cleanMarkdown, normalizeHeadingLevels } from '@/shared/mdClean'
+import { openUrlInNewTab } from '@/shared/url'
 import { loadPdfs, savePdf, deletePdf, type SavedPdf } from '../../lib/pdfHistory'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
 import SideDrawer from '../ui/SideDrawer'
 import Markdown from '../chat/Markdown'
-import DocCombobox, { type DocTarget } from '../session/DocCombobox'
+import { type DocTarget } from '../session/DocCombobox'
 import UploadDrop from '../ui/UploadDrop'
 import HistoryRow from '../session/HistoryRow'
 import Tooltip from '../ui/Tooltip'
 import IconButton from '../ui/IconButton'
+import WriteTargetSection, { buildCreateInstructions } from './WriteTargetSection'
 import { KindIcon, IconPlus, IconHistory, IconCopy, IconCheck, IconDownload, IconSparkle, IconX } from '../ui/icons'
 import './PdfTranscribePanel.css'
 
@@ -42,9 +45,14 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [info, setInfo] = useState('')
   const [copied, setCopied] = useState(false)
   const [target, setTarget] = useState<DocTarget | null>(
-    context.feishu?.kind === 'doc' && context.feishu?.appToken
-      ? { token: context.feishu.appToken, title: '当前文档' } : null,
+    context.feishu?.kind === 'doc' && context.feishu?.documentId
+      ? { token: context.feishu.documentId, title: '当前文档' } : null,
   )
+  // 新建文档/表格/电子表格（agent 创建 + 写入）—— 复用文件导入的指令与流程。
+  const [creating, setCreating] = useState(false)
+  const [createStatus, setCreateStatus] = useState<string[]>([])
+  const [createResult, setCreateResult] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [pdfs, setPdfs] = useState<SavedPdf[]>([])
   const pickedFile = useRef<File | null>(null)
@@ -143,6 +151,49 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     } finally { setWriting(false) }
   }
 
+  // ── 新建文档/多维表格/电子表格（agent 创建 + 写入，复用文件导入流程） ──────────
+  const createInstructions = buildCreateInstructions({
+    sourceLabel: 'PDF 转写',
+    content: editMd,
+    sourceUrl: '',
+    sourceTitle: fileName,
+  })
+  async function runCreate(instruction: string) {
+    setCreating(true); setCreateStatus([]); setCreateResult(''); setError('')
+    const ac = new AbortController(); abortRef.current = ac
+    try {
+      await runAgent(
+        [{ id: crypto.randomUUID(), role: 'user', content: instruction, createdAt: Date.now() }],
+        settings,
+        { url: '', title: fileName, selectedText: '' },
+        {
+          onChunk: (c) => setCreateResult((r) => r + c),
+          onAssistantMessage: (m) => { if (m.content) setCreateResult(m.content) },
+          onToolStart: (name) => setCreateStatus((s) => [...s, name]),
+          onToolEnd: () => {},
+          onToolMessage: () => {},
+          // 转写只新建/插入（非破坏性），删除一律不自动确认。
+          requestConfirmation: (req) => Promise.resolve(req.kind === 'delete' ? 'cancel' : 'confirm'),
+        },
+        undefined,
+        ac.signal,
+      )
+    } catch (e) {
+      const aborted = ac.signal.aborted || (e instanceof Error && e.name === 'AbortError')
+      if (!aborted) setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      if (abortRef.current === ac) abortRef.current = null
+      setCreating(false)
+    }
+  }
+  function createNewBase() { void runCreate(createInstructions.newBase) }
+  function createNewSheet() { void runCreate(createInstructions.newSheet) }
+  function createNewDoc() { void runCreate(createInstructions.newDoc) }
+  const createResultUrl = (() => {
+    const m = createResult.match(/https?:\/\/[^\s)\]]+/)
+    return m ? m[0].replace(/[.,。，、）)]+$/, '') : ''
+  })()
+
   function openHistory(p: SavedPdf) {
     // History items saved before the PAGE_BREAK strip could still carry HTML comments —
     // scrub them so neither the editor nor the preview shows literal <!-- PAGE_BREAK -->.
@@ -158,6 +209,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   // reappears. Mirrors SlidesPanel.newDraft. `target` is intentionally kept: the write
   // destination is independent of which PDF is loaded.
   function newTask() {
+    abortRef.current?.abort()
     pickedFile.current = null
     setPhase('idle')
     setFileName('document')
@@ -166,6 +218,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     setView('preview')
     setError(''); setInfo('')
     setCopied(false)
+    setCreating(false); setCreateStatus([]); setCreateResult('')
   }
 
   const hasFile = phase === 'selected' || phase === 'converting' || phase === 'done'
@@ -207,7 +260,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
           )}
           {hasFile && (
             <div
-              className={`pdf-picked-file${phase === 'converting' ? ' is-busy' : ''}`}
+              className={`file-source-card${phase === 'converting' ? ' is-busy' : ''}`}
               data-testid="pdf-picked-file"
               role={phase === 'selected' ? 'button' : undefined}
               tabIndex={phase === 'selected' ? 0 : undefined}
@@ -219,19 +272,20 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
                 const f = e.dataTransfer.files?.[0]; if (f) handleFile(f)
               } : undefined}
             >
-              <span className="pdf-picked-file-ic"><KindIcon kind="doc" /></span>
-              <span className="pdf-picked-file-name">{fileName}.pdf</span>
+              <span className="file-source-ic"><KindIcon kind="doc" /></span>
+              <div className="file-source-meta">
+                <div className="file-source-name">{fileName}.pdf</div>
+                <div className="file-source-sub">{phase === 'converting' ? '解析中…' : phase === 'selected' ? '点击或拖入更换' : '已转换'}</div>
+              </div>
+              <span className="file-source-tag">PDF</span>
               {phase === 'selected' && (
-                <>
-                  <span className="pdf-picked-hint">点击或拖入更换</span>
-                  <IconButton
-                    className="pdf-picked-x"
-                    aria-label="移除文件"
-                    onClick={(e) => { e.stopPropagation(); pickedFile.current = null; setPhase('idle') }}
-                  >
-                    <IconX />
-                  </IconButton>
-                </>
+                <IconButton
+                  className="file-source-x"
+                  aria-label="移除文件"
+                  onClick={(e) => { e.stopPropagation(); pickedFile.current = null; setPhase('idle') }}
+                >
+                  <IconX />
+                </IconButton>
               )}
             </div>
           )}
@@ -288,12 +342,31 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
               {disabled && <p className="sc-pdf-hint">AI 润色需要 API Key——请先在「设置」里完成 API Key / 飞书授权。</p>}
             </div>
 
-            {/* 目标文档 */}
-            <div className="sc-field">
-              <label className="sc-field-label">目标文档</label>
-              <DocCombobox recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
-                target={target} onTargetChange={setTarget} onConfirm={handleAddToDoc} writing={writing} />
-            </div>
+            {/* 目标文档 + 新建 —— 复用文件导入的 WriteTargetSection */}
+            <WriteTargetSection
+              recentFiles={recentFiles} onRemoveRecent={onRemoveRecent}
+              target={target} onTargetChange={setTarget}
+              onConfirm={handleAddToDoc} writing={writing || creating}
+              onNewDoc={createNewDoc} onNewBase={createNewBase} onNewSheet={createNewSheet}
+              disabled={disabled} busy={creating}
+            />
+
+            {creating && (
+              <div className="pdf-create-running">
+                <div className="pdf-create-spinner" />
+                <p>AI 正在新建并写入…</p>
+                {createStatus.length > 0 && <p className="pdf-create-status">{createStatus.join(' · ')}</p>}
+                {createResult && <pre className="pdf-create-preview">{createResult}</pre>}
+              </div>
+            )}
+            {!creating && createResult && (
+              <div className="pdf-create-done">
+                <p className="pdf-create-text">{createResult}</p>
+                {createResultUrl && (
+                  <Button variant="primary" block onClick={() => openUrlInNewTab(createResultUrl)}>在飞书中打开 ↗</Button>
+                )}
+              </div>
+            )}
           </>
         )}
 
