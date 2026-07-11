@@ -322,18 +322,18 @@ function SkillRow({ skill, onEdit, onToggle, onRequestDelete }: SkillRowProps) {
       </button>
       <div className="sk-row-actions">
         {!skill.builtIn && (
-          <Tooltip content="编辑" position="bottom">
-            <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
-              <IconEdit />
-            </button>
-          </Tooltip>
-        )}
-        {!skill.builtIn && (
-          <Tooltip content="删除" position="bottom">
-            <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
-              <IconTrash />
-            </button>
-          </Tooltip>
+          <div className="sk-row-btn-group">
+            <Tooltip content="编辑" position="bottom">
+              <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
+                <IconEdit />
+              </button>
+            </Tooltip>
+            <Tooltip content="删除" position="bottom">
+              <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
+                <IconTrash />
+              </button>
+            </Tooltip>
+          </div>
         )}
         <FormSwitch checked={skill.enabled} onChange={onToggle} />
       </div>

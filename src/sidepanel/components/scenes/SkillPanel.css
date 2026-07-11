@@ -40,7 +40,23 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-.sk-row-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.sk-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-right: 2px;
+}
+
+/* Group edit + delete buttons so they read as one unit and sit apart from the switch. */
+.sk-row-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  background: var(--color-surface-2);
+  border-radius: 7px;
+}
 
 /* Icon-only row action buttons */
 .sk-row-btn {
@@ -51,7 +67,7 @@
   transition: background .15s, color .15s;
 }
 .sk-row-btn svg { width: 14px; height: 14px; }
-.sk-row-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
+.sk-row-btn:hover { background: var(--color-surface); color: var(--color-text); }
 .sk-row-btn--danger { color: #e5484d; }
 .sk-row-btn--danger:hover { background: rgba(229, 72, 77, .1); }
 
