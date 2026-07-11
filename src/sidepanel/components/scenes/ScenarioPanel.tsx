@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
-import { CLIP_ENABLED, HAS_KNOWLEDGE_BASE } from '@/shared/config'
+import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import HubCard from '../shell/HubCard'
 import DataVizPanel from './DataVizPanel'
 import AISitePanel from './AISitePanel'
@@ -88,6 +88,7 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
 
       { key: 'pdf', label: '内容转写', requires: 'any', feats: [
         { icon: 'file', title: 'PDF 转 Markdown', desc: 'PDF 转换为 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
+        { icon: 'file', title: '文件导入', desc: '拖入 CSV 文件，AI 整理写入飞书', go: () => setView({ mode: 'fileImport' }) },
       ] },
     ]
     // 'content' (PPT) works on a doc OR a table, so it's active whenever the page is either (and on
@@ -138,16 +139,6 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
               />
             </div>
           </div>
-
-          {CLIP_ENABLED && (
-            <div className="sc-hub-group">
-              <div className="sc-hub-section">网页采集</div>
-              <div className="sc-hub-grid">
-                <HubCard icon={HUB_ICONS.camera} title="截图识别" desc="视觉模型识别图片中的表格数据" />
-                <HubCard icon={HUB_ICONS.file} title="文件导入" desc="拖入 CSV 文件，AI 整理写入飞书" onClick={() => setView({ mode: 'fileImport' })} />
-              </div>
-            </div>
-          )}
 
           {HAS_KNOWLEDGE_BASE && (
             <div className="sc-hub-group">

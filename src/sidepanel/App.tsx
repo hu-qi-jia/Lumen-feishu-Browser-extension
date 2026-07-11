@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ClipCapture } from '@/shared/clip/types'
-import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS, CLIP_ENABLED } from '@/shared/config'
+import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS } from '@/shared/config'
 import { checkNetworkAccess } from '@/shared/network'
 import { usingManagedLlm } from '@/shared/ai/llmConfig'
 import { isFeishuConfigured, resolveToken } from '@/shared/feishu/auth'
@@ -9,7 +8,6 @@ import { cleanDocTitle } from '@/shared/feishu/pageUrl'
 import { autoRestoreOnceOnEmpty } from './services/cloudRestore'
 import type { PageContext, DocSelectionPayload } from '@/shared/types'
 import ChatPanel from './components/chat/ChatPanel'
-import ClipPanel from './components/scenes/ClipPanel'
 import Settings from './components/settings/Settings'
 import NewsPanel from './components/news/NewsPanel'
 import NetworkBlocked from './components/ui/NetworkBlocked'
@@ -62,9 +60,6 @@ export default function App() {
   const [tab, setTab] = useState<AppTab>('chat')
   // Read the live tab inside the auto-default effect WITHOUT re-triggering it (no dep).
   const tabRef = useRef(tab); tabRef.current = tab
-
-  const [clip, setClip] = useState<ClipCapture | null>(null)
-  const [clipError, setClipError] = useState<string | null>(null)
 
   const [chatStreaming, setChatStreaming] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -189,7 +184,6 @@ export default function App() {
       pageSupported,
       hasConversation: hasConversationRef.current,
       currentTab: tabRef.current,
-      clip: !!(clip || clipError),
       chatStreaming,
       newSessionPin: newSessionPinRef.current,
       alreadyDefaulted: autoDefaultDoneRef.current,
@@ -197,9 +191,9 @@ export default function App() {
     if (d.settled) autoDefaultDoneRef.current = true
     if (d.consumePin) newSessionPinRef.current = false
     if (d.tab) setTab(d.tab)
-  }, [ctxResolved, pageSupported, chatStreaming, clip, clipError])
+  }, [ctxResolved, pageSupported, chatStreaming])
 
-  // Network check + background-message routing (clip pushes + content-script context pushes).
+  // Network check + background-message routing (content-script context pushes).
   // Tab-follow listeners live in usePageContext; this only routes runtime messages.
   const [network, setNetwork] = useState<NetworkState>(HAS_NETWORK_RESTRICTION ? 'checking' : 'allowed')
   const [blockedIPs, setBlockedIPs] = useState<string[]>([])
@@ -215,8 +209,6 @@ export default function App() {
       sender: chrome.runtime.MessageSender,
     ) => {
       if (sender.id !== chrome.runtime.id) return
-      if (msg.type === 'CLIP_CAPTURE') { setClipError(null); setClip(msg.payload as ClipCapture); setTab('clip'); return }
-      if (msg.type === 'CLIP_ERROR') { setClip(null); setClipError(msg.message ?? '剪藏失败'); setTab('clip'); return }
       // A page selection landed (content-script button → background relay). Resolve wiki →
       // compare to the working doc → stage a chip or pop the cross-doc switch dialog.
       if (msg.type === 'SELECTION_INCOMING') {
@@ -231,16 +223,6 @@ export default function App() {
       applyCtx(msg.payload as PageContext)
     }
     chrome.runtime.onMessage.addListener(onMsg)
-    // A clip opens the panel async, so the CLIP_CAPTURE push can arrive before this listener
-    // exists. Pull any pending clip the background stashed (one-shot, recent only).
-    if (CLIP_ENABLED) {
-      chrome.runtime.sendMessage({ type: 'CLIP_REQUEST' }).then((resp) => {
-        const r = resp as { payload?: ClipCapture; error?: string; at?: number } | null
-        if (!r || (r.at && Date.now() - r.at > 5_000)) return
-        if (r.payload) { setClipError(null); setClip(r.payload); setTab('clip') }
-        else if (r.error) { setClip(null); setClipError(r.error); setTab('clip') }
-      }).catch(() => { /* no background / no pending clip */ })
-    }
     // The selection button opens the panel async, so the SELECTION_INCOMING push can arrive
     // before this listener exists. Pull any pending selection the background stashed (one-shot,
     // 3s TTL — see background/index.ts).
@@ -379,16 +361,6 @@ export default function App() {
                   theme={theme}
                   onThemeChange={setTheme}
                   onSave={onSaveSettings}
-                />
-              ) : tab === 'clip' ? (
-                <ClipPanel
-                  settings={settings}
-                  clip={clip}
-                  error={clipError ?? undefined}
-                  disabled={!canOperate}
-                  onClose={() => { setClip(null); setClipError(null); setTab('chat') }}
-                  recentFiles={recentFiles}
-                  onRemoveRecent={removeFromRecent}
                 />
               ) : tab === 'news' ? (
                 <NewsPanel />
