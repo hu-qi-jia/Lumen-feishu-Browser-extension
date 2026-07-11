@@ -35,12 +35,18 @@
 }
 .dc-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
 .dc-row:hover { background: var(--color-bg-subtle, #f5f5f5); }
-.dc-row-icon { display: inline-flex; color: var(--color-text-secondary, #8a8f99); }
-.dc-row-icon svg { width: 16px; height: 16px; }
+.dc-row-icon {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  width: 16px; height: 16px;
+  color: var(--color-text-secondary, #8a8f99);
+}
+.dc-row-icon svg { display: block; width: 16px; height: 16px; }
 /* Type-tinted icons so doc / base / sheet are scannable at a glance. Same palette as the source
    chips (.sl-chip-tag--*): doc=蓝, base=紫, sheet=绿. */
 .dc-row-icon--doc { color: #3370ff; }
 .dc-row-icon--base { color: #8b5cf6; }
 .dc-row-icon--sheet { color: #2f9e44; }
-.dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+/* line-height 与图标高度一致，确保图标和文档名称在同一水平线上。 */
+.dc-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; line-height: 16px; }
 .dc-row-x svg { width: 14px; height: 14px; }
