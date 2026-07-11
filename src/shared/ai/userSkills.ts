@@ -391,11 +391,10 @@ export async function saveUserSkill(input: UserSkillInput, existing: UserSkill[]
   return list
 }
 
-/** 删除。builtIn 不可删。 */
+/** 删除。 */
 export async function deleteUserSkill(id: string, existing: UserSkill[]): Promise<UserSkill[]> {
   const target = existing.find((s) => s.id === id)
   if (!target) return existing
-  if (target.builtIn) throw new Error('内置技能不可删除')
   const list = existing.filter((s) => s.id !== id)
   await storageSet(list)
   return list

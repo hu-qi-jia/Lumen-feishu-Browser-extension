@@ -43,19 +43,9 @@
 .sk-row-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex-shrink: 0;
   padding-right: 2px;
-}
-
-/* Group edit + delete buttons so they read as one unit and sit apart from the switch. */
-.sk-row-btn-group {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  padding: 2px;
-  background: var(--color-surface-2);
-  border-radius: 7px;
 }
 
 /* Icon-only row action buttons */
@@ -67,9 +57,32 @@
   transition: background .15s, color .15s;
 }
 .sk-row-btn svg { width: 14px; height: 14px; }
-.sk-row-btn:hover { background: var(--color-surface); color: var(--color-text); }
+.sk-row-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
 .sk-row-btn--danger { color: #e5484d; }
 .sk-row-btn--danger:hover { background: rgba(229, 72, 77, .1); }
+
+/* Settings dropdown menu for each skill row. */
+.sk-row-menu { min-width: 120px; }
+.sk-row-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none; border-radius: 6px;
+  background: none;
+  color: var(--color-text);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.sk-row-menu-item:hover { background: var(--color-surface); }
+.sk-row-menu-item svg { width: 14px; height: 14px; color: var(--color-text-secondary); }
+.sk-row-menu-item--danger { color: var(--color-error); }
+.sk-row-menu-item--danger:hover { background: rgba(229, 72, 77, .1); }
+.sk-row-menu-item--danger svg { color: var(--color-error); }
 
 /* Toast */
 .sk-toast {

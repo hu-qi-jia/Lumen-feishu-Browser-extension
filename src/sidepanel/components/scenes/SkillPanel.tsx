@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
 import Tooltip from '../ui/Tooltip'
+import Dropdown from '../ui/Dropdown'
 import Markdown from '../chat/Markdown'
 import SkillEditor from './SkillEditor'
 import ListView from '../ui/ListView'
 import IconButton from '../ui/IconButton'
 import FormSwitch from '../ui/FormSwitch'
 import ConfirmModal from '../ui/ConfirmModal'
-import { IconPlus, IconEdit, IconTrash, IconUpload, IconDownload, IconTools } from '../ui/icons'
+import { IconPlus, IconEdit, IconTrash, IconUpload, IconDownload, IconTools, IconSettings } from '../ui/icons'
 import {
   loadUserSkills, saveUserSkill, saveAllUserSkills, deleteUserSkill, toggleUserSkill,
   validateSkillMarkdown, exportUserSkills,
@@ -32,6 +33,7 @@ export default function SkillPanel({ onBack }: Props) {
   const [error, setError] = useState('')
   const [view, setView] = useState<View>({ mode: 'list' })
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [menuId, setMenuId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -216,9 +218,11 @@ export default function SkillPanel({ onBack }: Props) {
               renderItem={(s) => (
                 <SkillRow
                   skill={s}
-                  onEdit={() => setView({ mode: 'edit', skill: s })}
+                  menuOpen={menuId === s.id}
+                  onMenuOpenChange={(open) => setMenuId(open ? s.id : null)}
+                  onEdit={() => { setMenuId(null); setView({ mode: 'edit', skill: s }) }}
                   onToggle={() => handleToggle(s.id)}
-                  onRequestDelete={() => setConfirmId(s.id)}
+                  onRequestDelete={() => { setMenuId(null); setConfirmId(s.id) }}
                 />
               )}
             />
@@ -256,20 +260,18 @@ export default function SkillPanel({ onBack }: Props) {
           title={skill.name}
           onBack={() => setView({ mode: 'list' })}
           rightAction={
-            skill.builtIn ? null : (
-              <div className="sk-head-actions">
-                <Tooltip content="编辑" position="bottom">
-                  <button className="sl-history-btn" onClick={() => setView({ mode: 'edit', skill })} type="button" aria-label="编辑">
-                    <IconEdit />
-                  </button>
-                </Tooltip>
-                <Tooltip content="删除" position="bottom">
-                  <button className="sl-history-btn sk-head-btn--danger" onClick={() => setConfirmId(skill.id)} type="button" aria-label="删除">
-                    <IconTrash />
-                  </button>
-                </Tooltip>
-              </div>
-            )
+            <div className="sk-head-actions">
+              <Tooltip content="编辑" position="bottom">
+                <button className="sl-history-btn" onClick={() => setView({ mode: 'edit', skill })} type="button" aria-label="编辑">
+                  <IconEdit />
+                </button>
+              </Tooltip>
+              <Tooltip content="删除" position="bottom">
+                <button className="sl-history-btn sk-head-btn--danger" onClick={() => setConfirmId(skill.id)} type="button" aria-label="删除">
+                  <IconTrash />
+                </button>
+              </Tooltip>
+            </div>
           }
         />
         <SkillDetailView skill={skill} onToggle={() => handleToggle(skill.id)} />
@@ -284,7 +286,7 @@ export default function SkillPanel({ onBack }: Props) {
         title={view.skill ? '编辑技能' : '新建技能'}
         onBack={() => setView({ mode: 'list' })}
         rightAction={
-          view.skill && !view.skill.builtIn ? (
+          view.skill ? (
             <Tooltip content="删除" position="bottom">
               <button className="sl-history-btn sk-head-btn--danger" onClick={() => view.skill && setConfirmId(view.skill.id)} type="button" aria-label="删除">
                 <IconTrash />
@@ -308,12 +310,14 @@ export default function SkillPanel({ onBack }: Props) {
 
 interface SkillRowProps {
   skill: UserSkill
+  menuOpen: boolean
+  onMenuOpenChange: (open: boolean) => void
   onEdit: () => void
   onToggle: () => void
   onRequestDelete: () => void
 }
 
-function SkillRow({ skill, onEdit, onToggle, onRequestDelete }: SkillRowProps) {
+function SkillRow({ skill, menuOpen, onMenuOpenChange, onEdit, onToggle, onRequestDelete }: SkillRowProps) {
   return (
     <>
       <button className="sk-row-main" type="button" onClick={onEdit} aria-label={`编辑 ${skill.name}`}>
@@ -321,21 +325,38 @@ function SkillRow({ skill, onEdit, onToggle, onRequestDelete }: SkillRowProps) {
         <span className="sk-row-desc">{skill.description}</span>
       </button>
       <div className="sk-row-actions">
-        {!skill.builtIn && (
-          <div className="sk-row-btn-group">
-            <Tooltip content="编辑" position="bottom">
-              <button className="sk-row-btn" onClick={onEdit} type="button" aria-label="编辑">
-                <IconEdit />
-              </button>
-            </Tooltip>
-            <Tooltip content="删除" position="bottom">
-              <button className="sk-row-btn sk-row-btn--danger" onClick={onRequestDelete} type="button" aria-label="删除">
-                <IconTrash />
-              </button>
-            </Tooltip>
-          </div>
-        )}
         <FormSwitch checked={skill.enabled} onChange={onToggle} />
+        <Dropdown
+          open={menuOpen}
+          onOpenChange={onMenuOpenChange}
+          align="right"
+          direction="down"
+          role="menu"
+          menuClassName="sk-row-menu"
+          trigger={
+            <Tooltip content="设置" position="bottom">
+              <button
+                className="sk-row-btn sk-row-btn--settings"
+                onClick={() => onMenuOpenChange(!menuOpen)}
+                type="button"
+                aria-label="设置"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <IconSettings />
+              </button>
+            </Tooltip>
+          }
+        >
+          <button className="sk-row-menu-item" onClick={onEdit} type="button" role="menuitem">
+            <IconEdit width={14} height={14} />
+            <span>编辑</span>
+          </button>
+          <button className="sk-row-menu-item sk-row-menu-item--danger" onClick={onRequestDelete} type="button" role="menuitem">
+            <IconTrash width={14} height={14} />
+            <span>删除</span>
+          </button>
+        </Dropdown>
       </div>
     </>
   )
