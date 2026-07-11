@@ -192,6 +192,59 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     onStagedConsumed?.()
   }, [stagedSelection])
 
+  // 引用文档弹窗打开时，后台预拉取所有表格/多维表格最近文件的子表列表，
+  // 用户点击时缓存已就绪、秒进子表选择视图。fire-and-forget，不阻塞 UI。
+  useEffect(() => {
+    if (!refDocOpen) return
+    void (async () => {
+      const userToken = await resolveToken(settings).catch(() => undefined)
+      if (!userToken) return
+      // 直接可用的 sheet/base（token 已知）
+      const direct = (recentFiles ?? []).filter(
+        (f) => (f.kind === 'sheet' || f.kind === 'base') && !getCachedSubTables(f.token),
+      )
+      // wiki 类型需先解析出真实 kind + obj_token
+      const wikis = (recentFiles ?? []).filter((f) => f.kind === 'wiki' && resolveWikiNode)
+      for (const f of direct) {
+        void (async () => {
+          try {
+            if (f.kind === 'sheet') {
+              const res = await listSheets(userToken, f.token) as {
+                sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+              }
+              setCachedSubTables(f.token, (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+            } else {
+              const res = await listTables(userToken, f.token) as {
+                items?: Array<{ table_id: string; name: string }>
+              }
+              setCachedSubTables(f.token, (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name })))
+            }
+          } catch { /* 单个失败不影响其他 */ }
+        })()
+      }
+      for (const f of wikis) {
+        void (async () => {
+          const resolved = await resolveWikiNode!(f.token)
+          if (!resolved || (resolved.kind !== 'sheet' && resolved.kind !== 'base')) return
+          if (getCachedSubTables(resolved.docToken)) return
+          try {
+            if (resolved.kind === 'sheet') {
+              const res = await listSheets(userToken, resolved.docToken) as {
+                sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+              }
+              setCachedSubTables(resolved.docToken, (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+            } else {
+              const res = await listTables(userToken, resolved.docToken) as {
+                items?: Array<{ table_id: string; name: string }>
+              }
+              setCachedSubTables(resolved.docToken, (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name })))
+            }
+          } catch { /* 单个失败不影响其他 */ }
+        })()
+      }
+    })()
+  }, [refDocOpen, recentFiles, resolveWikiNode, settings])
+
   function submit() {
     const t = text.trim()
     if ((!t && visibleAttachments.length === 0 && selectedSkills.length === 0) || blocked) return
