@@ -59,6 +59,16 @@
   background: var(--color-surface-2);
 }
 
+/* Kind icon shown next to the mode label in the trigger. */
+.doc-selector-kind-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+.doc-selector-kind-icon svg { width: 14px; height: 14px; }
+
 /* Title + count cluster: shrink-to-fit so the count sits right next to the (possibly
    truncated) title, while the chevron is pushed to the row's right edge by margin-left:auto.
    min-width:0 + flex:0 1 auto lets the title truncate when the row overflows. */

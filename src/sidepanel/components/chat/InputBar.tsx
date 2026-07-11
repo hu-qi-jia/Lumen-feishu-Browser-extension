@@ -1,10 +1,13 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardEvent, DragEvent, ChangeEvent } from 'react'
 import type { AppSettings, Attachment, DocRefAttachmentData, DocSelectionPayload, SessionKind } from '@/shared/types'
-import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText, tryAddDocRefAttachment, resolveDocRefFromUrl } from '@/shared/attachments'
+import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText, tryAddDocRefAttachment, resolveDocRefFromUrl, updateDocRefAttachment, getCachedSubTables, setCachedSubTables } from '@/shared/attachments'
 import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { loadUserSkills, type UserSkill } from '@/shared/ai/userSkills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import { buildFeishuUrl } from '@/shared/feishu/pageUrl'
+import { listSheets } from '@/shared/feishu/sheets'
+import { listTables } from '@/shared/feishu/api'
+import { resolveToken } from '@/shared/feishu/auth'
 import type { RecentFile } from '../../services/recentFiles'
 import { displayName } from '../../services/recentFiles'
 import Tooltip from '../ui/Tooltip'
@@ -53,12 +56,14 @@ interface Props {
   recentFiles?: RecentFile[]
   /** Resolve a wiki-wrapped resource to its real kind so its icon is right. */
   resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** Resolve a wiki node to its real kind + obj_token. Reuses the shared cache. */
+  resolveWikiNode?: (wikiToken: string) => Promise<{ kind: SessionKind; docToken: string } | undefined>
   /** App settings — needed to resolve the user token for link → title lookups. */
   settings: AppSettings
 }
 
 const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
-  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken, kbEnabled, onToggleKb, recentFiles, resolveWikiKind, settings },
+  { onSend, disabled, busy, onStop, selection, resourceKind, stagedSelection, onStagedConsumed, workDocToken, kbEnabled, onToggleKb, recentFiles, resolveWikiKind, resolveWikiNode, settings },
   ref,
 ) {
   // Per-doc draft: typed text is scoped to the working doc, mirroring how selection chips are
@@ -85,6 +90,20 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const [refDocLoading, setRefDocLoading] = useState(false)
   const [refDocError, setRefDocError] = useState('')
   const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
+  // 弹窗内子表选择：选中 sheet/base 文件/链接后，先让用户挑具体子表再添加 chip
+  const [refDocSubPicker, setRefDocSubPicker] = useState<{
+    data: DocRefAttachmentData
+    loading: boolean
+    items: { id: string; name: string }[]
+    error?: string
+  } | null>(null)
+  // 子表选择器：在已添加的 sheet/base docref chip 上展开内联下拉，可二次切换子表
+  const [subTablePicker, setSubTablePicker] = useState<{
+    chipId: string
+    loading: boolean
+    items: { id: string; name: string }[]
+    error?: string
+  } | null>(null)
   const refDocInputRef = useRef<HTMLInputElement>(null)
   const refDocPopupRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -244,6 +263,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     setRefDocInput('')
     setRefDocError('')
     setRefDocLoading(false)
+    setRefDocSubPicker(null)
   }
 
   function addDocRef(data: DocRefAttachmentData): boolean {
@@ -253,11 +273,140 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     return true
   }
 
-  function pickRecentDoc(f: RecentFile) {
+  async function pickRecentDoc(f: RecentFile) {
+    // wiki 类型的 recent file 存的 token 是 wiki token，需要解析拿到真实 kind + obj_token。
+    // 使用 resolveWikiNode 复用已有缓存（resolveWikiKind 或页面上下文可能已解析过），
+    // 跳过 resolveDocRefFromUrl 的 title fetch 和验证调用，减少串行 API 数。
+    if (f.kind === 'wiki' && resolveWikiNode) {
+      setRefDocLoading(true)
+      setRefDocError('')
+      try {
+        const resolved = await resolveWikiNode(f.token)
+        if (!resolved) {
+          setRefDocError('无法解析该知识库节点')
+          return
+        }
+        const url = buildFeishuUrl('wiki', f.token) || ''
+        const data: DocRefAttachmentData = {
+          kind: resolved.kind,
+          docToken: resolved.docToken,
+          docTitle: displayName(f),
+          url,
+        }
+        if (resolved.kind === 'sheet' || resolved.kind === 'base') {
+          await enterRefDocSubPicker(data)
+          return
+        }
+        const added = addDocRef(data)
+        if (added) closeRefDocPicker()
+      } catch {
+        setRefDocError('解析知识库节点失败')
+      } finally {
+        setRefDocLoading(false)
+      }
+      textareaRef.current?.focus()
+      return
+    }
+    // 回退：没有 resolveWikiNode 时走完整解析
+    if (f.kind === 'wiki') {
+      setRefDocLoading(true)
+      setRefDocError('')
+      try {
+        const url = buildFeishuUrl('wiki', f.token) || ''
+        const data = await resolveDocRefFromUrl(url, settings)
+        if (!data) {
+          setRefDocError('无法解析该知识库节点')
+          return
+        }
+        if (!data.docTitle) data.docTitle = displayName(f)
+        if (data.kind === 'sheet' || data.kind === 'base') {
+          await enterRefDocSubPicker(data)
+          return
+        }
+        const added = addDocRef(data)
+        if (added) closeRefDocPicker()
+      } catch {
+        setRefDocError('解析知识库节点失败')
+      } finally {
+        setRefDocLoading(false)
+      }
+      textareaRef.current?.focus()
+      return
+    }
     const url = buildFeishuUrl(f.kind, f.token) || ''
-    const added = addDocRef({ kind: f.kind, docToken: f.token, docTitle: displayName(f), url })
+    const data: DocRefAttachmentData = { kind: f.kind, docToken: f.token, docTitle: displayName(f), url }
+    if (f.kind === 'sheet' || f.kind === 'base') {
+      await enterRefDocSubPicker(data)
+      return
+    }
+    const added = addDocRef(data)
     if (added) closeRefDocPicker()
     textareaRef.current?.focus()
+  }
+
+  // ── Sub-table picker (sheet/base docref chip) ──
+  // 用户在引用表格/多维表格后，可点击 chip 上的"选择子表"按钮拉取子表列表并指定一张，
+  // 让 agent 直接定位、省去 list_sheets / list_tables 枚举步骤。
+  async function openSubTablePicker(chip: Attachment) {
+    if (!chip.docref) return
+    const d = chip.docref
+    if (d.kind !== 'sheet' && d.kind !== 'base') return
+    // 先查缓存，命中则跳过网络请求
+    const cached = getCachedSubTables(d.docToken)
+    if (cached) {
+      setSubTablePicker({ chipId: chip.id, loading: false, items: cached })
+      return
+    }
+    setSubTablePicker({ chipId: chip.id, loading: true, items: [] })
+    const userToken = await resolveToken(settings).catch(() => undefined)
+    if (!userToken) {
+      setSubTablePicker({ chipId: chip.id, loading: false, items: [], error: '未授权，请先在设置中配置' })
+      return
+    }
+    try {
+      if (d.kind === 'sheet') {
+        const res = await listSheets(userToken, d.docToken) as {
+          sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+        }
+        const items = (res.sheets ?? [])
+          .slice()
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+          .map((s) => ({ id: s.sheet_id, name: s.title }))
+        setCachedSubTables(d.docToken, items)
+        setSubTablePicker({ chipId: chip.id, loading: false, items })
+      } else {
+        const res = await listTables(userToken, d.docToken) as {
+          items?: Array<{ table_id: string; name: string }>
+        }
+        const items = (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name }))
+        setCachedSubTables(d.docToken, items)
+        setSubTablePicker({ chipId: chip.id, loading: false, items })
+      }
+    } catch {
+      setSubTablePicker({ chipId: chip.id, loading: false, items: [], error: '拉取子表失败' })
+    }
+  }
+
+  function pickSubTable(chipId: string, id: string, name: string) {
+    const chip = attachments.find((a) => a.id === chipId)
+    if (!chip?.docref) return
+    const patch =
+      chip.docref.kind === 'sheet'
+        ? { sheetId: id, sheetName: name }
+        : { tableId: id, tableName: name }
+    setAttachments((prev) => updateDocRefAttachment(prev, chipId, patch))
+    setSubTablePicker(null)
+  }
+
+  function clearSubTable(chipId: string) {
+    const chip = attachments.find((a) => a.id === chipId)
+    if (!chip?.docref) return
+    const patch =
+      chip.docref.kind === 'sheet'
+        ? { sheetId: undefined, sheetName: undefined }
+        : { tableId: undefined, tableName: undefined }
+    setAttachments((prev) => updateDocRefAttachment(prev, chipId, patch))
+    setSubTablePicker(null)
   }
 
   async function handleRefDocSubmit() {
@@ -276,6 +425,10 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
         const match = (recentFiles ?? []).find((f) => f.token === data.docToken)
         if (match) data.docTitle = displayName(match)
       }
+      if (data.kind === 'sheet' || data.kind === 'base') {
+        await enterRefDocSubPicker(data)
+        return
+      }
       const added = addDocRef(data)
       if (!added) {
         setRefDocError('该文档已添加，或引用数量已达上限')
@@ -288,6 +441,62 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     } finally {
       setRefDocLoading(false)
     }
+  }
+
+  // 进入弹窗内的子表选择视图（sheet/base）。先查缓存，命中则秒开。
+  async function enterRefDocSubPicker(data: DocRefAttachmentData) {
+    const cached = getCachedSubTables(data.docToken)
+    if (cached) {
+      setRefDocSubPicker({ data, loading: false, items: cached })
+      return
+    }
+    setRefDocSubPicker({ data, loading: true, items: [] })
+    const userToken = await resolveToken(settings).catch(() => undefined)
+    if (!userToken) {
+      setRefDocSubPicker({ data, loading: false, items: [], error: '未授权，请先在设置中配置' })
+      return
+    }
+    try {
+      if (data.kind === 'sheet') {
+        const res = await listSheets(userToken, data.docToken) as {
+          sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+        }
+        const items = (res.sheets ?? [])
+          .slice()
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+          .map((s) => ({ id: s.sheet_id, name: s.title }))
+        setCachedSubTables(data.docToken, items)
+        setRefDocSubPicker({ data, loading: false, items })
+      } else {
+        const res = await listTables(userToken, data.docToken) as {
+          items?: Array<{ table_id: string; name: string }>
+        }
+        const items = (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name }))
+        setCachedSubTables(data.docToken, items)
+        setRefDocSubPicker({ data, loading: false, items })
+      }
+    } catch {
+      setRefDocSubPicker({ data, loading: false, items: [], error: '拉取子表失败' })
+    }
+  }
+
+  function confirmRefDocSubTable(id?: string, name?: string) {
+    if (!refDocSubPicker) return
+    const data = refDocSubPicker.data
+    const withSub: DocRefAttachmentData =
+      data.kind === 'sheet' && id
+        ? { ...data, sheetId: id, sheetName: name }
+        : data.kind === 'base' && id
+          ? { ...data, tableId: id, tableName: name }
+          : data
+    const added = addDocRef(withSub)
+    if (!added) {
+      setRefDocSubPicker(null)
+      setRefDocError('该文档已添加，或引用数量已达上限')
+      return
+    }
+    closeRefDocPicker()
+    textareaRef.current?.focus()
   }
 
   function onRefDocInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -330,6 +539,20 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [refDocOpen])
+
+  // Close the sub-table picker on outside click.
+  useEffect(() => {
+    if (!subTablePicker) return
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      // 点击 subtable-btn 或 subtable-popup 内部时不关闭（它们自己处理 stopPropagation，
+      // 但用类名兜底防止事件冒泡顺序差异导致误关）。
+      if (t.closest('.docref-subtable-btn') || t.closest('.docref-subtable-popup')) return
+      setSubTablePicker(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [subTablePicker])
 
   const refDocDisplayKind = (f: RecentFile): SessionKind =>
     f.kind === 'wiki' ? (wikiKinds[f.token] ?? 'doc') : f.kind
@@ -458,7 +681,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               </div>
             )}
             {visibleAttachments.map((a) => (
-              <div key={a.id} className={`attachment-chip${a.type === 'docref' ? ' attachment-chip--docref' : ''}`}>
+              <div key={a.id} className={`attachment-chip${a.type === 'docref' ? ' attachment-chip--docref' : ''}${subTablePicker?.chipId === a.id ? ' attachment-chip--subtable-open' : ''}`}>
                 {a.type === 'image' && a.dataUrl ? (
                   <img className="attachment-thumb" src={a.dataUrl} alt={a.name} />
                 ) : a.type === 'selection' && a.selection ? (
@@ -468,12 +691,33 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   </span>
                 ) : a.type === 'docref' && a.docref ? (
                   <Tooltip content={a.docref.docTitle || a.docref.url} position="top">
-                    <span className="attachment-docref">
+                    <button
+                      className="attachment-docref"
+                      onClick={(e) => {
+                        if (a.docref?.kind !== 'sheet' && a.docref?.kind !== 'base') return
+                        e.stopPropagation()
+                        if (subTablePicker?.chipId === a.id) setSubTablePicker(null)
+                        else void openSubTablePicker(a)
+                      }}
+                      type="button"
+                      title={a.docref.kind === 'sheet' ? '选择工作表' : a.docref.kind === 'base' ? '选择数据表' : '引用文档'}
+                    >
                       <span className="attachment-docref-icon">
                         <KindIcon kind={a.docref.kind} />
                       </span>
                       <span className="attachment-docref-name">{a.docref.docTitle || '未命名文档'}</span>
-                    </span>
+                      {(a.docref.kind === 'sheet' || a.docref.kind === 'base') && (
+                        <>
+                          <span className="attachment-docref-divider" aria-hidden="true" />
+                          <span className="attachment-docref-subtable">
+                            {a.docref.sheetName || a.docref.tableName || '全部子表'}
+                          </span>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
                   </Tooltip>
                 ) : (
                   <span className="attachment-name">{a.name}</span>
@@ -488,6 +732,45 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                     ×
                   </button>
                 </Tooltip>
+                {subTablePicker?.chipId === a.id && (
+                  <div className="docref-subtable-popup" role="listbox">
+                    {subTablePicker.loading ? (
+                      <div className="docref-subtable-msg">加载中…</div>
+                    ) : subTablePicker.error ? (
+                      <div className="docref-subtable-msg docref-subtable-msg--error">{subTablePicker.error}</div>
+                    ) : subTablePicker.items.length === 0 ? (
+                      <div className="docref-subtable-msg">暂无子表</div>
+                    ) : (
+                      <>
+                        <button
+                          className="docref-subtable-item"
+                          onClick={(e) => { e.stopPropagation(); clearSubTable(a.id) }}
+                          type="button"
+                          role="option"
+                          aria-selected={!a.docref?.sheetId && !a.docref?.tableId}
+                        >
+                          <span className="docref-subtable-item-name">全部子表</span>
+                        </button>
+                        {subTablePicker.items.map((it) => {
+                          const selected = a.docref?.sheetId === it.id || a.docref?.tableId === it.id
+                          return (
+                            <button
+                              key={it.id}
+                              className={`docref-subtable-item${selected ? ' docref-subtable-item--active' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); pickSubTable(a.id, it.id, it.name) }}
+                              type="button"
+                              role="option"
+                              aria-selected={selected}
+                              title={it.name}
+                            >
+                              <span className="docref-subtable-item-name">{it.name}</span>
+                            </button>
+                          )
+                        })}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -532,68 +815,138 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
 
         {/* Reference-document picker — pops up above the textarea, matches input width */}
         {refDocOpen && (
-          <div className="refdoc-popup" ref={refDocPopupRef} role="dialog" aria-label="引用文档">
-            <div className="refdoc-popup-header">
-              <span className="refdoc-popup-title">引用文档</span>
-              <button
-                className="refdoc-popup-close"
-                onClick={closeRefDocPicker}
-                aria-label="关闭"
-                type="button"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="refdoc-input-row">
-              <input
-                ref={refDocInputRef}
-                className="refdoc-input"
-                placeholder="粘贴飞书文档/表格/多维表格链接"
-                value={refDocInput}
-                onChange={(e) => { setRefDocInput(e.target.value); setRefDocError('') }}
-                onKeyDown={onRefDocInputKeyDown}
-                disabled={refDocLoading}
-              />
-              <button
-                className="refdoc-add-btn"
-                onClick={() => void handleRefDocSubmit()}
-                disabled={refDocLoading || !refDocInput.trim()}
-                type="button"
-              >
-                {refDocLoading ? '解析中…' : '添加'}
-              </button>
-            </div>
-            {refDocError && <p className="refdoc-error">{refDocError}</p>}
-            {filteredRefDocs.length > 0 && (
-              <div className="refdoc-recent">
-                <div className="refdoc-recent-label">最近打开</div>
-                <div className="refdoc-recent-list">
-                  {filteredRefDocs.slice(0, 8).map((f) => {
-                    const k = refDocDisplayKind(f)
-                    const name = displayName(f)
-                    return (
-                      <button
-                        key={f.token}
-                        className="refdoc-recent-item"
-                        onClick={() => pickRecentDoc(f)}
-                        type="button"
-                        title={name}
-                      >
-                        <span className={`refdoc-recent-icon refdoc-recent-icon--${k}`}>
-                          <KindIcon kind={k} />
-                        </span>
-                        <span className="refdoc-recent-name">{name}</span>
-                      </button>
-                    )
-                  })}
+          <div className="refdoc-popup" ref={refDocPopupRef} role="dialog" aria-label={refDocSubPicker ? '选择子表' : '引用文档'}>
+            {refDocSubPicker ? (
+              <>
+                <div className="refdoc-popup-header">
+                  <button
+                    className="refdoc-popup-back"
+                    onClick={() => setRefDocSubPicker(null)}
+                    aria-label="返回"
+                    type="button"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  <span className="refdoc-popup-title">选择{refDocSubPicker.data.kind === 'sheet' ? '工作表' : '数据表'}</span>
+                  <button
+                    className="refdoc-popup-close"
+                    onClick={closeRefDocPicker}
+                    aria-label="关闭"
+                    type="button"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
                 </div>
-              </div>
-            )}
-            {filteredRefDocs.length === 0 && !refDocInput && (
-              <p className="refdoc-empty">暂无最近文档，请粘贴链接添加</p>
+                <div className="refdoc-subtable-doc">
+                  <span className="refdoc-subtable-doc-icon">
+                    <KindIcon kind={refDocSubPicker.data.kind} />
+                  </span>
+                  <span className="refdoc-subtable-doc-name" title={refDocSubPicker.data.docTitle}>
+                    {refDocSubPicker.data.docTitle || '未命名'}
+                  </span>
+                </div>
+                <div className="refdoc-subtable-list" role="listbox">
+                  {refDocSubPicker.loading ? (
+                    <div className="refdoc-subtable-msg">加载中…</div>
+                  ) : refDocSubPicker.error ? (
+                    <div className="refdoc-subtable-msg refdoc-subtable-msg--error">{refDocSubPicker.error}</div>
+                  ) : (
+                    <>
+                      <button
+                        className="refdoc-subtable-list-item"
+                        onClick={() => confirmRefDocSubTable()}
+                        type="button"
+                        role="option"
+                      >
+                        <span className="refdoc-subtable-list-name">全部{refDocSubPicker.data.kind === 'sheet' ? '工作表' : '数据表'}</span>
+                        <span className="refdoc-subtable-list-hint">由 AI 自行选择</span>
+                      </button>
+                      {refDocSubPicker.items.map((it) => (
+                        <button
+                          key={it.id}
+                          className="refdoc-subtable-list-item"
+                          onClick={() => confirmRefDocSubTable(it.id, it.name)}
+                          type="button"
+                          role="option"
+                          title={it.name}
+                        >
+                          <span className="refdoc-subtable-list-name">{it.name}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="refdoc-popup-header">
+                  <span className="refdoc-popup-title">引用文档</span>
+                  <button
+                    className="refdoc-popup-close"
+                    onClick={closeRefDocPicker}
+                    aria-label="关闭"
+                    type="button"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="refdoc-input-row">
+                  <input
+                    ref={refDocInputRef}
+                    className="refdoc-input"
+                    placeholder="粘贴飞书文档/表格/多维表格链接"
+                    value={refDocInput}
+                    onChange={(e) => { setRefDocInput(e.target.value); setRefDocError('') }}
+                    onKeyDown={onRefDocInputKeyDown}
+                    disabled={refDocLoading}
+                  />
+                  <button
+                    className="refdoc-add-btn"
+                    onClick={() => void handleRefDocSubmit()}
+                    disabled={refDocLoading || !refDocInput.trim()}
+                    type="button"
+                  >
+                    {refDocLoading ? '解析中…' : '添加'}
+                  </button>
+                </div>
+                {refDocError && <p className="refdoc-error">{refDocError}</p>}
+                {filteredRefDocs.length > 0 && (
+                  <div className="refdoc-recent">
+                    <div className="refdoc-recent-label">最近打开</div>
+                    <div className="refdoc-recent-list">
+                      {filteredRefDocs.slice(0, 8).map((f) => {
+                        const k = refDocDisplayKind(f)
+                        const name = displayName(f)
+                        return (
+                          <button
+                            key={f.token}
+                            className="refdoc-recent-item"
+                            onClick={() => void pickRecentDoc(f)}
+                            type="button"
+                            title={name}
+                          >
+                            <span className={`refdoc-recent-icon refdoc-recent-icon--${k}`}>
+                              <KindIcon kind={k} />
+                            </span>
+                            <span className="refdoc-recent-name">{name}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {filteredRefDocs.length === 0 && !refDocInput && (
+                  <p className="refdoc-empty">暂无最近文档，请粘贴链接添加</p>
+                )}
+              </>
             )}
           </div>
         )}

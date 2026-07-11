@@ -35,6 +35,14 @@ export interface DocRefAttachmentData {
   docToken: string
   docTitle: string
   url: string
+  /** 电子表格选中的工作表 id（kind === 'sheet' 时可选；不填则交给 AI 自行枚举）。 */
+  sheetId?: string
+  /** 电子表格选中的工作表名，仅用于 chip 展示。 */
+  sheetName?: string
+  /** 多维表格选中的数据表 id（kind === 'base' 时可选；不填则交给 AI 自行枚举）。 */
+  tableId?: string
+  /** 多维表格选中的数据表名，仅用于 chip 展示。 */
+  tableName?: string
 }
 
 export type AttachmentType = 'image' | 'file' | 'selection' | 'docref'

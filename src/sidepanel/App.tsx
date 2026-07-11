@@ -51,7 +51,7 @@ export default function App() {
   const wikiCacheRef = useRef<Map<string, NonNullable<PageContext['feishu']>>>(new Map())
 
   const { ctx, setCtx, applyCtx } = usePageContext(settings, wikiCacheRef)
-  const { resolveWikiKind, authExpired } = useWikiResolve(settings, ctx, setCtx, wikiCacheRef)
+  const { resolveWikiKind, resolveWikiNode, authExpired } = useWikiResolve(settings, ctx, setCtx, wikiCacheRef)
   const { recentFiles, ready: recentReady, recordRecent, removeFromRecent } = useRecentFiles(ctx.feishu, ctx.title)
   // Recover real names for recent docs whose title is unknown (closed tab / reloaded mid-load):
   // fetch the name from the Feishu API by token so the dropdown never shows a blank/placeholder row.
@@ -385,6 +385,7 @@ export default function App() {
                   onPickDoc={doc.setWorkDoc}
                   onFollowTabs={doc.handleFollowTabs}
                   resolveWikiKind={resolveWikiKind}
+                  resolveWikiNode={resolveWikiNode}
                   recentFiles={recentFiles}
                   onRemoveRecent={removeFromRecent}
                   stagedSelection={stagedSelection}

@@ -140,12 +140,22 @@ export function attachmentToMetaData(a: Attachment): string | null {
       d.kind === 'base' ? '多维表格' :
       d.kind === 'sheet' ? '电子表格' :
       d.kind === 'wiki' ? '知识库节点' : '文档'
+    // 用户已指定子表时，把 id 直接喂给 agent，省去 list_sheets / list_tables 枚举步骤。
+    const subLabel =
+      d.kind === 'sheet' && d.sheetId ? `｜子表：${d.sheetName || d.sheetId}` :
+      d.kind === 'base' && d.tableId ? `｜数据表：${d.tableName || d.tableId}` : ''
+    const subHint =
+      d.kind === 'sheet' && d.sheetId
+        ? `\n用户已指定工作表（sheet_id=${d.sheetId}），请直接用 read_range（spreadsheetToken=${d.docToken}，range 以 "${d.sheetId}!" 开头）读取该子表，无需再调 list_sheets 枚举。`
+        : d.kind === 'base' && d.tableId
+          ? `\n用户已指定数据表（table_id=${d.tableId}），请直接用 list_fields / list_records（appToken=${d.docToken}，tableId=${d.tableId}）读取该表，无需再调 list_tables 枚举。`
+          : ''
     const toolHint =
       d.kind === 'doc' ? 'get_document_content / list_blocks（document_id' :
       d.kind === 'sheet' ? 'get_spreadsheet / read_range（spreadsheetToken' :
       d.kind === 'base' ? 'list_tables / list_fields / list_records（appToken' :
       'get_document_content / list_blocks（document_id'
-    return `【引用${kindLabel}｜标题：${d.docTitle || '未命名'}｜链接：${d.url}】\n用户希望参考此文档的内容。你可使用 ${toolHint}=${d.docToken}）按需读取其内容后，在当前工作文档中进行引用或参考。`
+    return `【引用${kindLabel}｜标题：${d.docTitle || '未命名'}${subLabel}｜链接：${d.url}】\n用户希望参考此文档的内容。你可使用 ${toolHint}=${d.docToken}）按需读取其内容后，在当前工作文档中进行引用或参考。${subHint}`
   }
   return null
 }

@@ -11,6 +11,8 @@ interface Props {
   mode: 'follow' | 'pin'
   /** Title shown on the trigger — the working DOCUMENT/TABLE name (never the session title). */
   currentTitle: string
+  /** Kind of the working document shown on the trigger. */
+  currentKind?: SessionKind
   /** Number of sessions bound to the current doc, shown as a small badge after the title.
    *  Omit / 0 → no badge. */
   sessionCount?: number
@@ -36,16 +38,15 @@ interface Props {
  * or switch to "follow tabs". The recent list persists across tab closes (unlike a live
  * chrome.tabs query), so closed docs stay reachable.
  */
-export default function DocSelector({ mode, currentTitle, sessionCount, activeToken, onPickDoc, onFollow, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
+export default function DocSelector({ mode, currentTitle, currentKind, sessionCount, activeToken, onPickDoc, onFollow, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
   const [open, setOpen] = useState(false)
   // Real kind of wiki-typed recent files, resolved for the ICON only (a wiki-Base shows
   // the base icon). The pin still uses 'wiki' (the stored kind) so it resolves on pin.
   const [wikiKinds, setWikiKinds] = useState<Record<string, SessionKind>>({})
 
-  // Resolve wiki display kinds when the menu opens. Bounded by the wiki-typed recent
-  // count (usually 0–2); resolveWikiKind serves from the follow-mode cache when possible.
+  // Resolve wiki display kinds on mount and whenever the recent list changes, so icons
+  // are correct the moment the menu opens (instead of waiting for the open animation).
   useEffect(() => {
-    if (!open) return
     const wikiTokens = recentFiles.filter((d) => d.kind === 'wiki').map((d) => d.token)
     if (!wikiTokens.length || !resolveWikiKind) return
     let cancelled = false
@@ -59,7 +60,7 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
       setWikiKinds(m)
     }).catch(() => { /* leave wiki icons as the doc fallback */ })
     return () => { cancelled = true }
-  }, [open, recentFiles, resolveWikiKind])
+  }, [recentFiles, resolveWikiKind])
 
   const displayKind = (d: RecentFile): SessionKind =>
     d.kind === 'wiki' ? (wikiKinds[d.token] ?? 'doc') : d.kind
@@ -80,6 +81,11 @@ export default function DocSelector({ mode, currentTitle, sessionCount, activeTo
             <span className={`doc-selector-mode doc-selector-mode--${mode}`}>
               {mode === 'pin' ? '固定' : '跟随'}
             </span>
+            {currentKind && currentKind !== 'wiki' && (
+              <span className="doc-selector-kind-icon" aria-hidden="true">
+                <KindIcon kind={currentKind} />
+              </span>
+            )}
             <span className="doc-selector-title-wrap">
               <span className="doc-selector-title">{currentTitle}</span>
               {sessionCount != null && sessionCount > 0 && (

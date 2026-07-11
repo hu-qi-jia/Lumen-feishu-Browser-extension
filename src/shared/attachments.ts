@@ -3,8 +3,8 @@ import { fileToClip } from './clip/file'
 import { parseFeishuContext, buildFeishuUrl } from './feishu/pageUrl'
 import { resolveToken } from './feishu/auth'
 import { getDocumentMeta } from './feishu/docx'
-import { getSpreadsheet } from './feishu/sheets'
-import { getApp, getWikiNode } from './feishu/api'
+import { getSpreadsheet, listSheets } from './feishu/sheets'
+import { getApp, getWikiNode, listTables } from './feishu/api'
 import type { AppSettings, SessionKind } from './types'
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -12,6 +12,18 @@ const MAX_IMAGE_LONG_EDGE = 1280
 const MAX_IMAGE_QUALITY = 0.85
 const MAX_ATTACHMENTS_PER_MESSAGE = 4
 const MAX_STORAGE_ESTIMATE_PER_IMAGE = 1024 * 1024
+
+// ── Sub-table list cache ──
+// 缓存 docToken → 子表列表，避免同一文档反复打开子表选择器时重复拉取。
+const subTableCache = new Map<string, { id: string; name: string }[]>()
+
+export function getCachedSubTables(docToken: string): { id: string; name: string }[] | undefined {
+  return subTableCache.get(docToken)
+}
+
+export function setCachedSubTables(docToken: string, items: { id: string; name: string }[]) {
+  subTableCache.set(docToken, items)
+}
 
 export interface AttachmentDraft extends Attachment {}
 
@@ -316,6 +328,18 @@ export function tryAddDocRefAttachment(
   return { attachments: [...current, docRefToAttachment(data)], added: true }
 }
 
+/** 更新某个 docref chip 的子表选择（用户在内联下拉里切换子表时调用）。
+ *  sheet → patch { sheetId, sheetName }；base → patch { tableId, tableName }。 */
+export function updateDocRefAttachment(
+  current: Attachment[],
+  id: string,
+  patch: Partial<Pick<DocRefAttachmentData, 'sheetId' | 'sheetName' | 'tableId' | 'tableName'>>,
+): Attachment[] {
+  return current.map((a) =>
+    a.id === id && a.docref ? { ...a, docref: { ...a.docref, ...patch } } : a,
+  )
+}
+
 /** Map a wiki node's obj_type to a SessionKind. */
 function wikiObjTypeToKind(objType: string): SessionKind | undefined {
   if (objType === 'bitable') return 'base'
@@ -374,8 +398,27 @@ export async function resolveDocRefFromUrl(
       }
       const n = res.node
       if (!n) return null
-      const realKind = wikiObjTypeToKind(n.obj_type)
+      let realKind = wikiObjTypeToKind(n.obj_type)
       if (!realKind || !n.obj_token) return null
+      // 偶发情况下 wiki get_node 会错误返回 doc，但实际节点是 sheet/base。
+      // 当解析为文档时，用返回的 obj_token 尝试读 sheet/base 列表，成功则纠正类型。
+      if (realKind === 'doc' && userToken) {
+        const baseRes = await listTables(userToken, n.obj_token).catch(() => null) as {
+          items?: Array<{ table_id: string; name: string }>
+        } | null
+        if (baseRes && Array.isArray(baseRes.items)) {
+          realKind = 'base'
+          setCachedSubTables(n.obj_token, baseRes.items.map((t) => ({ id: t.table_id, name: t.name })))
+        } else {
+          const sheetRes = await listSheets(userToken, n.obj_token).catch(() => null) as {
+            sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+          } | null
+          if (sheetRes && Array.isArray(sheetRes.sheets)) {
+            realKind = 'sheet'
+            setCachedSubTables(n.obj_token, sheetRes.sheets.slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+          }
+        }
+      }
       kind = realKind
       token = n.obj_token
       const title = (n.title ?? '').trim()
@@ -388,9 +431,14 @@ export async function resolveDocRefFromUrl(
     } catch { return null }
   }
 
+  // 多维表格 URL 可能带 ?table=xxx —— 捕获下来作为默认选中的子表。
+  let baseTableId: string | undefined
   if (feishu?.kind === 'doc' && feishu.documentId) { kind = 'doc'; token = feishu.documentId }
   else if (feishu?.kind === 'sheet' && feishu.spreadsheetToken) { kind = 'sheet'; token = feishu.spreadsheetToken }
-  else if (feishu?.kind === 'base' && feishu.appToken) { kind = 'base'; token = feishu.appToken }
+  else if (feishu?.kind === 'base' && feishu.appToken) {
+    kind = 'base'; token = feishu.appToken
+    if (feishu.tableId) baseTableId = feishu.tableId
+  }
 
   // Fallback: a bare token (no / ? #) — assume doc, the most common paste.
   if (!kind || !token) {
@@ -402,10 +450,20 @@ export async function resolveDocRefFromUrl(
   let title = ''
   if (userToken) title = await fetchResourceTitle(kind, token, userToken)
 
+  // 多维表格若已从 URL 拿到 tableId，回填表名（listTables 后取匹配项），失败则只保留 id。
+  let baseTableName: string | undefined
+  if (kind === 'base' && baseTableId && userToken) {
+    try {
+      const res = await listTables(userToken, token) as { items?: Array<{ table_id: string; name: string }> }
+      baseTableName = res.items?.find((t) => t.table_id === baseTableId)?.name
+    } catch { /* 保留 id 即可，名字可后补 */ }
+  }
+
   return {
     kind,
     docToken: token,
     docTitle: title,
     url: feishu ? s : buildFeishuUrl(kind, token) || s,
+    ...(baseTableId ? { tableId: baseTableId, ...(baseTableName ? { tableName: baseTableName } : {}) } : {}),
   }
 }

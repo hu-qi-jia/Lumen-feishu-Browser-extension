@@ -64,6 +64,8 @@ interface Props {
   /** Resolve a wiki-wrapped tab to its real kind (doc/base/sheet) so the doc-selector
    *  dropdown can classify it under the right category. Undefined when not resolvable. */
   resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** Resolve a wiki node to its real kind + obj_token (reuses cache). */
+  resolveWikiNode?: (wikiToken: string) => Promise<{ kind: SessionKind; docToken: string } | undefined>
   /** Persisted recently-opened Feishu resources — the dropdown's "最近打开" list. */
   recentFiles?: RecentFile[]
   /** Remove a file from the recent list (the × on a row). */
@@ -78,7 +80,7 @@ export default function ChatPanel({
   settings, context, disabled, stagedSelection, onStagedConsumed, workDocToken,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
-  docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, recentFiles, onRemoveRecent,
+  docMode, docActiveToken, onPickDoc, onFollowTabs, resolveWikiKind, resolveWikiNode, recentFiles, onRemoveRecent,
   kbEnabled, onToggleKb,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
@@ -406,6 +408,7 @@ export default function ChatPanel({
         <DocSelector
           mode={docMode}
           currentTitle={docTitle || '飞书文档'}
+          currentKind={context.feishu?.kind}
           sessionCount={docSessionCount}
           activeToken={docActiveToken}
           onPickDoc={onPickDoc}
@@ -508,6 +511,7 @@ export default function ChatPanel({
         onToggleKb={onToggleKb}
         recentFiles={recentFiles}
         resolveWikiKind={resolveWikiKind}
+        resolveWikiNode={resolveWikiNode}
         settings={settings}
       />
 
