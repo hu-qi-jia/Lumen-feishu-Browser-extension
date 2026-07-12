@@ -8,17 +8,15 @@ import {
 import FormField from '../ui/FormField'
 import FormInput from '../ui/FormInput'
 import Button from '../ui/Button'
-import SettingsSelect from './SettingsSelect'
 import SettingsSection from './SettingsSection'
 import type { SettingsTabProps } from './types'
 
-/** AI 模型 tab：模型配置。 */
-export default function AiTab({ form, patch, set, onSave }: SettingsTabProps) {
+/** AI 模型 tab：模型配置。仅支持 OpenAI Chat Completions 兼容端点。 */
+export default function AiTab({ form, set, onSave }: SettingsTabProps) {
   const [saved, setSaved] = useState(false)
 
   // ── LLM provider preset ──
   const provider = providerForBaseUrl(form.openaiBaseUrl)
-  const llmFormat = form.llmFormat ?? 'openai'
 
   // Endpoint safety hint: an error (blocked at send time) vs a soft warning for an
   // unknown but otherwise-valid https host — the user's chat/table data is sent here.
@@ -45,14 +43,11 @@ export default function AiTab({ form, patch, set, onSave }: SettingsTabProps) {
       <SettingsSection title="模型配置">
         <div className="model-config-fields">
           <FormField label="API 协议">
-            <SettingsSelect
-              ariaLabel="API 协议"
-              options={[
-                { value: 'openai', label: 'OpenAI Chat Completions 格式' },
-                { value: 'anthropic', label: 'Anthropic Messages 格式' },
-              ]}
-              value={llmFormat}
-              onChange={(v) => patch({ llmFormat: v as 'openai' | 'anthropic' })}
+            <FormInput
+              type="text"
+              value="OpenAI Chat Completions 格式"
+              onChange={() => {}}
+              disabled
             />
           </FormField>
 
@@ -63,20 +58,20 @@ export default function AiTab({ form, patch, set, onSave }: SettingsTabProps) {
           >
             <FormInput type="url"
               value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
-              placeholder={llmFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.deepseek.com/v1'} />
+              placeholder="https://api.deepseek.com/v1" />
           </FormField>
 
           <FormField label="API Key">
             <FormInput type="password"
               value={form.openaiApiKey} onChange={set('openaiApiKey')}
-              placeholder={llmFormat === 'anthropic' ? 'sk-ant-…' : 'sk-…'} />
+              placeholder="sk-…" />
           </FormField>
 
           <FormField label="Model">
             <>
               <FormInput type="text" list="model-suggestions"
                 value={form.openaiModel} onChange={set('openaiModel')}
-                placeholder={llmFormat === 'anthropic' ? 'claude-sonnet-4-20250514' : (provider.models[0] || 'deepseek-v4-pro')} />
+                placeholder={provider.models[0] || 'deepseek-v4-pro'} />
               <datalist id="model-suggestions">
                 {provider.models.map((m) => <option key={m} value={m} />)}
               </datalist>

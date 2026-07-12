@@ -120,7 +120,7 @@ export interface AppSettings {
   /** Auto mode: auto-approve CONTENT-level deletes (rows/fields/blocks/dedupe) within a
    *  document — no per-action button click. File-level deletes stay hard-blocked. Default off. */
   autoConfirm?: boolean
-  /** API 协议格式：'openai'（Chat Completions，默认）或 'anthropic'（Messages）。 */
+  /** API 协议格式。仅支持 'openai'（Chat Completions）；字段保留以兼容旧存储。 */
   llmFormat?: 'openai' | 'anthropic'
   /** Obsidian Local REST API base URL (loopback only). Default http://127.0.0.1:27123. */
   obsidianBaseUrl?: string

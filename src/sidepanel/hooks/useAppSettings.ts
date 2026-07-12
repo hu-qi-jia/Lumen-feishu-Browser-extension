@@ -32,7 +32,7 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: stored.feishuOwnerOpenId ?? '',
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
-        llmFormat: (stored.llmFormat as 'openai' | 'anthropic' | undefined) ?? DEFAULT_SETTINGS.llmFormat,
+        llmFormat: 'openai',
         obsidianBaseUrl: stored.obsidianBaseUrl ?? DEFAULT_SETTINGS.obsidianBaseUrl,
         obsidianInboxPath: stored.obsidianInboxPath ?? DEFAULT_SETTINGS.obsidianInboxPath,
         obsidianExcludePaths: stored.obsidianExcludePaths ?? DEFAULT_SETTINGS.obsidianExcludePaths,
