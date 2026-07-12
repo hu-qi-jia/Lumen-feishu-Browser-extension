@@ -53,7 +53,7 @@ export default function ConfirmDialog({ req, onChoose }: Props) {
           {req.ownerConfigured === false && (
             <p className="confirm-warn">
               你尚未授权账号（未配置 open_id）。新建的 Base 将归应用所有，
-              <b>你只能查看、不能编辑</b>。建议先到「设置 → 飞书鉴权」用飞书账号授权。
+              <b>你只能查看、不能编辑</b>。建议先到「设置 → 飞书设置」用飞书账号授权。
             </p>
           )}
         </div>

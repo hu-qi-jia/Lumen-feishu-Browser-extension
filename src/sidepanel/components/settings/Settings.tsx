@@ -13,7 +13,7 @@ import './Settings.css'
 const SETTINGS_TABS = [
   { id: 'general', label: '通用' },
   { id: 'ai', label: '模型配置' },
-  { id: 'feishu', label: '飞书配置' },
+  { id: 'feishu', label: '飞书设置' },
   { id: 'knowledgeBase', label: '知识库' },
   { id: 'backup', label: '数据与备份' },
   { id: 'appearance', label: '外观' },

@@ -300,7 +300,7 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         ),
       },
       {
-        title: '飞书鉴权',
+        title: '账户授权',
         description: '授权账号或填入 user_access_token',
         content: (
           <div className="field-group">

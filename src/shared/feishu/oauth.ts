@@ -9,7 +9,7 @@
  */
 import { BUILD_CONFIG, FEISHU_API_BASE, FEISHU_AUTHORIZE_URL } from '../config'
 import { getClientSecret } from './appSecret'
-import { hasUserAppCreds } from './userAppCreds'
+import { getUserAppId, hasUserAppCreds } from './userAppCreds'
 
 const AUTHORIZE = FEISHU_AUTHORIZE_URL
 const TOKEN = `${FEISHU_API_BASE}/authen/v2/oauth/token`
@@ -18,17 +18,25 @@ const USER_INFO = `${FEISHU_API_BASE}/authen/v1/user_info`
 interface TokenResp { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string; scope?: string }
 
 /**
+ * Resolve the App ID for OAuth: baked-in (direct build) → user-entered (BYO / store build).
+ * Empty string when neither is configured — caller surfaces a clear error.
+ */
+async function resolveAppId(): Promise<string> {
+  return BUILD_CONFIG.feishuAppId || (await getUserAppId())
+}
+
+/**
  * Request a token from Feishu. The client_secret is sent in the POST body
  * (baked-plaintext, password-unlocked, or user-entered). Returns the parsed token response.
  */
 async function requestToken(payload: Record<string, unknown>): Promise<TokenResp> {
-  const clientId = BUILD_CONFIG.feishuAppId
+  const clientId = await resolveAppId()
   if (!clientId) {
-    throw new Error('未配置 App ID：请在「设置 → 飞书鉴权」填写你自己的飞书 App ID 与 App Secret。')
+    throw new Error('未配置 App ID：请在「设置 → 飞书设置」填写你自己的飞书 App ID 与 App Secret。')
   }
   const clientSecret = await getClientSecret()
   if (!clientSecret) {
-    throw new Error('应用密钥未就绪：请在「设置 → 飞书鉴权」填写并保存你的 App Secret（内置加密版则先输入解锁密码）。')
+    throw new Error('应用密钥未就绪：请在「设置 → 飞书设置」填写并保存你的 App Secret（内置加密版则先输入解锁密码）。')
   }
   const res = await fetch(TOKEN, {
     method: 'POST',
@@ -113,11 +121,11 @@ export async function fetchUserOpenId(userToken: string): Promise<{ openId: stri
 
 export async function authorizeFeishuUser(): Promise<OAuthResult> {
   if (!(await canDoOAuth())) {
-    throw new Error('尚未配置飞书应用凭据：请在「设置 → 飞书鉴权」填写你的 App ID 与 App Secret。')
+    throw new Error('尚未配置飞书应用凭据：请在「设置 → 飞书设置」填写你的 App ID 与 App Secret。')
   }
-  const appId = BUILD_CONFIG.feishuAppId
+  const appId = await resolveAppId()
   if (!appId) {
-    throw new Error('未配置 App ID：请在「设置 → 飞书鉴权」填写你的飞书 App ID。')
+    throw new Error('未配置 App ID：请在「设置 → 飞书设置」填写你的飞书 App ID。')
   }
   const redirectUri = oauthRedirectUrl()
   if (!redirectUri) {
