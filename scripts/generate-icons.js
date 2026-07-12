@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Generates PNG icons for the Chrome extension using sharp + SVG.
- * Run once: node scripts/generate-icons.js
+ * Generates PNG icons for the Chrome extension using sharp.
+ * Priority: public/icons/logo.png (user-provided source) → SVG sparkle fallback.
+ * Run: node scripts/generate-icons.js
  */
 import { createRequire } from 'module'
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -23,8 +24,23 @@ try {
 }
 
 const SIZES = [16, 32, 48, 128]
+const logoPath = join(outDir, 'logo.png')
+const useLogo = existsSync(logoPath)
 
-// Original mark: a 4-point "AI sparkle" on a violet→indigo gradient. Deliberately NO brand
+if (useLogo) {
+  console.log('[icons] source: logo.png')
+  for (const size of SIZES) {
+    await sharp(readFileSync(logoPath))
+      .resize(size, size, { fit: 'cover' })
+      .png()
+      .toFile(join(outDir, `icon${size}.png`))
+    console.log(`[icons] icon${size}.png`)
+  }
+  process.exit(0)
+}
+
+console.warn('[icons] logo.png not found — falling back to SVG sparkle')
+// Fallback mark: a 4-point "AI sparkle" on a violet→indigo gradient. Deliberately NO brand
 // letter and NOT Feishu blue — avoids implying affiliation with Feishu/ByteDance (and the
 // Facebook-style blue "F" the old icon resembled). Pure geometry, our own artwork.
 const sparkle = (cx, cy, R, w) =>
