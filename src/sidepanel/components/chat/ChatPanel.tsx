@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppSettings, Attachment, ChatMessage, DocSelectionPayload, PageContext, SessionKind } from '@/shared/types'
 import type { BaseCtx } from '@/shared/feishu/context'
-import { fetchBaseCtx } from '@/shared/feishu/context'
+import { fetchBaseCtx, fetchSheetCtx } from '@/shared/feishu/context'
 import { resolveToken } from '@/shared/feishu/auth'
 import { HAS_BUILTIN_CREDS } from '@/shared/config'
 import { runAgent } from '@/shared/ai/agent'
@@ -133,52 +133,62 @@ export default function ChatPanel({
   // Focus-triggered refresh throttle — avoids re-fetching on every micro focus blip.
   const lastFocusRefresh = useRef(0)
 
-  // Auto-load Base context when URL changes to a Base page
+  // Auto-load Base/Sheet context when URL changes to a Base or Sheet page
   useEffect(() => {
-    const appToken = context.feishu?.appToken
-    if (!appToken || !context.feishu?.isBase) {
+    const fz = context.feishu
+    const workToken = fz?.appToken || fz?.spreadsheetToken
+    const isWorkCtx = fz?.isBase || fz?.kind === 'sheet'
+    if (!workToken || !isWorkCtx) {
       setBaseCtx(null)
       setSelectedTableId('')
       return
     }
-    if (appToken === lastLoadedApp.current && baseCtx) return
-    // New Base (or first load) → clear any table pick carried over from the previous Base.
+    if (workToken === lastLoadedApp.current && baseCtx) return
+    // New Base/Sheet (or first load) → clear any table pick carried over from the previous doc.
     setSelectedTableId('')
     loadBaseCtx()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context.feishu?.appToken, context.feishu?.isBase])
+  }, [context.feishu?.appToken, context.feishu?.spreadsheetToken, context.feishu?.isBase, context.feishu?.kind])
 
   async function loadBaseCtx() {
-    const appToken = context.feishu?.appToken
-    if (!appToken) return
+    const fz = context.feishu
+    const isSheet = fz?.kind === 'sheet'
+    const workToken = fz?.appToken || fz?.spreadsheetToken
+    if (!workToken) return
     if (!settings.feishuAccessToken && !HAS_BUILTIN_CREDS) return
 
-    latestReqApp.current = appToken
+    latestReqApp.current = workToken
     setCtxLoading(true)
     setCtxError('')
     try {
       const token = await resolveToken(settings)
-      const ctx = await fetchBaseCtx(token, appToken, context.feishu?.tableId)
-      if (latestReqApp.current !== appToken) return // a newer Base load superseded this one
+      const ctx = isSheet
+        ? await fetchSheetCtx(token, workToken, fz?.tableId /* sheetId not in URL; undefined */)
+        : await fetchBaseCtx(token, workToken, fz?.tableId)
+      if (latestReqApp.current !== workToken) return // a newer load superseded this one
       setBaseCtx(ctx)
-      lastLoadedApp.current = appToken
-      if (ctx.appName) onBaseName?.(appToken, ctx.appName)
+      lastLoadedApp.current = workToken
+      if (ctx.appName) onBaseName?.(workToken, ctx.appName)
     } catch (err) {
-      if (latestReqApp.current !== appToken) return // stale failure — don't clobber the newer Base
+      if (latestReqApp.current !== workToken) return // stale failure — don't clobber the newer doc
       setCtxError(err instanceof Error ? err.message : String(err))
     } finally {
-      if (latestReqApp.current === appToken) setCtxLoading(false)
+      if (latestReqApp.current === workToken) setCtxLoading(false)
     }
   }
   loadBaseCtxRef.current = loadBaseCtx
 
-  // Auto-refresh Base context when the sidepanel regains focus or becomes visible —
+  // Auto-refresh Base/Sheet context when the sidepanel regains focus or becomes visible —
   // the user may have created/deleted a table directly in the Feishu page. Throttled
   // to ≥3s between focus-triggered refreshes to avoid spamming the API.
   useEffect(() => {
     function maybeRefresh() {
-      if (!contextRef.current.feishu?.isBase) return
-      if (!contextRef.current.feishu?.appToken) return
+      const fz = contextRef.current.feishu
+      if (!fz) return
+      const isWorkCtx = fz.isBase || fz.kind === 'sheet'
+      if (!isWorkCtx) return
+      const workToken = fz.appToken || fz.spreadsheetToken
+      if (!workToken) return
       const now = Date.now()
       if (now - lastFocusRefresh.current < 3000) return
       lastFocusRefresh.current = now
@@ -439,9 +449,9 @@ export default function ChatPanel({
         </div>
       </div>
 
-      {/* Base (多维表格) context bar — its own row directly under the topbar (the topbar
-          row itself is left untouched). Sheet/doc pages render nothing here. */}
-      {context.feishu?.isBase && (
+      {/* Base (多维表格) / Sheet (电子表格) context bar — its own row directly under the
+          topbar (the topbar row itself is left untouched). Doc/ppt pages render nothing here. */}
+      {(context.feishu?.isBase || context.feishu?.kind === 'sheet') && (
         <BaseContextBadge
           ctx={baseCtx}
           loading={ctxLoading}
@@ -450,6 +460,7 @@ export default function ChatPanel({
           onRefresh={refreshCtx}
           selectedTableId={selectedTableId}
           onSelectTable={setSelectedTableId}
+          kind={context.feishu?.kind === 'sheet' ? 'sheet' : 'base'}
         />
       )}
 

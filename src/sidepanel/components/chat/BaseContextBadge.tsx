@@ -19,19 +19,22 @@ interface Props {
    *  the popover and the FieldChips above the input stay in sync. */
   selectedTableId?: string
   onSelectTable?: (id: string) => void
+  /** 'sheet' = 电子表格（首行表头作为字段，无导出）；'base' = 多维表格（默认）。 */
+  kind?: 'base' | 'sheet'
 }
 
 type ExportState = 'idle' | 'loading' | 'done' | 'error'
 
 /**
- * Base (多维表格) context, rendered as its OWN row directly under the chat topbar (only on a
- * Base page). The topbar row above is left untouched. This row carries a one-line structural
+ * Base (多维表格) / Sheet (电子表格) context, rendered as its OWN row directly under the chat
+ * topbar. The topbar row above is left untouched. This row carries a one-line structural
  * summary (N tables · M fields) on the left — clicking it opens a full-width field popover —
  * and icon-only actions on the right use the shared <IconButton> so they match the topbar's
  * buttons (and 2px spacing) exactly. The table NAME is omitted (the doc-selector trigger
  * already shows it); the popover shows only the current table's field chips (header tags).
+ * For Sheets, the export action is hidden (template export is bitable-only).
  */
-export default function BaseContextBadge({ ctx, loading, error, settings, onRefresh, selectedTableId, onSelectTable }: Props) {
+export default function BaseContextBadge({ ctx, loading, error, settings, onRefresh, selectedTableId, onSelectTable, kind = 'base' }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [exportMsg, setExportMsg] = useState('')
@@ -171,20 +174,22 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
             <div className="bcb-spacer" />
 
             <div className="bcb-actions">
-              <Tooltip content={exportTooltip} position="left">
-                <IconButton
-                  className={exportState === 'done' ? 'bcb-btn--success' : ''}
-                  onClick={handleExport}
-                  disabled={exportState === 'loading'}
-                  aria-label="导出为模版"
-                >
-                  {exportState === 'loading'
-                    ? <span className="bcb-spinner bcb-spinner--btn" />
-                    : exportState === 'done'
-                    ? <IconCheck />
-                    : <IconDownload />}
-                </IconButton>
-              </Tooltip>
+              {kind === 'base' && (
+                <Tooltip content={exportTooltip} position="left">
+                  <IconButton
+                    className={exportState === 'done' ? 'bcb-btn--success' : ''}
+                    onClick={handleExport}
+                    disabled={exportState === 'loading'}
+                    aria-label="导出为模版"
+                  >
+                    {exportState === 'loading'
+                      ? <span className="bcb-spinner bcb-spinner--btn" />
+                      : exportState === 'done'
+                      ? <IconCheck />
+                      : <IconDownload />}
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip content="重新读取" position="left">
                 <IconButton onClick={onRefresh} aria-label="重新读取">
                   <IconRefresh />

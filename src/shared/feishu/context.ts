@@ -1,4 +1,5 @@
 import * as API from './api'
+import * as Sheets from './sheets'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -137,3 +138,92 @@ export function ctxSummary(ctx: BaseCtx): string {
   const totalFields = ctx.tables.reduce((s, t) => s + t.fields.length, 0)
   return `${ctx.tables.length} 张表 · ${totalFields} 个字段`
 }
+
+// ─── Spreadsheet (电子表格) context ───────────────────────────────────────────
+//
+// Sheets 没有 bitable 那样的字段元数据，但首行通常充当表头。这里把每个工作表的首行
+// 单元格当作"字段"读入，复用 BaseCtx 结构，让 BaseContextBadge 可以无差别渲染。
+// 读取范围 A1:Z1（前 26 列），空单元格跳过。
+
+const COLUMN_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+/** 列序号（0-based）→ Excel 风格列字母（0→A, 25→Z）。 */
+function colLetter(idx: number): string {
+  return COLUMN_LETTERS[idx] ?? `Col${idx + 1}`
+}
+
+export async function fetchSheetCtx(
+  token: string,
+  spreadsheetToken: string,
+  currentSheetId?: string
+): Promise<BaseCtx> {
+  // Spreadsheet title
+  const meta = await Sheets.getSpreadsheet(token, spreadsheetToken) as { spreadsheet?: { title?: string } }
+  const appName = meta?.spreadsheet?.title ?? ''
+
+  // Worksheets list
+  const sheetsRes = await Sheets.listSheets(token, spreadsheetToken) as {
+    sheets?: Array<{ sheet_id: string; title: string; column_count?: number }>
+  }
+  const items = sheetsRes.sheets ?? []
+
+  // Fetch first-row headers for the first few sheets (max 6, same cap as Base).
+  // ALWAYS include the user's current sheet even if beyond the cap.
+  const top = items.slice(0, 6)
+  const slice = currentSheetId && !top.some(s => s.sheet_id === currentSheetId)
+    ? [...top, ...items.filter(s => s.sheet_id === currentSheetId)]
+    : top
+
+  const tables: TableCtx[] = []
+  await Promise.all(slice.map(async s => {
+    // Read first row (A1:Z1) as header. If the sheet reports fewer columns, narrow the range.
+    const lastCol = s.column_count && s.column_count > 0
+      ? colLetter(Math.min(s.column_count - 1, 25))
+      : 'Z'
+    const range = `${s.sheet_id}!A1:${lastCol}1`
+    let headerValues: unknown[] = []
+    try {
+      const r = await Sheets.readRange(token, spreadsheetToken, range) as {
+        valueRange?: { values?: unknown[][] }
+      }
+      headerValues = r.valueRange?.values?.[0] ?? []
+    } catch {
+      // Empty / protected sheet — fields stay empty, not a fatal error.
+    }
+
+    const fields: FieldCtx[] = []
+    headerValues.forEach((cell, i) => {
+      const name = cell != null && String(cell).trim() !== '' ? String(cell).trim() : ''
+      if (!name) return // skip empty header cells
+      fields.push({
+        fieldId: colLetter(i),
+        fieldName: name,
+        type: 1, // Text
+        typeName: 'Column',
+      })
+    })
+
+    tables.push({
+      tableId: s.sheet_id,
+      tableName: s.title,
+      fields,
+      views: [], // Sheets 没有 views 概念
+    })
+  }))
+
+  // Preserve server order
+  tables.sort((a, b) => {
+    const ia = slice.findIndex(s => s.sheet_id === a.tableId)
+    const ib = slice.findIndex(s => s.sheet_id === b.tableId)
+    return ia - ib
+  })
+
+  return {
+    appToken: spreadsheetToken, // 复用 appToken 字段存 spreadsheetToken
+    appName,
+    tables,
+    currentTableId: currentSheetId,
+    fetchedAt: Date.now(),
+  }
+}
+
