@@ -150,7 +150,7 @@ function Welcome({ kind, onExample }: { kind?: ResourceKind | 'wiki'; onExample?
   return (
     <div className="welcome">
       <div className="welcome-head">
-        <div className="welcome-title">你好，我是飞书文档助手</div>
+        <div className="welcome-title">你好，我是 Lumen</div>
         <div className="welcome-sub">试试这些，或直接在下方描述你要做的事</div>
       </div>
       <div className="welcome-examples">

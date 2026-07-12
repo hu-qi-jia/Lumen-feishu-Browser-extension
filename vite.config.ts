@@ -95,7 +95,7 @@ export default defineConfig(({ command, mode }) => {
           // Chrome Web Store build (VITE_WEBSTORE=1):
           //  • strip `key` — the store assigns the ID and rejects packages that contain one;
           //  • override name/description — the store title & summary are READ FROM the package
-          //    (not editable in the console), and the default name "飞书文档AI助手" reads as an
+          //    (not editable in the console), and the default name "Lumen - 飞书文档agent" reads as an
           //    official Feishu product (trademark risk). Use a trademark-safe, clearly-3rd-party
           //    name + "no official affiliation" summary. Override via VITE_STORE_NAME/_DESC.
           // Self-distributed .crx keeps the baked key + original name (stable ID).
