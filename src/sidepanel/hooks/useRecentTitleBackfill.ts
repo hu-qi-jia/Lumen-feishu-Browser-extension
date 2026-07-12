@@ -11,65 +11,101 @@ interface Args {
   /** True once the persisted list has loaded — don't backfill against a half-loaded list. */
   ready: boolean
   recordRecent: (token: string, title: string, kind: SessionKind) => void
+  /** Drop an entry whose underlying resource no longer exists (404/permission). */
+  removeFromRecent: (token: string) => void
   settings: AppSettings
 }
 
-/** Fetch the real title of a resource by token + kind. All four are read-only GETs whose
- *  response shapes are already exercised elsewhere (usePageContext resolves doc/sheet titles
- *  verbatim this way; getWikiNode powers wiki resolution; getApp the base app). Returns
- *  undefined on any failure — caller just leaves the entry unnamed. */
-async function fetchResourceTitle(kind: SessionKind, token: string, userToken: string): Promise<string | undefined> {
+/** Result of a resource lookup — distinguishes "found with title" from "not found / gone"
+ *  so the caller can prune deleted docs from the recent list instead of silently keeping
+ *  stale entries that the agent can't operate on. */
+type LookupResult = { found: true; title: string } | { found: false; gone: boolean }
+
+/** Feishu error payload shape — code 1254030/1254040/1254043 etc. mean the resource is
+ *  deleted/revoked/never-existed; network/auth errors are NOT "gone". */
+function isGoneError(err: unknown): boolean {
+  const code = (err as { code?: number })?.code
+  if (typeof code !== 'number') return false
+  // 1254xxx — doc/sheet/base not found / permission revoked / resource deleted
+  // 1254030: doc not found; 1254040: doc deleted; 1254043: doc no permission
+  // 1254036: sheet not found; 1254046: base not found
+  return code === 1254030 || code === 1254040 || code === 1254043 || code === 1254036 || code === 1254046
+}
+
+/** Fetch the real title of a resource by token + kind, distinguishing "not found" (gone)
+ *  from transient/network errors. All four are read-only GETs. */
+async function lookupResource(kind: SessionKind, token: string, userToken: string): Promise<LookupResult> {
   try {
     if (kind === 'doc') {
       const m = await getDocumentMeta(userToken, token) as { document?: { title?: string } }
-      return m?.document?.title?.trim() || undefined
+      const t = m?.document?.title?.trim()
+      return t ? { found: true, title: t } : { found: false, gone: false }
     }
     if (kind === 'sheet') {
       const m = await getSpreadsheet(userToken, token) as { spreadsheet?: { title?: string } }
-      return m?.spreadsheet?.title?.trim() || undefined
+      const t = m?.spreadsheet?.title?.trim()
+      return t ? { found: true, title: t } : { found: false, gone: false }
     }
     if (kind === 'base') {
       const m = await getApp(userToken, token) as { app?: { name?: string } }
-      return m?.app?.name?.trim() || undefined
+      const t = m?.app?.name?.trim()
+      return t ? { found: true, title: t } : { found: false, gone: false }
     }
     if (kind === 'wiki') {
       const r = await getWikiNode(userToken, token) as { node?: { title?: string } }
-      return r?.node?.title?.trim() || undefined
+      const t = r?.node?.title?.trim()
+      return t ? { found: true, title: t } : { found: false, gone: false }
     }
-  } catch {
-    /* not authorized / network / not found — leave the entry unnamed */
+  } catch (err) {
+    // "gone" (deleted/revoked/not-found) → caller prunes the entry.
+    // other errors (network, 401, rate limit) → leave the entry as-is.
+    if (isGoneError(err)) return { found: false, gone: true }
+    return { found: false, gone: false }
   }
-  return undefined
+  return { found: false, gone: false }
 }
 
 /**
- * Recover real names for recent files whose title is unknown (title === '') — the closed-tab
- * case, or a doc whose tab was reloaded mid-load so only the transient "飞书云文档" was ever
- * seen. The live tab is gone, so the only authoritative source of the name is the Feishu API
- * by token. Fetch it once per token per session and record it; the no-clobber rule then keeps
- * it forever.
+ * Two jobs, both bounded to once-per-token-per-session (doneRef):
  *
- * Bounded + safe: at most once per token per session (doneRef), only unknown-title entries
- * (≤ MAX_RECENT), read-only GETs, fully silent on failure.
+ * 1. **Backfill** unknown titles (title === '') — the closed-tab case, or a doc whose tab was
+ *    reloaded mid-load so only the transient "飞书云文档" was ever seen. Fetch the real name
+ *    from the Feishu API by token and record it.
+ *
+ * 2. **Prune** deleted resources — validate EVERY entry (not just empty-title ones) once per
+ *    session. If the API returns a not-found/deleted code, drop the entry so the dropdown
+ *    doesn't show stale "会话XXXXX" docs the agent can't operate on. Non-gone errors (network,
+ *    auth) leave the entry untouched to avoid nuking the list on a transient blip.
+ *
+ * Bounded + safe: at most once per token per session, ≤ MAX_RECENT entries, read-only GETs.
  */
-export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, settings }: Args) {
+export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, removeFromRecent, settings }: Args) {
   const doneRef = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (!ready) return
-    const pending = recentFiles.filter((f) => !f.title && !doneRef.current.has(f.token))
+    // Validate every entry once per session — catches deleted docs whose titles were already
+    // captured (the common "会话XXXXX" stale entry case), not just empty-title ones.
+    const pending = recentFiles.filter((f) => !doneRef.current.has(f.token))
     if (!pending.length) return
     let cancelled = false
     void (async () => {
       const userToken = await resolveToken(settings).catch(() => undefined)
       if (!userToken || cancelled) return
       await Promise.all(pending.map(async (f) => {
-        const t = await fetchResourceTitle(f.kind, f.token, userToken)
-        doneRef.current.add(f.token) // even on failure — don't retry a 404/403 all session
-        if (cancelled || !t) return
-        recordRecent(f.token, t, f.kind) // real title → upsert overwrites the '' entry
+        const r = await lookupResource(f.kind, f.token, userToken)
+        doneRef.current.add(f.token) // even on failure — don't retry all session
+        if (cancelled) return
+        if (r.found) {
+          // Real title → upsert overwrites (also refreshes a renamed doc's title).
+          recordRecent(f.token, r.title, f.kind)
+        } else if (r.gone) {
+          // Resource deleted/revoked — prune so the dropdown stays clean.
+          removeFromRecent(f.token)
+        }
+        // else: transient error (network/auth) — leave the entry as-is.
       }))
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentFiles, ready, settings.feishuAccessToken, recordRecent])
+  }, [recentFiles, ready, settings.feishuAccessToken, recordRecent, removeFromRecent])
 }

@@ -3,6 +3,8 @@ import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from 
 import { cleanDocTitle } from '@/shared/feishu/pageUrl'
 import { resolveToken } from '@/shared/feishu/auth'
 import * as API from '@/shared/feishu/api'
+import { getDocumentMeta } from '@/shared/feishu/docx'
+import { getSpreadsheet } from '@/shared/feishu/sheets'
 import { useSessions } from '../sessions/useSessions'
 import type { SessionsApi } from '../sessions/useSessions'
 import { wikiToFeishu } from './useWikiResolve'
@@ -54,6 +56,8 @@ interface Args {
   wikiCacheRef: React.MutableRefObject<Map<string, NonNullable<PageContext['feishu']>>>
   resolveWikiKind: (wikiToken: string) => Promise<SessionKind | undefined>
   recordRecent: (token: string, title: string, kind: SessionKind) => void
+  /** Drop a recent entry whose underlying resource no longer exists. */
+  removeFromRecent: (token: string) => void
   setTab: (t: AppTab) => void
   /** Set by App for one tick after a new session / follow-switch to suppress the auto-default
    *  yanking the user off chat. Owned by App (the auto-default effect reads it). */
@@ -96,7 +100,7 @@ export interface DocBindingApi {
  * active session feeds the hold effect, which feeds effectiveResource.
  */
 export function useDocBinding(a: Args): DocBindingApi {
-  const { ctx, chatStreaming, settings, wikiCacheRef, resolveWikiKind, recordRecent, setTab, newSessionPinRef } = a
+  const { ctx, chatStreaming, settings, wikiCacheRef, resolveWikiKind, recordRecent, removeFromRecent, setTab, newSessionPinRef } = a
   const [docMode, setDocMode] = useState<DocMode>('follow')
   const [pinned, setPinned] = useState<PinnedDoc | null>(null)
   const [heldResource, setHeldResource] = useState<string | null>(null)
@@ -226,10 +230,35 @@ export function useDocBinding(a: Args): DocBindingApi {
   }, [docMode, pinned?.kind, pinned?.token, settings.feishuAccessToken])
 
   const setWorkDoc = useCallback((token: string, title: string, kind: SessionKind) => {
-    applyDocBinding('pin', { token, title, kind })
-    setHeldResource(null); setPendingSwitch(null)
-    recordRecent(token, title, kind)
-  }, [applyDocBinding, recordRecent])
+    // Validate the resource still exists before binding — a deleted doc's stale entry in the
+    // recent list would otherwise pin a dead token the agent can't operate on. On "gone"
+    // (404/revoked) prune the entry and bail; transient errors fall through optimistically.
+    void (async () => {
+      try {
+        const userToken = await resolveToken(settings).catch(() => undefined)
+        if (!userToken) { applyAndRecord(); return }
+        if (kind === 'doc') await getDocumentMeta(userToken, token)
+        else if (kind === 'sheet') await getSpreadsheet(userToken, token)
+        else if (kind === 'base') await API.getApp(userToken, token)
+        else if (kind === 'wiki') await API.getWikiNode(userToken, token)
+        applyAndRecord()
+      } catch (err) {
+        const code = (err as { code?: number })?.code
+        // 1254xxx: not-found / deleted / revoked. Drop the stale entry so the dropdown self-cleans.
+        if (typeof code === 'number' && [1254030, 1254040, 1254043, 1254036, 1254046].includes(code)) {
+          removeFromRecent(token)
+          return
+        }
+        // Transient (network/auth) — bind optimistically; agent will surface the error if real.
+        applyAndRecord()
+      }
+    })()
+    function applyAndRecord() {
+      applyDocBinding('pin', { token, title, kind })
+      setHeldResource(null); setPendingSwitch(null)
+      recordRecent(token, title, kind)
+    }
+  }, [applyDocBinding, recordRecent, removeFromRecent, settings])
 
   const handleFollowTabs = useCallback(() => {
     applyDocBinding('follow', null)

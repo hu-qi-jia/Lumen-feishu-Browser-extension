@@ -53,7 +53,8 @@ export default function App() {
   const { recentFiles, ready: recentReady, recordRecent, removeFromRecent } = useRecentFiles(ctx.feishu, ctx.title)
   // Recover real names for recent docs whose title is unknown (closed tab / reloaded mid-load):
   // fetch the name from the Feishu API by token so the dropdown never shows a blank/placeholder row.
-  useRecentTitleBackfill({ recentFiles, ready: recentReady, recordRecent, settings })
+  // Also prunes entries whose underlying resource has been deleted/revoked (404 → remove).
+  useRecentTitleBackfill({ recentFiles, ready: recentReady, recordRecent, removeFromRecent, settings })
 
   const [tab, setTab] = useState<AppTab>('chat')
   // Read the live tab inside the auto-default effect WITHOUT re-triggering it (no dep).
@@ -67,7 +68,7 @@ export default function App() {
   const newSessionPinRef = useRef(false)
 
   const doc = useDocBinding({
-    ctx, chatStreaming, settings, wikiCacheRef, resolveWikiKind, recordRecent, setTab, newSessionPinRef,
+    ctx, chatStreaming, settings, wikiCacheRef, resolveWikiKind, recordRecent, removeFromRecent, setTab, newSessionPinRef,
   })
   const { sessions, docMode, pinned, chatContext } = doc
 
