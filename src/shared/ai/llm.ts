@@ -1,7 +1,16 @@
 import type { AppSettings } from '../types'
 import { assertSafeBaseUrl } from '../providers'
 import { BUILD_CONFIG } from '../config'
-import { resolveLlmConfig } from './llmConfig'
+
+/** Resolve LLM endpoint config directly from user settings. */
+function llmConfig(settings: AppSettings) {
+  return {
+    baseUrl: settings.openaiBaseUrl,
+    apiKey: settings.openaiApiKey,
+    model: settings.openaiModel,
+    format: (settings.llmFormat ?? 'openai') as 'openai' | 'anthropic',
+  }
+}
 
 /**
  * One-shot (non-streaming) chat completion via plain `fetch`.
@@ -16,7 +25,7 @@ export async function chatComplete(
   content: string,
   systemPrompt?: string,
 ): Promise<string> {
-  const cfg = await resolveLlmConfig(settings)
+  const cfg = llmConfig(settings)
   const baseURL = assertSafeBaseUrl(cfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
 
   if (cfg.format === 'anthropic') {
@@ -49,7 +58,7 @@ export interface StreamOpts { onChunk?: (full: string) => void; signal?: AbortSi
  * frozen spinner, and `signal` lets the user cancel a slow/hung generation.
  */
 export async function chatCompleteStream(settings: AppSettings, content: string, opts: StreamOpts = {}): Promise<string> {
-  const cfg = await resolveLlmConfig(settings)
+  const cfg = llmConfig(settings)
   const baseURL = assertSafeBaseUrl(cfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
 
   if (cfg.format === 'anthropic') {

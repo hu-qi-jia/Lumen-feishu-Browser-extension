@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { HAS_ARTIFACT_SYNC } from '@/shared/config'
-import { restoreAllArtifacts } from '../../services/cloudRestore'
 import { applyBackup, buildBackup } from '@/shared/configBackup'
 import FormCheckbox from '../ui/FormCheckbox'
 import { IconDownload, IconUpload } from '../ui/icons'
@@ -24,14 +22,10 @@ const BACKUP_TIP = '导出配置、小程序、PPT、本地经验及会话为一
 
 
 /**
- * 数据与备份 tab：本地备份与恢复、数据清理，以及企业云备份（条件渲染）。
+ * 数据与备份 tab：本地备份与恢复、数据清理。
  * 备份/恢复/清理操作都独立于 settings 表单——直接执行。
  */
 export default function BackupTab() {
-  // ── 企业云备份 ──
-  const [restoring, setRestoring] = useState(false)
-  const [restoreMsg, setRestoreMsg] = useState('')
-
   // ── 本地文件备份 ──
   const [includeSecrets, setIncludeSecrets] = useState(false)
   const [backupMsg, setBackupMsg] = useState('')
@@ -203,43 +197,6 @@ export default function BackupTab() {
         </div>
         {cleanupMsg && <p className="field-hint">{cleanupMsg}</p>}
       </SettingsSection>
-
-      {/* ── 企业云备份 ── */}
-      {HAS_ARTIFACT_SYNC && (
-        <SettingsSection title="企业云备份">
-          <div className="settings-row">
-            <div className="settings-row-main">
-              <span className="settings-row-title">小程序 / PPT</span>
-              <span className="settings-row-desc">自动备份至企业自有对象存储，本地清空后可恢复</span>
-            </div>
-            <span className="settings-row-control">
-              <button
-                className="btn-secondary"
-                disabled={restoring}
-                onClick={async () => {
-                  setRestoring(true)
-                  setRestoreMsg('')
-                  try {
-                    const n = await restoreAllArtifacts()
-                    setRestoreMsg(
-                      n > 0
-                        ? `已从云端恢复 ${n} 个（重新打开对应面板即可看到）。`
-                        : '云端没有可补充的内容（本地已是最新）。',
-                    )
-                  } catch {
-                    setRestoreMsg('恢复失败：请确认已用本企业飞书账号授权、且网络可达企业代理。')
-                  } finally {
-                    setRestoring(false)
-                  }
-                }}
-              >
-                {restoring ? '恢复中…' : '从云端恢复'}
-              </button>
-            </span>
-          </div>
-          {restoreMsg && <p className="field-hint" style={{ marginTop: 6 }}>{restoreMsg}</p>}
-        </SettingsSection>
-      )}
 
       {clearDialog && (
         <ConfirmDialog

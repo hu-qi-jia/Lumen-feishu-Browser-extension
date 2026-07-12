@@ -17,7 +17,6 @@ cat > .env.store.local <<'E'
 VITE_FEISHU_APP_ID=
 VITE_FEISHU_APP_SECRET=
 VITE_FEISHU_APP_SECRET_ENC=
-VITE_OAUTH_PROXY_URL=
 VITE_WEBSTORE=1
 E
 npx vite build --mode store          # zero credentials + auto-strips manifest.key
@@ -119,7 +118,7 @@ node scripts/check-no-eval.mjs  # → ✅ no new Function( in dist/
 ```
 - **Coverage**: charts / multi-chart dashboards / tables / data-sites / slides (PPT) are all data-driven.
 - **Gap (disclose honestly)**: the store build's "AI website" is a **data-dashboard site**, not free-form web apps / calculators / custom-script views — those require executing generated code and exist only in the **self-distributed build** (which keeps `unsafe-eval`). The site panel shows a notice about this in store builds.
-> Note: self-distributed / enterprise-intranet builds (not on the store) keep the full "generate-and-run" capability and aren't bound by the store's remote-code policy.
+> Note: self-distributed builds (not on the store) keep the full "generate-and-run" capability and aren't bound by the store's remote-code policy.
 
 ### 4.3 ⚠️ Broad `connect-src https:`
 To support users **filling in any LLM address themselves**, the extension page's CSP `connect-src` includes the `https:` wildcard. Explanation: this is to let users connect to the OpenAI-compatible service **of their own choosing**, not to connect to the author's server; data is only sent to the endpoint the user configures.

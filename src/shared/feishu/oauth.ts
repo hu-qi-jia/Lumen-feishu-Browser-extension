@@ -4,16 +4,12 @@
  * Flow: chrome.identity.launchWebAuthFlow → authorization code →
  *       authen/v2/oauth/token (user_access_token) → authen/v1/user_info (open_id).
  *
- * Token exchange + refresh need the client_secret. Two modes (build-time):
- *   • Direct (personal): VITE_FEISHU_APP_SECRET baked in — secret ships in the bundle.
- *   • Proxy (enterprise / private): VITE_OAUTH_PROXY_URL set — the exchange/refresh POST
- *     to that proxy, which holds the secret server-side; nothing secret ships here.
- * Hosts (api / authorize) are configurable for private (on-prem) deployments.
+ * Token exchange + refresh need the client_secret. Direct mode (personal):
+ *   VITE_FEISHU_APP_SECRET baked in, or password-encrypted, or user-entered (store build).
  */
-import { BUILD_CONFIG, FEISHU_API_BASE, FEISHU_AUTHORIZE_URL, HAS_MANAGED_APP_ID } from '../config'
+import { BUILD_CONFIG, FEISHU_API_BASE, FEISHU_AUTHORIZE_URL } from '../config'
 import { getClientSecret } from './appSecret'
 import { hasUserAppCreds } from './userAppCreds'
-import { getEffectiveAppId } from './managedAppId'
 
 const AUTHORIZE = FEISHU_AUTHORIZE_URL
 const TOKEN = `${FEISHU_API_BASE}/authen/v2/oauth/token`
@@ -22,33 +18,14 @@ const USER_INFO = `${FEISHU_API_BASE}/authen/v1/user_info`
 interface TokenResp { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string; scope?: string }
 
 /**
- * Request a token from Feishu (or the OAuth proxy). In proxy mode the client_secret is
- * NOT sent — the proxy injects it server-side. Returns the parsed token response.
+ * Request a token from Feishu. The client_secret is sent in the POST body
+ * (baked-plaintext, password-unlocked, or user-entered). Returns the parsed token response.
  */
 async function requestToken(payload: Record<string, unknown>): Promise<TokenResp> {
-  const clientId = await getEffectiveAppId()
-  // BOTH modes need a real App ID (proxy checks ALLOWED_CLIENT_IDS; the authorize/token URL needs it).
-  // On a managed-App-ID build whose proxy `app_config` is temporarily down, getEffectiveAppId returns
-  // '' — fail LOUDLY here instead of POSTing client_id:'' and getting an opaque upstream error.
+  const clientId = BUILD_CONFIG.feishuAppId
   if (!clientId) {
-    throw new Error(BUILD_CONFIG.oauthProxyUrl
-      ? '未能获取 App ID：企业代理暂不可达（App ID 下发接口）。请稍后重试或联系管理员。'
-      : '未配置 App ID：请在「设置 → 飞书鉴权」填写你自己的飞书 App ID 与 App Secret。')
+    throw new Error('未配置 App ID：请在「设置 → 飞书鉴权」填写你自己的飞书 App ID 与 App Secret。')
   }
-  if (BUILD_CONFIG.oauthProxyUrl) {
-    // Proxy adds client_id + client_secret; we send only the grant material. Optional X-Proxy-Key
-    // is anti-abuse defense-in-depth (NOT a strong secret — it ships in the bundle).
-    const res = await fetch(BUILD_CONFIG.oauthProxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(BUILD_CONFIG.oauthProxyKey ? { 'X-Proxy-Key': BUILD_CONFIG.oauthProxyKey } : {}),
-      },
-      body: JSON.stringify({ ...payload, client_id: clientId }),
-    })
-    return (await res.json()) as TokenResp
-  }
-  // Direct mode: secret is baked-plaintext, password-unlocked, or the user-entered one (store build).
   const clientSecret = await getClientSecret()
   if (!clientSecret) {
     throw new Error('应用密钥未就绪：请在「设置 → 飞书鉴权」填写并保存你的 App Secret（内置加密版则先输入解锁密码）。')
@@ -62,15 +39,12 @@ async function requestToken(payload: Record<string, unknown>): Promise<TokenResp
 }
 
 /** OAuth is usable when an app id is configured AND we can obtain tokens — a baked secret
- *  (direct), a password-encrypted secret (direct, after unlock), a proxy (secret-free), or
- *  user-entered App ID + Secret (public / store "bring your own app" build). */
+ *  (direct), a password-encrypted secret (direct, after unlock), or user-entered App ID +
+ *  Secret (public / store "bring your own app" build). */
 async function canDoOAuth(): Promise<boolean> {
   if (BUILD_CONFIG.feishuAppId) {
-    return !!BUILD_CONFIG.feishuAppSecret || !!BUILD_CONFIG.appSecretEnc || !!BUILD_CONFIG.oauthProxyUrl
+    return !!BUILD_CONFIG.feishuAppSecret || !!BUILD_CONFIG.appSecretEnc
   }
-  // Managed-App-ID build: the proxy provides the App ID (app_config) AND holds the secret (token
-  // exchange) — OAuth is fully doable with nothing tenant-specific baked but the proxy URL.
-  if (HAS_MANAGED_APP_ID) return true
   return await hasUserAppCreds()
 }
 
@@ -139,13 +113,11 @@ export async function fetchUserOpenId(userToken: string): Promise<{ openId: stri
 
 export async function authorizeFeishuUser(): Promise<OAuthResult> {
   if (!(await canDoOAuth())) {
-    throw new Error('尚未配置飞书应用凭据：请在「设置 → 飞书鉴权」填写你的 App ID 与 App Secret（或本版本内置/代理模式）。')
+    throw new Error('尚未配置飞书应用凭据：请在「设置 → 飞书鉴权」填写你的 App ID 与 App Secret。')
   }
-  const appId = await getEffectiveAppId()
-  // Managed-App-ID build whose proxy app_config is down → appId '' → don't launch a broken consent
-  // page with client_id= empty; surface a clear error.
+  const appId = BUILD_CONFIG.feishuAppId
   if (!appId) {
-    throw new Error('未能获取 App ID：企业代理暂不可达（App ID 下发接口）。请稍后重试或联系管理员。')
+    throw new Error('未配置 App ID：请在「设置 → 飞书鉴权」填写你的飞书 App ID。')
   }
   const redirectUri = oauthRedirectUrl()
   if (!redirectUri) {

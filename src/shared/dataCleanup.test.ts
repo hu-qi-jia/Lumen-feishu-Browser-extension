@@ -48,11 +48,11 @@ function fullStore(): Record<string, unknown> {
     // ── 保护：配置 / 凭证 / 种子 ──
     settings_v2: { openaiApiKey: 'enc', openaiModel: 'deepseek' },
     _device_seed: 'THE-SEED',
-    _enterprise_policy_v1: 'enc-policy',
     _feishu_utoken_v1: 'enc-utoken',
     _user_app_creds_v1: { appId: 'cli_x' },
     _app_secret_dev_v1: 'enc-secret',
     news_settings_v1: { interval: 30, translationEngine: 'bing' },
+    _user_skills_v1: [{ id: 'sk1' }],
     cleanup_settings_v1: { intervalDays: 7, lastCleanedAt: 1 },
     // ── 清除：用户内容 / 派生数据 / 缓存 ──
     sessions_index_v1: { sessions: [{ id: 's1' }], activeId: 's1' },
@@ -65,25 +65,21 @@ function fullStore(): Record<string, unknown> {
     _last_delete_undo_v1: { ops: [] },
     news_cache_v1: { github: { items: [] } },
     news_translation_cache_v1: { h: { zh: '译', ts: 1 } },
-    _llm_managed_v1: 'enc-llm',
-    _managed_app_id_v1: 'cli_y',
     _feishu_tenant_origin: 'https://x.feishu.cn',
-    _skill_src_v1: 'abcdef0123456789',
-    _artifact_autorestored_v1: 1,
     docBinding_v1: { mode: 'auto' },
   }
 }
 
 const PROTECTED = [
-  'settings_v2', '_device_seed', '_enterprise_policy_v1', '_feishu_utoken_v1',
-  '_user_app_creds_v1', '_app_secret_dev_v1', 'news_settings_v1', 'cleanup_settings_v1',
+  'settings_v2', '_device_seed', '_feishu_utoken_v1',
+  '_user_app_creds_v1', '_app_secret_dev_v1', 'news_settings_v1', '_user_skills_v1',
+  'cleanup_settings_v1',
 ]
 
 const CLEARED = [
   'sessions_index_v1', 'msgs_s1_v1', 'slides_decks_v1', 'dataviz_v1', 'pdfHistory_v1',
   'recentFiles_v1', '_learned_recipes_v1', '_last_delete_undo_v1', 'news_cache_v1',
-  'news_translation_cache_v1', '_llm_managed_v1', '_managed_app_id_v1',
-  '_feishu_tenant_origin', '_skill_src_v1', '_artifact_autorestored_v1', 'docBinding_v1',
+  'news_translation_cache_v1', '_feishu_tenant_origin', 'docBinding_v1',
 ]
 
 describe('isProtectedKey', () => {

@@ -3,9 +3,9 @@
 # 个人快速部署（5 步上手）
 
 > 🟢 **免构建（装商店版）**：从 **[Chrome 网上应用店](https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc)** 点「添加至 Chrome」即可省去克隆 / 打包 / 加载。但商店版**不内置凭据**，仍要用**你自己的**飞书应用：按下面**第 1 步**建好应用后，在扩展「**设置 → 自建飞书应用**」里填 **App ID / Secret**（而不是填 `.env`）、登记设置里显示的回调地址、再「用飞书账号授权」+ 填大模型 Key 即可。功能用法见 [`USER_GUIDE.md`](USER_GUIDE.md)。
-> **第 2~4 步**（填 `.env` / 打包 / 加载）是**自行构建**才需要——想把 App ID 直接打进包、二次开发或私有化时用。
+> **第 2~4 步**（填 `.env` / 打包 / 加载）是**自行构建**才需要——想把 App ID 直接打进包、二次开发时用。
 >
-> 面向**个人自用**（自己装、自己用，不发别人/不上架）。企业/私有化见 [`DEPLOYMENT.md`](DEPLOYMENT.md) / [`PRIVATE_DEPLOYMENT.md`](PRIVATE_DEPLOYMENT.md)。
+> 面向**个人自用**（自己装、自己用，不发别人/不上架）。
 > **上架 Chrome 商店 / 公开发行**（包里零凭据、用户自带飞书应用）见 [`STORE_PUBLISHING.md`](STORE_PUBLISHING.md)。
 > 卡住了看 [`FAQ.md`](FAQ.md)。
 

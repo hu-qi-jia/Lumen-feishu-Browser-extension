@@ -143,7 +143,7 @@ export function useDocBinding(a: Args): DocBindingApi {
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions
 
   // chatContext drives the ChatPanel workspace (topbar title, Base badge, MessageList kind,
-  //  InputBar/SkillSuggest resourceKind) AND the agent's doc target. It follows the EFFECTIVE
+  //  InputBar resourceKind) AND the agent's doc target. It follows the EFFECTIVE
   //  resource — the doc the active session is bound to — not the raw live tab. In follow mode
   //  that's heldResource ?? liveResource: when the user switches to a non-Feishu tab,
   //  liveResource settles to null and heldResource is cleared (hold effect below), so

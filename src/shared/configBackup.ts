@@ -57,7 +57,7 @@ export async function buildBackup(opts: { includeSecrets: boolean; exportedAt: s
   const settings: Record<string, unknown> = {
     openaiBaseUrl: s.openaiBaseUrl, openaiModel: s.openaiModel,
     feishuOwnerOpenId: s.feishuOwnerOpenId, learnFromHistory: s.learnFromHistory,
-    autoConfirm: s.autoConfirm, llmSource: s.llmSource, llmFormat: s.llmFormat,
+    autoConfirm: s.autoConfirm, llmFormat: s.llmFormat,
   }
   if (opts.includeSecrets) {
     settings.openaiApiKey = s.openaiApiKey ? await decryptField(s.openaiApiKey) : ''
@@ -121,11 +121,11 @@ export async function applyBackup(file: BackupFile): Promise<ImportSummary> {
       openaiBaseUrl: pickStr('openaiBaseUrl'), openaiModel: pickStr('openaiModel'),
       feishuOwnerOpenId: pickStr('feishuOwnerOpenId'),
       learnFromHistory: pick('learnFromHistory'),
-      autoConfirm: pick('autoConfirm'), llmSource: pick('llmSource'), llmFormat: pick('llmFormat'),
+      autoConfirm: pick('autoConfirm'), llmFormat: pick('llmFormat'),
     }
     if (typeof ns.openaiApiKey === 'string' && ns.openaiApiKey) next.openaiApiKey = await encryptField(ns.openaiApiKey)
     if (typeof ns.feishuAccessToken === 'string' && ns.feishuAccessToken) next.feishuAccessToken = await encryptField(ns.feishuAccessToken)
-    // A backup is untrusted input. Don't let an imported LLM base URL bypass the enterprise host
+    // A backup is untrusted input. Don't let an imported LLM base URL bypass the host
     // allowlist (would exfil the conversation + API key to an attacker host) — validate it; on failure
     // keep the current value. On unpinned builds this still enforces https (same as manual entry).
     if (typeof next.openaiBaseUrl === 'string' && next.openaiBaseUrl && next.openaiBaseUrl !== cur.openaiBaseUrl) {

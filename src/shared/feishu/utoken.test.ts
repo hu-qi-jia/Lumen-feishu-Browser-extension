@@ -3,13 +3,12 @@ import type { AppSettings } from '../types'
 
 // Built-in creds so refreshUserAccessToken is allowed to call the token endpoint.
 vi.mock('../config', () => ({
-  BUILD_CONFIG: { feishuAppId: 'cli_x', feishuAppSecret: 'sec', feishuOauthScope: '', oauthProxyUrl: '', feishuBaseDomain: 'feishu.cn' },
+  BUILD_CONFIG: { feishuAppId: 'cli_x', feishuAppSecret: 'sec', feishuOauthScope: '', feishuBaseDomain: 'feishu.cn' },
   HAS_BUILTIN_CREDS: true,
   HAS_APP_SECRET: true,
   FEISHU_API_BASE: 'https://open.feishu.cn/open-apis',
   FEISHU_AUTHORIZE_URL: 'https://accounts.feishu.cn/open-apis/authen/v1/authorize',
   FEISHU_HOST_PATTERN: '*.feishu.cn',
-  OAUTH_PROXY_HOST: '',
   isFeishuOutboundAllowed: () => true,
 }))
 

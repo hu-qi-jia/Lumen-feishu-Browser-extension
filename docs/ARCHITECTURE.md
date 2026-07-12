@@ -41,7 +41,6 @@ src/
 │   │   └── useWikiResolve.ts # 知识库 URL 解析
 │   ├── lib/                  # 侧边栏工具函数
 │   │   ├── autoDefault.ts    # 自动默认值回填
-│   │   ├── cloudRestore.ts   # 云备份恢复
 │   │   ├── pdfHistory.ts     # PDF 历史记录
 │   │   ├── recentFiles.ts    # 最近文件持久化
 │   │   ├── tabReload.ts      # Tab 重新加载
@@ -360,11 +359,11 @@ OpenAI Streaming API
 | 禁文件级删除 | `agent.ts isFileLevelDelete`（loop + executeTool 双重） | 整表/电子表格/文档/`feishu_api_call` DELETE 一律拒；内容级删除走确认门 |
 | 删除/写确认门 | `agent.ts` 破坏性门 | 内容删除/写弹按钮确认；**Auto 模式**(`settings.autoConfirm`)自动确认；文件级不受影响 |
 | 通用 API 白名单 | `agent.ts assertApiCallAllowed` | 默认拒绝 + 硬阻断 消息/通讯录/权限/所有权 + 路径穿越 |
-| 出站锁定 | `config.ts isFeishuOutboundAllowed` + `providers.ts assertSafeBaseUrl` + CSP | 只准连飞书(基础域名子域) + 大模型；私有化可纯内网 |
+| 出站锁定 | `config.ts isFeishuOutboundAllowed` + `providers.ts assertSafeBaseUrl` + CSP | 只准连飞书 + 大模型 |
 | 上下文来源 | `App.tsx onMessage` | 只接受**当前窗口 active tab** 的 PAGE_CONTEXT_UPDATE（防后台 tab 串扰） |
 | 工具调用上限 | `agent.ts` | 每轮默认 30(可配 `VITE_MAX_TOOL_CALLS`)，到顶停下让用户确认继续 |
 | 凭据加密 | `crypto.ts` | AES-256-GCM，密钥 = PBKDF2(扩展ID + 每设备随机 seed)；加密 token/secret |
-| App Secret | `appSecret.ts` | 明文 / 密码加密(PBKDF2→AES-GCM) / 代理 三档 |
+| App Secret | `appSecret.ts` | 明文 / 密码加密 两档 |
 | 数据最小化 | `agent.ts truncateToolResult` | 传给 LLM 的工具结果截断 8KB，防 PII 批量外泄 |
 
 ---
@@ -524,9 +523,8 @@ ScenarioPanel Gallery        # 模板市场 UI（一键导入）
   （加密存储，到期前 5 分钟自动续期，见 `getValidUserToken`）→ `user_info` 拿 open_id。
 - **重定向 URL**：`chrome.identity.getRedirectURL()` = `https://<ext-id>.chromiumapp.org/`，
   登记到应用「安全设置 → 重定向 URL」。
-- **App Secret 三档**（构建时选其一）：明文 `VITE_FEISHU_APP_SECRET`（进包）/ 密码加密
-  `VITE_FEISHU_APP_SECRET_ENC`（`scripts/encrypt-secret.mjs` 生成，运行时输密码解锁）/
-  OAuth 代理 `VITE_OAUTH_PROXY_URL`（secret 不进包，见 `docs/oauth-proxy-worker.js`）。
+- **App Secret 两档**（构建时选其一）：明文 `VITE_FEISHU_APP_SECRET`（进包）/ 密码加密
+  `VITE_FEISHU_APP_SECRET_ENC`（`scripts/encrypt-secret.mjs` 生成，运行时输密码解锁）。
 
 ## 字段类型速查
 
@@ -548,8 +546,8 @@ ScenarioPanel Gallery        # 模板市场 UI（一键导入）
 
 ## 环境变量汇总
 
-全部构建时变量（个人 / 企业 SaaS / 私有化 三种部署）见 [`.env.example`](../.env.example)
-与 [`PROJECT.md`](PROJECT.md) §9——含 App Secret 三档、OAuth 代理、私有化基础域名、
+全部构建时变量（个人 / 商店 两种部署）见 [`.env.example`](../.env.example)
+与 [`PROJECT.md`](PROJECT.md) §9——含 App Secret 两档、
 大模型 host 白名单、设备 CIDR 门、工具调用上限等。
 
 ---

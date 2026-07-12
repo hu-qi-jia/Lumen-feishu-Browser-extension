@@ -1,5 +1,5 @@
 // 数据清理：清除全部用户数据（会话记录、保存的 PPT / PDF、图片附件、本地经验、
-// 资讯缓存、企业下发缓存等），只保留「配置 / 凭证」。供「清除数据」按钮和定期自动清理使用。
+// 资讯缓存等），只保留「配置 / 凭证」。供「清除数据」按钮和定期自动清理使用。
 //
 // 实现是「保留白名单、其余全删」：读出 chrome.storage.local 的全部键，删掉不在 PROTECTED_KEYS
 // 里的。这样将来新增任何用户数据键都会自动纳入清理，不会因名单遗漏而残留。
@@ -28,7 +28,6 @@ export const DEFAULT_CLEANUP_SETTINGS: CleanupSettings = { intervalDays: 0, last
 const PROTECTED_KEYS = new Set<string>([
   'settings_v2',            // AppSettings：API Key / 模型 / 飞书 Token / 偏好
   '_device_seed',           // 加密种子（删了所有加密值失效）
-  '_enterprise_policy_v1',  // 企业策略
   '_feishu_utoken_v1',      // 飞书 OAuth 授权（user_access_token bundle）
   '_user_app_creds_v1',     // 飞书自带 App 凭证
   '_app_secret_dev_v1',     // 记住的 App Secret

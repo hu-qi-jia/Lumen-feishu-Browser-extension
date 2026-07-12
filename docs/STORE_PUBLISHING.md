@@ -17,7 +17,6 @@ cat > .env.store.local <<'E'
 VITE_FEISHU_APP_ID=
 VITE_FEISHU_APP_SECRET=
 VITE_FEISHU_APP_SECRET_ENC=
-VITE_OAUTH_PROXY_URL=
 VITE_WEBSTORE=1
 E
 npx vite build --mode store          # 零凭据 + 自动剥离 manifest.key
@@ -119,7 +118,7 @@ node scripts/check-no-eval.mjs  # → ✅ dist/ 中无 new Function(
 ```
 - **覆盖**：图表 / 多图看板 / 明细表 / 数据网站 / 幻灯片(PPT) 全部数据驱动。
 - **缺口（如实告知）**：商店版的"AI 建站"是**数据看板式网站**，不含自由式网页 / 计算器 / 自定义脚本视图——那些需要执行生成代码，只在**自分发版**（保留 `unsafe-eval`）提供。建站面板在商店版已有相应提示。
-> 注：自分发 / 企业内网版（不上架）仍用"生成即运行"的全功能，不受商店远程代码政策约束。
+> 注：自分发仍用"生成即运行"的全功能，不受商店远程代码政策约束。
 
 ### 4.3 ⚠️ 宽 `connect-src https:`
 为支持用户**自填任意大模型地址**，扩展页 CSP 的 `connect-src` 含 `https:` 通配。说明：这是为了让用户连**自己选择的** OpenAI 兼容服务，不是为了连作者服务器；数据只发往用户配置的端点。

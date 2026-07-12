@@ -5,8 +5,6 @@ import InputBar from './InputBar'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 
-vi.mock('@/shared/ai/skills', () => ({ preloadSkills: () => Promise.resolve([]) }))
-
 afterEach(cleanup)
 
 describe('InputBar 知识库开关', () => {

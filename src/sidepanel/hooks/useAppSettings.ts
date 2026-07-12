@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 import { encryptField, decryptField } from '@/shared/crypto'
-import { HAS_ENTERPRISE_POLICY } from '@/shared/config'
-import { fetchPolicy, loadPolicy, applyPolicy, FAILCLOSED_POLICY } from '@/shared/enterprisePolicy'
 
 export interface AppSettingsApi {
   settings: AppSettings
@@ -14,8 +12,7 @@ export interface AppSettingsApi {
 }
 
 /**
- * Runtime settings: load (decrypt) from chrome.storage.local on mount, layer enterprise
- * policy on top (FAIL-CLOSED until the real policy is known), and persist on save.
+ * Runtime settings: load (decrypt) from chrome.storage.local on mount, and persist on save.
  */
 export function useAppSettings(): AppSettingsApi {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
@@ -26,7 +23,7 @@ export function useAppSettings(): AppSettingsApi {
       if (!stored) return
       const token = await decryptField(stored.feishuAccessToken ?? '')
       const apiKey = await decryptField(stored.openaiApiKey ?? '')
-      const loaded: AppSettings = {
+      setSettings({
         ...DEFAULT_SETTINGS,
         openaiBaseUrl: stored.openaiBaseUrl ?? DEFAULT_SETTINGS.openaiBaseUrl,
         openaiModel: stored.openaiModel ?? DEFAULT_SETTINGS.openaiModel,
@@ -35,20 +32,12 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: stored.feishuOwnerOpenId ?? '',
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
-        llmSource: (stored.llmSource as AppSettings['llmSource']) ?? undefined,
+        llmFormat: (stored.llmFormat as 'openai' | 'anthropic' | undefined) ?? DEFAULT_SETTINGS.llmFormat,
         obsidianBaseUrl: stored.obsidianBaseUrl ?? DEFAULT_SETTINGS.obsidianBaseUrl,
         obsidianInboxPath: stored.obsidianInboxPath ?? DEFAULT_SETTINGS.obsidianInboxPath,
         obsidianExcludePaths: stored.obsidianExcludePaths ?? DEFAULT_SETTINGS.obsidianExcludePaths,
         obsidianVaultName: stored.obsidianVaultName ?? DEFAULT_SETTINGS.obsidianVaultName,
-      }
-      // Enterprise central policy (applied over the just-loaded base). FAIL-CLOSED: on a
-      // policy build, until the real policy is known (no cache / proxy down) we force the
-      // conservative default (no auto-confirm of deletes) — a proxy outage must never loosen
-      // the enterprise's controls.
-      const eff = (p: Awaited<ReturnType<typeof loadPolicy>>) =>
-        applyPolicy(loaded, p ?? (HAS_ENTERPRISE_POLICY ? FAILCLOSED_POLICY : null))
-      setSettings(eff(await loadPolicy()))
-      void fetchPolicy(loaded).then((fresh) => setSettings(eff(fresh)))
+      })
     })
   }, [])
 
@@ -67,7 +56,7 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: s.feishuOwnerOpenId,
         learnFromHistory: s.learnFromHistory !== false,
         autoConfirm: s.autoConfirm === true,
-        llmSource: s.llmSource, // managed/manual choice must persist (was dropped → switch never stuck)
+        llmFormat: s.llmFormat ?? 'openai',
         // Obsidian 接入（非密钥；API Key 走独立加密键 _obsidian_token_v1，不在此 blob）
         obsidianBaseUrl: s.obsidianBaseUrl,
         obsidianInboxPath: s.obsidianInboxPath,

@@ -1,8 +1,8 @@
 /**
- * 企业打包向导（本地 Web UI）—— 让不懂命令行的人也能 几下点出一个定制扩展包。
+ * 打包向导（本地 Web UI）—— 让不懂命令行的人也能 几下点出一个定制扩展包。
  *
  * 跑：node scripts/package-ui.mjs   （或 npm run package:ui）→ 浏览器开 http://localhost:8799
- * 在网页里：选模式 → 改名称/描述/图标 → 填参数(App ID/代理/LLM/开关) → 一键打包 → 下载 .zip。
+ * 在网页里：选模式 → 改名称/描述/图标 → 填参数(App ID/开关) → 一键打包 → 下载 .zip。
  *
  * 实现：纯 Node http（零依赖；图标缩放用 devDep sharp，按需动态加载）。打包=驱动现有 `vite build`：
  *   1) 把表单写进【系统临时目录】里的 .env.local（敏感值只落在临时目录、用完即删，绝不进仓库）
@@ -58,7 +58,7 @@ const run = (cmd, args, opts = {}) => new Promise((resolve) => {
 })
 
 // ── 表单 → .env 内容 ──────────────────────────────────────────────────────────
-export const PKG_MODES = ['enterprise', 'personal', 'store', 'private']
+export const PKG_MODES = ['personal', 'store']
 
 export function envFromConfig(c) {
   const L = []
@@ -66,39 +66,21 @@ export function envFromConfig(c) {
   const clean = (v) => String(v).replace(/[\r\n]+/g, ' ').trim()
   const put = (k, v) => { if (v !== undefined && v !== null && v !== '' && v !== false) L.push(`${k}=${v === true ? '1' : clean(v)}`) }
   // mode 必须收敛到白名单：否则含换行的 mode 会注入到下面的注释行 → 伪造任意 VITE_* 行（绕过 put 的 clean）。
-  const mode = PKG_MODES.includes(c.mode) ? c.mode : 'enterprise'
+  const mode = PKG_MODES.includes(c.mode) ? c.mode : 'personal'
   L.push(`# 由打包向导生成 · 模式=${clean(mode)} · 仅存系统临时目录、用完即删`)
   if (mode === 'store') {
-    put('VITE_WEBSTORE', 1) // 剥 manifest key + BYO（凭据/代理在 config.ts 被强制清空）
+    put('VITE_WEBSTORE', 1) // 剥 manifest key + BYO（凭据在 config.ts 被强制清空）
     // 商店版名称/摘要走 vite 单一管线(transformManifest 读 VITE_STORE_NAME/_DESC)，避免与后处理双写、
     // 且用户不填时保留商标安全默认值（"…第三方…"）。
     put('VITE_STORE_NAME', c.name)
     put('VITE_STORE_DESC', c.desc)
   }
   // 凭据 / 连接
-  if (mode === 'personal' || mode === 'private') {
+  if (mode === 'personal') {
     put('VITE_FEISHU_APP_ID', c.appId)
     if (c.appSecretEnc) put('VITE_FEISHU_APP_SECRET_ENC', c.appSecretEnc)
     else put('VITE_FEISHU_APP_SECRET', c.appSecret)
   }
-  if (mode === 'enterprise' || (mode === 'private' && c.proxyUrl)) {
-    put('VITE_OAUTH_PROXY_URL', c.proxyUrl)
-    put('VITE_OAUTH_PROXY_KEY', c.proxyKey)
-    put('VITE_APP_ID_FROM_PROXY', !!c.appIdFromProxy)
-    if (!c.appIdFromProxy) put('VITE_FEISHU_APP_ID', c.appId)
-  }
-  if (mode === 'private') put('VITE_FEISHU_BASE_DOMAIN', c.baseDomain)
-  // 企业能力 / 托管 LLM 开关：勾了就如实写入——不再被"有没有填代理"误吞（修：UI 在私有化模式
-  // 显示这些勾选框却静默丢弃用户选择）。注：技能库/云备份在 config.ts 仍需 oauthProxyUrl 才真正
-  // 激活(HAS_SKILLS/HAS_ARTIFACT_SYNC)，这里只如实记录用户意图，不会凭空生效。
-  if (mode === 'enterprise' || mode === 'private') {
-    put('VITE_ENTERPRISE_POLICY', !!c.policy)
-    put('VITE_SKILLS_ENABLED', !!c.skills)
-    put('VITE_ARTIFACT_SYNC', !!c.artifacts)
-    put('VITE_LLM_FROM_PROXY', !!c.llmFromProxy)
-    put('VITE_LLM_LOCK_MANAGED', !!c.llmLock)
-  }
-  put('VITE_LLM_NO_PERSIST', !!c.llmNoPersist)
   // 通用安全/LLM
   put('VITE_OPENAI_ALLOWED_HOSTS', c.allowedHosts)
   put('VITE_LLM_REDACT', !!c.redact)
@@ -110,21 +92,19 @@ export function envFromConfig(c) {
   return L.join('\n') + '\n'
 }
 
-// 出包前校验：拦下"打出来根本登录不了"的死包（修：private 取消"App ID 从代理下发"又不填 App ID 时，
-// 原来会静默出一个无凭据来源的包，构建还报成功）。商店/BYO 版由用户安装后在设置里自填，无需内置。
+// 出包前校验：拦下"打出来根本登录不了"的死包。商店/BYO 版由用户安装后在设置里自填，无需内置。
 export function validateConfig(c) {
-  const mode = c.mode || 'enterprise'
+  const mode = c.mode || 'personal'
   if (!PKG_MODES.includes(mode)) return '未知打包模式：' + String(c.mode).slice(0, 40)
   if (mode === 'store') return null
-  const viaProxy = (mode === 'enterprise' || mode === 'private') && !!c.appIdFromProxy && !!(c.proxyUrl && String(c.proxyUrl).trim())
-  const hasAppId = !!(c.appId && String(c.appId).trim()) || viaProxy
-  if (!hasAppId) return '缺少 App ID：请填飞书 App ID，或（企业/私有化）勾选「App ID 从代理下发」并填代理地址。商店版无需内置 App ID。'
+  const hasAppId = !!(c.appId && String(c.appId).trim())
+  if (!hasAppId) return '缺少 App ID：请填飞书 App ID。商店版无需内置 App ID。'
   return null
 }
 
-// 后处理 dist：改名称/描述、(可选)剥 key、按 Logo 重生成图标
+// 后处理 dist：改名称/描述、按 Logo 重生成图标
 async function customizeDist(c) {
-  const mode = c.mode || 'enterprise'
+  const mode = c.mode || 'personal'
   const mfPath = path.join(DIST, 'manifest.json')
   const mf = JSON.parse(fs.readFileSync(mfPath, 'utf8'))
   // 商店模式：名称/描述已由 vite transformManifest 按 VITE_STORE_NAME/_DESC 写好（单一管线 + 商标安全
@@ -133,7 +113,6 @@ async function customizeDist(c) {
     if (c.name) { mf.name = c.name; if (mf.action) mf.action.default_title = c.name }
     if (c.desc) mf.description = c.desc
   }
-  if (c.stripKey) delete mf.key
   fs.writeFileSync(mfPath, JSON.stringify(mf, null, 2))
   let warn = ''
   // 图标：上传的是 dataURL（PNG）→ sharp 缩到 16/32/48/128 覆盖 dist/icons（不动 public/ 源）

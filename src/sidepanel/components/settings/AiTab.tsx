@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { BUILD_CONFIG, HAS_MANAGED_LLM } from '@/shared/config'
-import { clearManagedLlmCache, usingManagedLlm } from '@/shared/ai/llmConfig'
+import { BUILD_CONFIG } from '@/shared/config'
 import {
   KNOWN_PROVIDER_HOSTS,
   assertSafeBaseUrl,
@@ -8,7 +7,6 @@ import {
 } from '@/shared/providers'
 import FormField from '../ui/FormField'
 import FormInput from '../ui/FormInput'
-import FormToggle from '../ui/FormToggle'
 import Button from '../ui/Button'
 import SettingsSelect from './SettingsSelect'
 import SettingsSection from './SettingsSection'
@@ -45,94 +43,62 @@ export default function AiTab({ form, patch, set, onSave }: SettingsTabProps) {
     <>
       {/* ── 模型配置 ── */}
       <SettingsSection title="模型配置">
-        {/* Enterprise managed-LLM: the company key is fetched from the proxy after Feishu auth —
-            only members of your tenant get it. A switch lets the company still configure manually,
-            unless the build locks managed (VITE_LLM_LOCK_MANAGED). */}
-        {HAS_MANAGED_LLM && (() => {
-          const managed = usingManagedLlm(form) // single source of truth (shared with the runtime)
-          return (
-            <div className="field-label" style={{ gap: 6, fontWeight: 600 }}>
-              <span>大模型配置来源</span>
-              {BUILD_CONFIG.llmLockManaged ? (
-                <span className="field-hint">由企业统一下发并锁定（不可手动配置）。</span>
-              ) : (
-                <FormToggle
-                  options={[
-                    { value: 'managed', label: '企业统一' },
-                    { value: 'manual', label: '手动配置' },
-                  ]}
-                  value={managed ? 'managed' : 'manual'}
-                  onChange={(v) => patch({ llmSource: v as 'managed' | 'manual' })}
-                />
-              )}
-              {managed && (
-                <span className="field-hint">
-                  模型由企业统一提供，用本企业飞书账号授权后自动获取，无需填写 Key。
-                  {' '}<button type="button" className="btn-link" onClick={() => void clearManagedLlmCache()}>重新获取</button>
-                </span>
-              )}
+        <div className="model-config-fields">
+          <FormField label="API 协议">
+            <SettingsSelect
+              ariaLabel="API 协议"
+              options={[
+                { value: 'openai', label: 'OpenAI Chat Completions 格式' },
+                { value: 'anthropic', label: 'Anthropic Messages 格式' },
+              ]}
+              value={llmFormat}
+              onChange={(v) => patch({ llmFormat: v as 'openai' | 'anthropic' })}
+            />
+          </FormField>
+
+          <FormField
+            label="Base URL"
+            hint={baseUrlNote?.msg}
+            hintColor={baseUrlNote?.kind === 'error' ? '#d4380d' : baseUrlNote?.kind === 'warn' ? '#d48806' : undefined}
+          >
+            <FormInput type="url"
+              value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
+              placeholder={llmFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.deepseek.com/v1'} />
+          </FormField>
+
+          <FormField label="API Key">
+            <FormInput type="password"
+              value={form.openaiApiKey} onChange={set('openaiApiKey')}
+              placeholder={llmFormat === 'anthropic' ? 'sk-ant-…' : 'sk-…'} />
+          </FormField>
+
+          <FormField label="Model">
+            <>
+              <FormInput type="text" list="model-suggestions"
+                value={form.openaiModel} onChange={set('openaiModel')}
+                placeholder={llmFormat === 'anthropic' ? 'claude-sonnet-4-20250514' : (provider.models[0] || 'deepseek-v4-pro')} />
+              <datalist id="model-suggestions">
+                {provider.models.map((m) => <option key={m} value={m} />)}
+              </datalist>
+            </>
+          </FormField>
+
+          {onSave && (
+            <div className="ai-save-row">
+              <Button
+                variant="secondary"
+                block
+                onClick={() => {
+                  onSave(form)
+                  setSaved(true)
+                  setTimeout(() => setSaved(false), 1500)
+                }}
+              >
+                {saved ? '已保存' : '保存配置'}
+              </Button>
             </div>
-          )
-        })()}
-
-        {!usingManagedLlm(form) && (
-          <div className="model-config-fields">
-            <FormField label="API 协议">
-              <SettingsSelect
-                ariaLabel="API 协议"
-                options={[
-                  { value: 'openai', label: 'OpenAI Chat Completions 格式' },
-                  { value: 'anthropic', label: 'Anthropic Messages 格式' },
-                ]}
-                value={llmFormat}
-                onChange={(v) => patch({ llmFormat: v as 'openai' | 'anthropic' })}
-              />
-            </FormField>
-
-            <FormField
-              label="Base URL"
-              hint={baseUrlNote?.msg}
-              hintColor={baseUrlNote?.kind === 'error' ? '#d4380d' : baseUrlNote?.kind === 'warn' ? '#d48806' : undefined}
-            >
-              <FormInput type="url"
-                value={form.openaiBaseUrl} onChange={set('openaiBaseUrl')}
-                placeholder={llmFormat === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.deepseek.com/v1'} />
-            </FormField>
-
-            <FormField label="API Key">
-              <FormInput type="password"
-                value={form.openaiApiKey} onChange={set('openaiApiKey')}
-                placeholder={llmFormat === 'anthropic' ? 'sk-ant-…' : 'sk-…'} />
-            </FormField>
-
-            <FormField label="Model">
-              <>
-                <FormInput type="text" list="model-suggestions"
-                  value={form.openaiModel} onChange={set('openaiModel')}
-                  placeholder={llmFormat === 'anthropic' ? 'claude-sonnet-4-20250514' : (provider.models[0] || 'deepseek-v4-pro')} />
-                <datalist id="model-suggestions">
-                  {provider.models.map((m) => <option key={m} value={m} />)}
-                </datalist>
-              </>
-            </FormField>
-
-            {onSave && (
-              <div className="ai-save-row">
-                <Button
-                  variant="secondary"
-                  block
-                  onClick={() => {
-                    onSave(form)
-                    setSaved(true)
-                    setTimeout(() => setSaved(false), 1500)
-                  }}
-                >
-                  {saved ? '已保存' : '保存配置'}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </SettingsSection>
     </>
   )

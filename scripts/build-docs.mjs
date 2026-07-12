@@ -178,10 +178,10 @@ function mdToHtml(md) {
 // ── 站点导航（分组）──────────────────────────────────────────────────────────
 const GROUPS = [
   ['指南', ['README.md', 'docs/QUICKSTART.md', 'docs/USER_GUIDE.md', 'docs/FAQ.md']],
-  ['部署', ['docs/DEPLOYMENT.md', 'docs/PRIVATE_DEPLOYMENT.md', 'docs/STORE_PUBLISHING.md', 'docs/enterprise/DEPLOY.md', 'docs/oauth-proxy/README.md']],
+  ['部署', ['docs/DEPLOYMENT.md', 'docs/STORE_PUBLISHING.md']],
   ['架构与安全', ['docs/ARCHITECTURE.md', 'docs/SECURITY_AUDIT.md', 'docs/PROJECT.md', 'PRIVACY.md']],
   ['开发', ['CLAUDE.md', 'docs/DEVELOPMENT.md', 'docs/CHANGELOG.md']],
-  ['English', ['README.en.md', 'docs/DEPLOYMENT.en.md', 'docs/PRIVATE_DEPLOYMENT.en.md', 'docs/STORE_PUBLISHING.en.md', 'docs/USER_GUIDE.en.md', 'docs/FAQ.en.md', 'docs/ARCHITECTURE.en.md', 'docs/SECURITY_AUDIT.en.md', 'docs/PROJECT.en.md', 'docs/DEVELOPMENT.en.md', 'docs/QUICKSTART.en.md', 'docs/enterprise/DEPLOY.en.md', 'docs/oauth-proxy/README.en.md']],
+  ['English', ['README.en.md', 'docs/DEPLOYMENT.en.md', 'docs/STORE_PUBLISHING.en.md', 'docs/USER_GUIDE.en.md', 'docs/FAQ.en.md', 'docs/ARCHITECTURE.en.md', 'docs/SECURITY_AUDIT.en.md', 'docs/PROJECT.en.md', 'docs/DEVELOPMENT.en.md', 'docs/QUICKSTART.en.md']],
 ]
 const htmlPath = (mdRel) => mdRel.replace(/\.md$/, '.html')
 const depthPrefix = (htmlRel) => '../'.repeat(htmlRel.split('/').length - 1)
@@ -300,7 +300,7 @@ for (const rel of mdFiles) {
   count++
 }
 
-// 拷贝 docs/ 下所有【非 .md】文件（截图 + 服务端源 .mjs / nginx.conf / admin-ui.html / 完整指南 index.html…
+// 拷贝 docs/ 下所有【非 .md】文件（截图 + 完整指南 index.html…
 // 让文档里指向源文件的相对链接可达）
 function copyNonMd(dir) {
   for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
@@ -325,9 +325,9 @@ const landing = `<!DOCTYPE html><html lang="zh"><head>
 <nav class="toc">${renderNav(titles, 'index.html')}</nav>
 <div class="page"><main>
 <div class="hero"><h1>🪶 ${SITE_TITLE}</h1><p>Chrome MV3 扩展 · 用自然语言操作飞书多维表格/电子表格/文档，并做成 看板/网站/PPT。完整文档一站读完。</p></div>
-<p><a class="dcard" style="display:inline-block;border-color:var(--accent)" href="docs/index.html"><b>📖 完整指南（单页）</b><span>概览 / 使用 / 部署 / 架构 / 安全 / 管理台 / 验证 —— 最快上手入口</span></a></p>
+<p><a class="dcard" style="display:inline-block;border-color:var(--accent)" href="docs/index.html"><b>📖 完整指南（单页）</b><span>概览 / 使用 / 部署 / 架构 / 安全 —— 最快上手入口</span></a></p>
 <div class="gtitle">入门</div><div class="cards">${card('README.md', '项目说明 + 个人 5 步上手')}${card('docs/QUICKSTART.md', '个人快速部署（5 步）')}${card('docs/USER_GUIDE.md', '使用手册（图文）')}${card('docs/FAQ.md', '常见问题排错')}</div>
-<div class="gtitle">部署</div><div class="cards">${card('docs/DEPLOYMENT.md', '部署指南：个人/企业/私有化')}${card('docs/PRIVATE_DEPLOYMENT.md', '私有化/内网完整方案')}${card('docs/STORE_PUBLISHING.md', '上架 Chrome 商店')}${card('docs/enterprise/DEPLOY.md', '企业内部分发(.crx + 策略)')}${card('docs/oauth-proxy/README.md', 'OAuth 代理自托管')}</div>
+<div class="gtitle">部署</div><div class="cards">${card('docs/DEPLOYMENT.md', '部署指南：个人/商店')}${card('docs/STORE_PUBLISHING.md', '上架 Chrome 商店')}</div>
 <div class="gtitle">架构与安全</div><div class="cards">${card('docs/ARCHITECTURE.md', '深结构：模块/工具/坑')}${card('docs/SECURITY_AUDIT.md', '安全逐条审计 + 攻击场景')}${card('docs/PROJECT.md', '一站式：架构/功能/安全/部署')}${card('PRIVACY.md', '隐私政策')}</div>
 <div class="gtitle">开发</div><div class="cards">${card('CLAUDE.md', 'Agent 快速上手')}${card('docs/DEVELOPMENT.md', '开发手册')}${card('docs/CHANGELOG.md', '更新日志')}</div>
 <p class="foot" style="margin-top:30px">英文文档见左侧 English 分组 · 本站由 <code>scripts/build-docs.mjs</code> 生成 · <a href="${GH}">GitHub</a></p>

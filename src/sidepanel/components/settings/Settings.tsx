@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSettings } from '@/shared/types'
-import { loadPolicy, policyLockedKeys } from '@/shared/enterprisePolicy'
 import GeneralTab from './GeneralTab'
 import AiTab from './AiTab'
 import FeishuTab from './FeishuTab'
@@ -41,17 +40,6 @@ export default function Settings({
   const [form, setForm] = useState<AppSettings>({ ...settings })
   const [tab, setTab] = useState<SettingsTabId>('general')
 
-  // Enterprise policy — the notice banner + locked keys (read by GeneralTab / AiTab).
-  const [policyLocks, setPolicyLocks] = useState<Set<keyof AppSettings>>(new Set())
-  const [policyNotice, setPolicyNotice] = useState('')
-
-  useEffect(() => {
-    void loadPolicy().then((p) => {
-      setPolicyLocks(policyLockedKeys(p))
-      setPolicyNotice(p?.notice || '')
-    })
-  }, [])
-
   // Shared form helpers — tabs mutate `form` through these.
   const patch = useCallback(
     (p: Partial<AppSettings>) => setForm((f) => ({ ...f, ...p })),
@@ -86,17 +74,8 @@ export default function Settings({
       <SettingsTabs tabs={SETTINGS_TABS} active={tab} onChange={(id) => setTab(id as SettingsTabId)} variant="underline" />
 
       <div className="settings-body">
-        {/* Enterprise policy notice — always visible regardless of tab. */}
-        {policyNotice && (
-          <section className="settings-section">
-            <p className="field-hint" style={{ color: 'var(--color-warning-strong)' }}>
-              {policyNotice}
-            </p>
-          </section>
-        )}
-
         {tab === 'general' && (
-          <GeneralTab form={form} patch={patch} set={set} policyLocks={policyLocks} />
+          <GeneralTab form={form} patch={patch} set={set} />
         )}
 
         {tab === 'ai' && (

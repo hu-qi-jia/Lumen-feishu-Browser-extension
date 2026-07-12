@@ -30,7 +30,7 @@
 **Step 1 · Install (pick one)**
 
 - 🟢 **Install from the Chrome Web Store (recommended · no build)**: open 👉 **[the Chrome Web Store page](https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc)** → click "**Add to Chrome**". Then click the toolbar icon (right-click to pin) to use it. **Skips cloning / building / loading** — but this build ships **no credentials**, so after installing you must enter **your own** Feishu App ID / Secret in Settings (see Step 3).
-- 🛠 **Dev build / build it yourself**: `chrome://extensions` → enable "Developer mode" → "Load unpacked" → select the `dist/` directory (or install the `.crx`). For custom dev / using your own Feishu app / private deployment — see [`QUICKSTART.md`](QUICKSTART.en.md).
+- 🛠 **Dev build / build it yourself**: `chrome://extensions` → enable "Developer mode" → "Load unpacked" → select the `dist/` directory (or install the `.crx`). For custom dev / using your own Feishu app — see [`QUICKSTART.md`](QUICKSTART.en.md).
 
 **Step 2 · Open the side panel**: open any Feishu page (Base / Sheet / Doc) and click the extension icon to bring up the **side panel**.
 
@@ -45,7 +45,6 @@ In Settings you need to provide:
 | **Your own Feishu app (App ID / App Secret)** | **Required** for the store / no-baked-credentials build: in the "**Custom Feishu app**" box enter **your own** App ID + App Secret → click "Save credentials" → register the **callback URL** (shown automatically in Settings, like `https://<extension-id>.chromiumapp.org/`) in the Feishu console under "Security Settings → Redirect URL". How to create the app / enable scopes / publish: see [`QUICKSTART.md`](QUICKSTART.en.md). |
 | **Model provider / Base URL / Model** | OpenAI-compatible interface; defaults to the Chinese LLM **DeepSeek**. Can be switched to any compatible service. |
 | **API Key** | The LLM's key (`sk-…`). Stored only on this machine, encrypted. |
-| **LLM config source** (Enterprise) | When an enterprise pushes a unified config, there's an "Enterprise unified / Manual" toggle here: choosing **Enterprise unified** means **no Key required** — after authorizing with your enterprise Feishu account it is fetched automatically (admins can lock it to enterprise-unified only). The personal edition only has manual config. |
 | **Feishu authorization** | Authorize with your Feishu account to obtain a `user_access_token` and `open_id`. The assistant **always operates as you**, never exceeding your permissions. |
 | **Theme color / Light-dark mode** | At the top you can toggle light/dark (☀/🌙) and pick a theme color. |
 | **Gets smarter over time / Voice input / Auto-confirm** | Optional: whether to distill experience from history, whether to enable voice, and whether to skip the second confirmation for destructive operations. |

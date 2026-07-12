@@ -5,34 +5,24 @@ import webExtension from 'vite-plugin-web-extension'
 import { resolve } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 
-const originOf = (u: string): string => {
-  try { return new URL(u).origin } catch { return '' }
-}
-
 export default defineConfig(({ command, mode }) => {
-  // Build-time deployment config. Everything derives from ONE Feishu base domain:
-  // public SaaS = feishu.cn; a private (on-prem) deploy only changes this suffix, e.g.
-  // test.com → open.test.com / accounts.test.com / <tenant>.test.com (paths identical).
   // PKG_ENV_DIR: the packaging wizard (scripts/package-ui.mjs) points this at a throwaway temp
   // dir holding ONLY the form's VITE_* vars, so its build is truly hermetic — it never reads the
   // repo's .env/.env.local. Unset for normal builds → process.cwd() (unchanged behavior). Named
   // without the VITE_ prefix so it is never bundled into import.meta.env.
   const envDir = process.env.PKG_ENV_DIR || process.cwd()
   const env = loadEnv(mode, envDir, '')
-  const baseDomain = (env.VITE_FEISHU_BASE_DOMAIN || 'feishu.cn')
-    .trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^\.+|\.+$/g, '')
+  const baseDomain = 'feishu.cn'
   const feishuMatch = `https://*.${baseDomain}/*`
 
   // connect-src: the assistant only ever reaches two endpoint groups — Feishu (any
   // subdomain of the base domain) and the LLM. When the LLM hosts are pinned
-  // (VITE_OPENAI_ALLOWED_HOSTS) connect-src lists exactly them → pure-intranet lockdown;
-  // otherwise `https:` keeps a personal build's custom endpoint working.
+  // (VITE_OPENAI_ALLOWED_HOSTS) connect-src lists exactly them; otherwise `https:` keeps a
+  // personal build's custom endpoint working.
   const llmHosts = (env.VITE_OPENAI_ALLOWED_HOSTS || '')
     .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
-  const proxyOrigin = originOf((env.VITE_OAUTH_PROXY_URL || '').trim())
 
   const connect = ["'self'", `https://*.${baseDomain}`]
-  if (proxyOrigin) connect.push(proxyOrigin)
   // Knowledge Base (Obsidian Local REST API) — loopback HTTP egress. Default on
   // (VITE_KNOWLEDGE_BASE); a KB-disabled build keeps CSP fully https-only. Loopback-only,
   // cannot reach the public internet (enforced again in code by isObsidianOutboundAllowed).
@@ -90,7 +80,7 @@ export default defineConfig(({ command, mode }) => {
         // builds deterministic offline.
         skipManifestValidation: true,
         // Template the deployment-specific bits so one codebase serves
-        // personal / enterprise-SaaS / private-on-prem from build-time env alone.
+        // personal / store from build-time env alone.
         transformManifest(manifest: Record<string, unknown>) {
           // Chrome Web Store build (VITE_WEBSTORE=1):
           //  • strip `key` — the store assigns the ID and rejects packages that contain one;

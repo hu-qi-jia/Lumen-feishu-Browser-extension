@@ -32,10 +32,9 @@
 ▶️ [YouTube 观看](https://youtu.be/JhPNeOK1n8g) ·  打不开 YouTube？[下载本地演示 mp4](docs/media/demo.mp4)
 
 > 📚 **完整文档** → [`docs/PROJECT.md`](docs/PROJECT.md)（架构 / 功能 / 安全 / 部署 / 配置一站式）
-> · **部署指南（企业/个人/私有化快速上手）** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+> · **部署指南（个人/商店快速上手）** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 > · 使用手册（含截图）[`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
 > · 模块细节 [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 安全审计 [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md)
-> · 企业 MDM 强制安装 [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.md)
 
 ---
 
@@ -45,7 +44,7 @@
 
 ### 自行构建 / 用自己的飞书应用（5 步）
 
-> 想把 App ID/Secret 直接**打进包**（免去每台设备在设置里填）、二次开发、或私有化时才需要。完整版（每个权限的说明、加密模式、排错）见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)。
+> 想把 App ID/Secret 直接**打进包**（免去每台设备在设置里填）、二次开发时才需要。完整版（每个权限的说明、加密模式、排错）见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)。
 
 1. **配飞书应用**（[open.feishu.cn](https://open.feishu.cn) → 创建企业自建应用）：记下 App ID / Secret；「权限管理」开通 `offline_access`（必须）+ 按需 `bitable:app` `docx:document` `sheets:spreadsheet` `drive:drive` `wiki:wiki` `contact:user.base:readonly`（**都勾「用户身份」**）；「重定向 URL」加 `https://jhdbgegkmhcopcilclkpioilclemkeog.chromiumapp.org/`；把自己加进「可用范围」并**发布**。
 2. **填配置**：`cp .env.example .env.local` → 填 `VITE_FEISHU_APP_ID` + `VITE_FEISHU_APP_SECRET`（或 `node scripts/encrypt-secret.mjs` 出密文填 `VITE_FEISHU_APP_SECRET_ENC`、明文留空）。
@@ -84,14 +83,7 @@
   **检查项可直接点开编辑、本机持久化**——你定义体检什么。
 - **文档总结** 📝：通读当前文档，按你的要求生成总结（摘要 / 要点 / 待办…），可复制。
   **总结要求（prompt）可直接编辑、本机持久化**——飞书原生 AI 速览是固定的，这里你说了算。
-- **三种部署**：个人 / 企业 SaaS / 私有化（on-prem），全部构建时配置切换。
-- **企业服务端套件** 🏢（可选·一个零依赖 Node 进程）：在换 token 代理上同进程挂载 ——
-  **统一下发 App ID / App Secret / LLM / 策略**（员工免配置、密钥只在服务端、可轮换）、
-  **共享技能库**（多用户脱敏经验汇聚·去重·打分·晋级·主动推送）、
-  **企业云备份**（小程序/建站/PPT 镜像到企业自有对象存储、按 open_id 隔离·可选 AES、丢失可拉回）、
-  **运维管理台**（`/admin`：看板 / 技能审核 / 备份管理 / 配置巡检 / 审计）。
-  全部 `HAS_* = 开关 && 有代理` **双门控**，商店版无代理 → **死代码消除、发版零影响**。详见 [`docs/index.html`](docs/index.html)。
-- **本地备份与恢复** 💾（所有版本）：把配置 + 保存的小程序/建站/PPT + 本地经验 + 会话**导出成文件**，换设备/重装后导入恢复，防个人数据丢失（密钥默认不导出，可勾选）。
+- **本地备份与恢复** 💾：把配置 + 保存的小程序/建站/PPT + 本地经验 + 会话**导出成文件**，换设备/重装后导入恢复，防个人数据丢失（密钥默认不导出，可勾选）。
 
 ---
 
@@ -111,9 +103,6 @@ npm run dev:ui      # 纯 UI 预览（mock chrome，不连飞书）
 npm run typecheck && npm run test
 ```
 
-> 企业内部分发（不上架商店、不用开发者模式）见 [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.md)：
-> 用项目脚本打 `.crx` + Chrome 策略强制安装（含现成 macOS `.mobileconfig`）。
-
 ---
 
 ## 配置（全部可选，见 [`.env.example`](.env.example)）
@@ -128,9 +117,7 @@ npm run typecheck && npm run test
 | `VITE_FEISHU_APP_ID` | 飞书 App ID |
 | `VITE_FEISHU_APP_SECRET` | 明文 secret（个人·明文，会进包） |
 | `VITE_FEISHU_APP_SECRET_ENC` | 密码加密的 secret（个人·加密，`scripts/encrypt-secret.mjs` 生成） |
-| `VITE_OAUTH_PROXY_URL` | OAuth 代理地址（企业/私有化，secret 不进包，见 `docs/oauth-proxy-worker.js`） |
-| `VITE_FEISHU_BASE_DOMAIN` | 飞书基础域名后缀，默认 `feishu.cn`；私有化填内网域名（派生 `open.<域名>` 等） |
-| `VITE_OPENAI_ALLOWED_HOSTS` | 大模型 host 白名单（设了则 CSP 也锁死 → 纯内网） |
+| `VITE_OPENAI_ALLOWED_HOSTS` | 大模型 host 白名单（设了则 CSP 也锁死） |
 | `VITE_ALLOWED_CIDRS` | 设备内网 CIDR 门 |
 | `VITE_MAX_TOOL_CALLS` | 单轮工具调用上限（默认 30） |
 | `VITE_CLIP_ENABLED` | 网页剪藏开关（默认开；设 `false` 不带剪藏功能） |
@@ -144,8 +131,8 @@ npm run typecheck && npm run test
 - **身份不超用户**：用户读不了的文档 AI 也读不了；不回退应用(tenant)身份。
 - **禁文件级删除**：绝不删整表/电子表格/文档/云文件；内容级删除需按钮确认。
 - **防注入**：通用 API 默认拒绝白名单 + 硬阻断消息/通讯录/权限/所有权。
-- **凭据保护**：storage 内 AES-256-GCM；App Secret 支持明文 / 密码加密 / 代理三档。
-- **出站锁定**：只访问飞书 + 大模型两类端点（代码层白名单 + CSP 双重，私有化可纯内网）。
+- **凭据保护**：storage 内 AES-256-GCM；App Secret 支持明文 / 密码加密两档。
+- **出站锁定**：只访问飞书 + 大模型两类端点（代码层白名单 + CSP 双重）。
 
 逐条见 [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md)。
 
@@ -154,7 +141,7 @@ npm run typecheck && npm run test
 ## 想给自己的组织打包？（fork / 自建）
 
 > 🧰 **不想碰命令行？** 跑 `npm run package:ui` 打开图形化**打包向导**（仅本机 `http://localhost:8799`）：
-> 选模式（企业/个人/商店/私有化）→ 改名称、上传图标、勾选参数 → **一键打包下载 `.zip`**。
+> 选模式（个人/商店）→ 改名称、上传图标、勾选参数 → **一键打包下载 `.zip`**。
 > 底层即驱动下方的 `npm run build`，产物一致。详见[完整指南 · 打包向导](https://scott987-cmd.github.io/feishu-doc-ai-assistant/docs/index.html#package-wizard)。
 
 本仓库 `manifest.json` 的 `key` 与 `extension-key.pem`（已 gitignore）固定了**作者的**扩展 ID。
@@ -165,7 +152,7 @@ npm run typecheck && npm run test
 openssl genrsa 2048 > my-extension-key.pem
 # 2) 取它的公钥(base64 DER) 替换 manifest.json 的 "key" 字段
 openssl rsa -in my-extension-key.pem -pubout -outform DER | openssl base64 -A
-# 3) 用你的私钥打 .crx（见 docs/enterprise/DEPLOY.md）
+# 3) 用你的私钥打 .crx（chrome --pack-extension=dist --pack-extension-key=my-extension-key.pem）
 ```
 
 这样你拥有独立的扩展 ID 与签名权，能自行平滑更新。**切勿提交任何 `*.pem` / `.env.local` /
@@ -183,23 +170,17 @@ openssl rsa -in my-extension-key.pem -pubout -outform DER | openssl base64 -A
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/index.html`](docs/index.html) | **完整文档站**（单文件 HTML）：概览 / 使用 / 部署（个人·企业套件·商店·私有化）/ 架构 / 安全 / 管理台 / 验证 / FAQ |
+| [`docs/index.html`](docs/index.html) | **完整文档站**（单文件 HTML）：概览 / 使用 / 部署（个人·商店）/ 架构 / 安全 / FAQ |
 | [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | **个人快速部署**：配飞书应用权限 → 填配置 → `npm run pack` 一键打包 → 加载使用（5 步） |
 | [`docs/STORE_PUBLISHING.md`](docs/STORE_PUBLISHING.md) | **上架 Chrome 商店**：零凭据公开版构建 + 用户自带应用首配 + 上架清单 + 审核风险规避 |
 | [`PRIVACY.md`](PRIVACY.md) | **隐私政策**（中英）：上架必填的隐私权 URL，可直接托管使用 |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | **部署指南**：企业 / 个人 / 私有化快速上手（选路 + 命令 + 变量速查） |
-| [`docs/PRIVATE_DEPLOYMENT.md`](docs/PRIVATE_DEPLOYMENT.md) | **私有化专用**：内网/私有化飞书完整方案（出站锁定 / 代理 / 版本回退 / 验证清单） |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | **部署指南**：个人 / 商店快速上手（选路 + 命令 + 变量速查） |
 | [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | **使用手册**：全功能图文说明（含截图） |
-| [`docs/FAQ.md`](docs/FAQ.md) | **常见问题**：鉴权/导出/升级/私有化 排错 |
+| [`docs/FAQ.md`](docs/FAQ.md) | **常见问题**：鉴权/导出/升级 排错 |
 | [`CLAUDE.md`](CLAUDE.md) · [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | **开发手册**：面向 agent 的快速迭代（循环 / 仓库地图 / 硬约束 / 地雷区） |
 | [`docs/PROJECT.md`](docs/PROJECT.md) | **一站式**：架构 / 功能 / 安全 / 部署 / 配置 |
 | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 深水区：模块结构、工具清单、字段类型、API 实测坑、模板引擎内部 |
 | [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md) | 安全设计逐条审计 + 攻击场景 + 修复（含 App Secret/OAuth 图解） |
-| [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.md) | 企业内部分发（.crx + Chrome 策略强制安装，含 macOS `.mobileconfig`） |
-| [`docs/oauth-proxy/`](docs/oauth-proxy/) · [`docs/oauth-proxy-server.mjs`](docs/oauth-proxy-server.mjs) | OAuth 代理：自托管 Node（Docker/nginx）+ Cloudflare 版，secret 不进包 |
-| [`docs/skill-proxy-server.mjs`](docs/skill-proxy-server.mjs) · [`docs/artifact-proxy-server.mjs`](docs/artifact-proxy-server.mjs) | 企业服务端套件：共享技能库 / 企业云备份（与 oauth 代理同进程挂载，零依赖） |
-| [`docs/admin-server.mjs`](docs/admin-server.mjs) · [`docs/admin-ui.html`](docs/admin-ui.html) | 运维管理台：单页 + 签名会话鉴权（看板/技能审核/备份管理/配置/审计） |
-| [`docs/sim/validate-server.mjs`](docs/sim/validate-server.mjs) | 合成数据服务端验证器（`npm run validate:server`，无需真飞书） |
 | [`.env.example`](.env.example) | 全部构建时配置项 |
 | [`CHANGELOG.md`](docs/CHANGELOG.md) | 版本更新日志 |
 

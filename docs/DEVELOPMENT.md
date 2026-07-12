@@ -40,7 +40,7 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 | `src/content/` | 注入飞书页的内容脚本。`viz-overlay.ts`=可拖拽浮窗（承载 sandbox iframe）；页面上下文识别 |
 | `src/sandbox/` | **沙箱 iframe**（opaque origin, `connect-src:'none'`）。`main.ts` 跑 LLM 生成的可视化/建站/PPT 代码；`index.html` 内含设计系统 CSS + ECharts |
 | `src/shared/ai/` | `agent.ts`（~50 工具的 tool-calling 主循环，1.3k 行）、`llm.ts`、`slides.ts`、`dataviz.ts`、`docaudit/summary.ts`、`*Store.ts`、`recipes.ts` |
-| `src/shared/feishu/` | `api.ts`(bitable)、`sheets.ts`、`docx.ts`、`http.ts`(`feishuReq`/`feishuFetch`)、`auth.ts`(token 生命周期)、`oauth.ts`、`appSecret.ts`、`version.ts`(私有化版本回退)、`pageUrl.ts` |
+| `src/shared/feishu/` | `api.ts`(bitable)、`sheets.ts`、`docx.ts`、`http.ts`(`feishuReq`/`feishuFetch`)、`auth.ts`(token 生命周期)、`oauth.ts`、`appSecret.ts`、`pageUrl.ts` |
 | `src/shared/dataviz/` | `store.ts`(已存看板/网站, `dataviz_v1`)、`scope.ts`(归属当前表)、`send.ts`、`data.ts` |
 | `src/shared/` | `config.ts`(所有 `VITE_*` → `BUILD_CONFIG`)、`crypto.ts`(设备加密)、`theme.ts`(配色)、`types.ts` |
 | `src/shared/{templates,smartfill,report,clip}/` | 模版库 / 智能填充 / 数据报告 / 网页剪藏 |
@@ -72,7 +72,7 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 3. **通用 API 白名单 + 硬禁**：`assertApiCallAllowed`/`API_BLOCKED` 拦截 消息(`im`)/通讯录/权限/所有权/路径穿越。
 4. **出站锁定**：所有飞书请求走 `feishuReq`/`feishuFetch`（`isFeishuOutboundAllowed` 守卫）；大模型由 `assertSafeBaseUrl` 限制。别绕过它们直接 `fetch`。
 5. **沙箱隔离**：生成代码跑在 opaque origin + `connect-src:'none'`。**不要**给沙箱加 `allow-same-origin` 或放开 connect-src。
-6. **secret 不进明文包**：直连用密码加密(`appSecretEnc`)或代理(`oauthProxyUrl`)；明文 `VITE_FEISHU_APP_SECRET` 仅本地联调。
+6. **secret 不进明文包**：直连用密码加密(`appSecretEnc`)；明文 `VITE_FEISHU_APP_SECRET` 仅本地联调。
 7. **写操作不自动重试**：`http.ts robustFetch` 对 POST/PUT/PATCH/DELETE 只发一次（超时的创建可能已成功）。
 
 > 改这些区域时，README 顶部也提示：涉及 `isFileLevelDelete`/`assertApiCallAllowed`/`resolveToken` 的改动要格外谨慎并补 harness。
@@ -82,7 +82,7 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 ## 5. 常见改法（配方）
 
 - **加一个 AI 工具**：在 `agent.ts` 的工具定义数组加 schema + 在 `executeTool` 加分支；按性质加入 `DESTRUCTIVE_TOOLS`/`WRITE_TOOLS`/`FILE_LEVEL_DELETE_TOOLS`/`CREATE_ONCE_TOOLS`；补 `agent.test.ts`。
-- **加一个飞书 API**：在 `api.ts`/`sheets.ts`/`docx.ts` 写 wrapper，**必须**用 `feishuReq`/`req`（自带出站守卫+版本回退）。路径写当前 SaaS 版本（如 `/bitable/v1/...`），私有化回退自动处理。
+- **加一个飞书 API**：在 `api.ts`/`sheets.ts`/`docx.ts` 写 wrapper，**必须**用 `feishuReq`/`req`（自带出站守卫+版本回退）。路径写当前 SaaS 版本（如 `/bitable/v1/...`）。
 - **加一个侧边栏面板**：在 `src/sidepanel/components/` 新建 `XxxPanel.tsx`，挂进 `ScenarioPanel.tsx`（按 `requires: 'table'|'doc'|'any'|'content'` 分组、上下文感知）。生成类要处理 busy/取消/缓存恢复/`isTokenExpiredError` 错误文案。
 - **改沙箱渲染（看板/网站/PPT）**：逻辑在 `sandbox/main.ts`（`ui.*` 助手、`render()`、message 监听）；样式在 `sandbox/index.html` 的设计系统 CSS。浮窗 chrome（🖨/🎨/✕/提交）在 `content/viz-overlay.ts`。
 - **改配色/主题**：`shared/theme.ts`（`deriveAccent` 侧栏、`vizAccent` 沙箱）。
@@ -96,7 +96,6 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 |---|---|
 | 导出 PDF（🖨）没反应 | sandbox 需 `allow-modals`，**两层都要**：`viz-overlay.ts` iframe 属性 + `vite.config.ts` 的 CSP `sandbox` 指令（取交集）。 |
 | token ~2h 失效(`99991677`) | OAuth 必须含 `offline_access` 才发 refresh_token。`oauth.ts` 已**强制**请求；改授权逻辑勿删。 |
-| 私有化某端点 404 | `feishuFetch` 的 `/vN/`→`v(N-1)` 回退（`version.ts`），仅 `IS_PRIVATE_DEPLOY` 生效。 |
 | 环境变量没生效 | **Vite 只读 `.env` 文件里的 `VITE_*`，不读 `process.env`**。多套配置用 `.env.<mode>.local` + `vite build --mode <mode>`。 |
 | `npm run build` 偶发 TLS 报错 | manifest 插件联网抖动，**直接重试**即可。 |
 | 写操作重复（建了两张表） | 别给写方法加重试（`robustFetch` 故意只对 GET 重试）。 |
@@ -107,8 +106,8 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 
 ## 7. 测试约定
 
-- 纯逻辑（`version.ts`/`scope.ts`/`crypto` 等）：`*.test.ts` 单测，**首选**。
-- 需要 chrome/config 的：用 `vi.mock('../config', ...)` 注入（见 `http.version.test.ts` 强制 `IS_PRIVATE_DEPLOY`）。
+- 纯逻辑（`scope.ts`/`crypto` 等）：`*.test.ts` 单测，**首选**。
+- 需要 chrome/config 的：用 `vi.mock('../config', ...)` 注入。
 - UI：`MessageList.test.tsx` 等用 jsdom + testing-library。
 - 视觉（沙箱渲染/打印/配色）：用 puppeteer + `page.emulateMediaType('print')`/截图，临时脚本验证（参考会话里 `_print_diag`/`_accent_shot` 写法）。
 - 飞书实测：`FEISHU_LIVE=1 npx vitest run src/shared/feishu/live.test.ts`（需 `feishu-app-config.txt`）。
@@ -118,7 +117,7 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 ## 8. 配置与密钥（速记）
 
 - 全部构建变量在 [`../.env.example`](../.env.example)；运行时读 `config.ts BUILD_CONFIG`。
-- 关键派生：`HAS_BUILTIN_CREDS`、`HAS_ENCRYPTED_SECRET`、`IS_PRIVATE_DEPLOY`、`FEISHU_API_BASE`、`OAUTH_PROXY_HOST`。
+- 关键派生：`HAS_BUILTIN_CREDS`、`HAS_ENCRYPTED_SECRET`、`FEISHU_API_BASE`。
 - 持久化都在 `chrome.storage.local`，键带 `_v1`（更新不丢；改 schema 记得迁移，别裸升 `_v2`）。
 - secret：`encrypt-secret.mjs` 生成密文 → `VITE_FEISHU_APP_SECRET_ENC`；解密在 `appSecret.ts`（PBKDF2 210k→AES-GCM）。
 

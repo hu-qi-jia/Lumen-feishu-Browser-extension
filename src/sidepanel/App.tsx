@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS } from '@/shared/config'
 import { checkNetworkAccess } from '@/shared/network'
-import { usingManagedLlm } from '@/shared/ai/llmConfig'
 import { isFeishuConfigured, resolveToken } from '@/shared/feishu/auth'
 import { rememberTenantOrigin } from '@/shared/feishu/tenant'
 import { cleanDocTitle } from '@/shared/feishu/pageUrl'
-import { autoRestoreOnceOnEmpty } from './services/cloudRestore'
 import type { PageContext, DocSelectionPayload } from '@/shared/types'
 import ChatPanel from './components/chat/ChatPanel'
 import Settings from './components/settings/Settings'
@@ -147,12 +145,6 @@ export default function App() {
     recordRecent(pinned.token, pinned.title, pinned.kind)
   }, [recentReady, pinned?.token, pinned?.title, pinned?.kind, recordRecent])
 
-  // Enterprise cloud backup: on a fresh/cleared/reinstalled device, pull the user's saved
-  // artifacts back from the company cloud — ONCE per install. Re-runs when auth becomes
-  // available (the user authorizes after first mount). Idempotent, so re-firing is safe.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void autoRestoreOnceOnEmpty() }, [settings.feishuAccessToken, settings.feishuOwnerOpenId])
-
   // Belt-and-suspenders: persist the TENANT origin whenever the side panel sees a Feishu page.
   useEffect(() => { if (ctx.feishu) rememberTenantOrigin(ctx.url) }, [ctx.url, ctx.feishu])
 
@@ -260,7 +252,7 @@ export default function App() {
     )
   }
 
-  const llmReady = usingManagedLlm(settings) ? isFeishuConfigured(settings) : !!settings.openaiApiKey
+  const llmReady = !!settings.openaiApiKey
   const configured = llmReady && isFeishuConfigured(settings)
 
   const needsOwner = HAS_BUILTIN_CREDS

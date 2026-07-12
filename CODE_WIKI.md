@@ -34,9 +34,9 @@
 - **🤖 AI Agent**：~55 个工具覆盖多维表格/电子表格/文档，OpenAI 兼容接口（默认 DeepSeek），模型/Key/Base URL 运行时可配。
 - **🧩 形态**：侧边栏 + 注入飞书页的内容脚本 + 后台 Service Worker + MV3 沙箱。**无后端**，运行时依赖仅 React + openai SDK。
 - **🔒 安全优先**：始终以**用户本人身份**操作、绝不越权；所有权限边界**硬编码在代码里**（提示词不作安全边界）。
-- **🌐 多形态部署**：个人 / 企业 SaaS / 私有化（on-prem）/ Chrome 商店，全部构建时配置切换。
+- **🌐 多形态部署**：个人 / Chrome 商店，全部构建时配置切换。
 
-**许可证**：Elastic License 2.0（源代码可见，个人/企业免费使用、可商用、可私有部署；禁止作为托管 SaaS 服务对外提供）。
+**许可证**：Elastic License 2.0（源代码可见，个人免费使用、可商用；禁止作为托管 SaaS 服务对外提供）。
 
 ---
 
@@ -66,7 +66,6 @@
 | `npm run pack` | `build` + 打包成 `feishu-doc-ai-assistant.zip` |
 | `npm run typecheck` | `tsc --noEmit`（必须 0 错） |
 | `npm test` | `vitest run`（~460 用例） |
-| `npm run validate:server` | 企业服务端合成数据验证（29 条断言） |
 | `npm run package:ui` | 图形化打包向导（`http://localhost:8799`） |
 
 ---
@@ -161,7 +160,6 @@ feishu-doc-ai-assistant/
 │   │   ├── components/              # 23 个 UI 组件（见 §11）
 │   │   ├── sessions/                # 会话管理（logic/store/useSessions）
 │   │   ├── wikiResolve.ts           # Wiki 节点 → 资源 的合并
-│   │   ├── cloudRestore.ts          # 企业云备份恢复
 │   │   └── tabReload.ts             # 标签页刷新
 │   ├── shared/                      # 跨入口共享业务逻辑（见 §7-10）
 │   │   ├── ai/                      # AI Agent + 工具 + 功能
@@ -178,15 +176,13 @@ feishu-doc-ai-assistant/
 │   │   ├── providers.ts             # LLM 供应商预设
 │   │   ├── theme.ts                 # 主题/强调色
 │   │   ├── network.ts               # CIDR 网络限制
-│   │   ├── enterprisePolicy.ts      # 企业策略
-│   │   ├── artifactSync.ts          # 企业云备份
 │   │   ├── configBackup.ts          # 本地配置备份/恢复
 │   │   └── url.ts                   # URL 工具
 │   ├── dev/                         # UI 开发 mock（chrome-mock + scenarios）
 │   ├── demo/sampleData.ts           # 示例数据
 │   ├── harness/                     # 端到端测试驱动（见 §14）
 │   └── vite-env.d.ts
-├── docs/                            # 文档 + 企业服务端套件（oauth/skill/artifact/admin proxy）
+├── docs/                            # 文档
 ├── scripts/                         # 构建/打包/截图/图标脚本
 ├── templates/                       # 内置场景模板 JSON
 ├── public/icons/                    # 扩展图标（sharp 生成）
@@ -214,7 +210,7 @@ feishu-doc-ai-assistant/
 | 最后 | `dist/manifest.json` | 由 `transformManifest` 模板化生成 |
 
 构建会自动：
-- 从 `VITE_FEISHU_BASE_DOMAIN` 派生 `host_permissions` / `content_scripts.matches` / CSP `connect-src` / `web_accessible_resources.matches`。
+- 从飞书基础域名（默认 `feishu.cn`）派生 `host_permissions` / `content_scripts.matches` / CSP `connect-src` / `web_accessible_resources.matches`。
 - 合并 **extension_pages CSP** 与 **sandbox CSP**（`connect-src 'none'`，`VITE_NO_REMOTE_CODE=1` 时去掉 `unsafe-eval`）。
 - 自增 `.build-no` 构建计数器，写入 manifest 第 4 段版本号（如 `1.0.4.2`）。
 - `VITE_WEBSTORE=1` 时剥离 `key` 字段（商店分配 ID）并应用商标安全的名称/描述。
@@ -227,15 +223,6 @@ cp .env.example .env.local      # 按需填写，可全空先跑通
 npm run build                   # 产物 dist/
 # chrome://extensions → 开发者模式 → 「加载已解压的扩展程序」→ 选 dist/
 ```
-
-### 5.3 三种部署形态
-
-| 形态 | 配置 | 说明 |
-|---|---|---|
-| **个人** | 填 `VITE_FEISHU_APP_ID` + `VITE_FEISHU_APP_SECRET` | secret 打进包（明文或密码加密） |
-| **企业 SaaS** | 填 `VITE_OAUTH_PROXY_URL`（+ 可选 `VITE_APP_ID_FROM_PROXY` / `VITE_LLM_FROM_PROXY`） | secret 不进包，员工免配置 |
-| **私有化** | 填 `VITE_FEISHU_BASE_DOMAIN=test.com` + 代理 + `VITE_OPENAI_ALLOWED_HOSTS` | 纯内网，出站锁定 |
-| **Chrome 商店** | `VITE_WEBSTORE=1`（+ 可选 `VITE_NO_REMOTE_CODE=1`） | 零凭据，用户自带应用 |
 
 ---
 
@@ -250,33 +237,14 @@ npm run build                   # 产物 dist/
 | 字段 | 作用 |
 |---|---|
 | `feishuAppId` / `feishuAppSecret` / `appSecretEnc` | 飞书应用凭据（明文 / 密码加密） |
-| `oauthProxyUrl` / `oauthProxyKey` | OAuth 代理（secret 不进包） |
-| `appIdFromProxy` / `llmFromProxy` / `llmLockManaged` / `llmNoPersist` | 企业托管 App ID / LLM |
-| `enterprisePolicy` / `skillsEnabled` / `artifactSync` | 企业策略 / 共享技能库 / 云备份 |
 | `llmRedact` / `llmMaxPayloadChars` | LLM 数据脱敏 / 载荷上限 |
-| `feishuBaseDomain` | 飞书基础域名（默认 `feishu.cn`，私有化改此项） |
 | `openaiAllowedHosts` | LLM host 白名单（设了则 CSP 锁死 → 纯内网） |
 | `allowedCidrs` | 设备内网 CIDR 门 |
 | `maxToolCalls` | 单轮工具调用上限（默认 30，钳制 1–100） |
 | `clipEnabled` | 网页剪藏开关（默认开） |
 | `webstore` / `noRemoteCode` | 商店打包 / 禁止远程代码 |
 
-### 6.2 派生能力标志（双门控）
-
-所有企业能力都用 **`开关 && 有代理`** 双门控，商店/BYO 构建无代理 → 恒为 `false` → 相关代码被 dead-code-eliminated：
-
-```ts
-export const HAS_MANAGED_APP_ID  = BUILD_CONFIG.appIdFromProxy && !!BUILD_CONFIG.oauthProxyUrl
-export const HAS_BUILTIN_CREDS   = /* baked secret / encrypted / proxy / managed-app-id */
-export const HAS_MANAGED_LLM     = BUILD_CONFIG.llmFromProxy && !!BUILD_CONFIG.oauthProxyUrl
-export const HAS_ENTERPRISE_POLICY = BUILD_CONFIG.enterprisePolicy && !!BUILD_CONFIG.oauthProxyUrl
-export const HAS_SKILLS          = BUILD_CONFIG.skillsEnabled && !!BUILD_CONFIG.oauthProxyUrl
-export const HAS_ARTIFACT_SYNC   = BUILD_CONFIG.artifactSync && !!BUILD_CONFIG.oauthProxyUrl
-export const IS_PRIVATE_DEPLOY   = BUILD_CONFIG.feishuBaseDomain !== 'feishu.cn'
-export const WEB_SPEECH_ALLOWED  = /* 公网 + 无 host 锁定 */
-```
-
-### 6.3 派生飞书端点
+### 6.2 派生飞书端点
 
 ```ts
 export const FEISHU_API_BASE     = `https://open.${baseDomain}/open-apis`
@@ -285,7 +253,7 @@ export const FEISHU_HOST_PATTERN = `*.${baseDomain}`
 export function isFeishuOutboundAllowed(url: string): boolean  // 出站白名单守卫
 ```
 
-### 6.4 运行时配置（AppSettings）
+### 6.3 运行时配置（AppSettings）
 
 定义在 [src/shared/types.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/types.ts)，存于 `chrome.storage.local` 的 `settings_v2` 键（敏感字段加密）：
 
@@ -295,7 +263,6 @@ interface AppSettings {
   feishuAccessToken, feishuOwnerOpenId       // 用户 token / open_id
   templateRegistryUrl                         // 模板库
   learnFromHistory?, voiceInput?, autoConfirm? // 越用越聪明 / 语音 / Auto模式
-  llmSource?: 'managed' | 'manual'           // 企业托管 LLM 切换
 }
 ```
 
@@ -322,13 +289,12 @@ export async function runAgent(
 
 1. **LLM 配置解析**：`resolveLlmConfig` → `assertSafeBaseUrl`（出站守卫，先验证再发任何对话/表内容）。
 2. **System Prompt 构建**：`buildSystemPrompt` 注入页面上下文、Base 结构、选中文字（用 `<user_selected_text>` 标签防注入）。
-3. **越用越聪明**：`relevantRecipes` 取本地最相关经验 + `matchSkills`/`preloadSkills` 取社区技能（仅企业+代理，否则 no-op），注入 prompt。
+3. **越用越聪明**：`relevantRecipes` 取本地最相关经验，注入 prompt。
 4. **工具按上下文裁剪**：`toolsForContext(kind)` 只暴露当前资源类型的工具（Base/Sheet/Doc + 核心），减少误选。
 5. **流式调用**：`client.chat.completions.create({ stream: true, temperature: 0.2 })`——低温保证工具选择/参数确定。
 6. **工具执行**：见 §7.3。
 7. **安全检查点**：`totalToolCalls >= MAX_TOOL_CALLS_PER_TURN`（默认 30）时停止并提示用户回复"继续"。
-8. **失败回退**：某轮出错时，重新注入社区技能 hint 让模型换思路重试（每轮一次）。
-9. **经验记录**：轮次成功后 `recordRecipe` 用 LLM 提炼一句经验（仅工具名，不含数据），存本地供下次参考。
+8. **经验记录**：轮次成功后 `recordRecipe` 用 LLM 提炼一句经验（仅工具名，不含数据），存本地供下次参考。
 
 ### 7.2 工具系统（[src/shared/ai/tools.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/tools.ts)）
 
@@ -398,7 +364,7 @@ export async function executeTool(
 | 函数 | 作用 |
 |---|---|
 | `robustFetch(url, init, method)` | 带超时（30s）的 fetch；**仅 GET 重试 3 次**，写操作（POST/PUT/PATCH/DELETE）永不重试（防重复创建） |
-| `feishuFetch(method, path, token, body, params)` | 飞书请求；`isFeishuOutboundAllowed` 出站白名单守卫；**私有化版本回退**（`/vN/` 404 → `v(N-1)`…v1，区分网关 404 与业务 404，缓存可用版本） |
+| `feishuFetch(method, path, token, body, params)` | 飞书请求；`isFeishuOutboundAllowed` 出站白名单守卫 |
 | `feishuReq<T>(...)` | 在 `feishuFetch` 上解析 `{code,msg,data}` 信封，`code!==0` 抛错并识别 403 权限错误附 hint |
 
 ### 8.2 鉴权（[src/shared/feishu/auth.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/auth.ts)）
@@ -420,7 +386,7 @@ export async function executeTool(
 | 函数 | 作用 |
 |---|---|
 | `authorizeFeishuUser()` | 启动 OAuth（`chrome.identity.launchWebAuthFlow`），强制 `offline_access` scope |
-| `refreshUserAccessToken(refreshToken)` | 刷新 token（走代理或直连） |
+| `refreshUserAccessToken(refreshToken)` | 刷新 token（直连） |
 | `fetchUserOpenId(userToken)` | 从 `authen/v1/user_info` 取 open_id（用于资源归属转交） |
 | `oauthRedirectUrl()` | 重定向 URL（固定扩展 ID） |
 
@@ -457,7 +423,6 @@ export async function executeTool(
 | 文件 | 作用 |
 |---|---|
 | [appSecret.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/appSecret.ts) | 密码加密的 App Secret 解锁（PBKDF2→AES-GCM） |
-| [managedAppId.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/managedAppId.ts) | 从代理拉取 App ID（`grant_type=app_config`） |
 | [userAppCreds.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/userAppCreds.ts) | 商店版用户自填 App ID/Secret |
 | [task.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/task.ts) | 创建任务（看板行级快捷操作） |
 | [undo.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/undo.ts) | 删除撤销（`captureRecords`/`captureSheetRows`/`saveDeleteUndo`，10 分钟内可恢复） |
@@ -466,7 +431,6 @@ export async function executeTool(
 | [tenant.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/tenant.ts) | 租户 origin 记忆（`rememberTenantOrigin`，建文档链接用） |
 | [pageUrl.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/pageUrl.ts) | `parseFeishuContext` 解析 URL → 资源类型（base/sheet/doc/wiki） |
 | [context.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/context.ts) | Base 结构 → prompt 文本（`ctxToPrompt`） |
-| [version.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/feishu/version.ts) | 私有化 API 版本探测（`versionCandidates`/`rememberVersion`） |
 
 ---
 
@@ -539,15 +503,11 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 
 **[llm.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/llm.ts)**：`chatComplete`（一次性，plain fetch，SW 可用）`chatCompleteStream`（流式，支持取消）。
 
-**[llmConfig.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/llmConfig.ts)**：`resolveLlmConfig`（企业托管优先，否则用户配置）`fetchManagedLlmConfig` `usingManagedLlm` `clearManagedLlmCache`。
-
 **[providers.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/providers.ts)**：`LLM_PROVIDERS`（DeepSeek/Qwen/GLM/Moonshot/OpenAI/自定义）`DEFAULT_PROVIDER`（DeepSeek）`assertSafeBaseUrl`（LLM 出站守卫：必须 https，host 白名单校验）`KNOWN_PROVIDER_HOSTS`。
 
 ### 10.2 越用越聪明
 
 **[recipes.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/recipes.ts)**（本地经验）：`bigrams` `similarity`（二元组相似度）`relevantRecipes`（取最相关 k 条）`mergeRecipe` `formatRecipes`（注入 prompt）`loadRecipes` `recordRecipe`（成功后记录，LLM 提炼一句经验，仅工具名不含数据，最多 300 条）`clearRecipes` `recipeCount`。
-
-**[skills.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/skills.ts)**（社区技能，仅企业+代理）：`reportSkill`（上报脱敏经验）`matchSkills`（按意图匹配，不发原文）`preloadSkills`（按资源类型预拉）`formatSkills`。隐私：只发 LLM 提炼的 lesson + 工具名 + 匿名 install id，不发任务文本/字段/值。
 
 ### 10.3 文档功能
 
@@ -602,14 +562,6 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 | [redact.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/redact.ts) | `redactPII` `redactSensitive` `capPayload` `sanitizeForLlm` | 脱敏（CN 手机/邮箱/身份证/银行卡），LLM 载荷上限 |
 | [text.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/ai/text.ts) | `stripFences` | 剥离代码围栏 |
 
-### 10.10 企业能力
-
-| 文件 | 作用 |
-|---|---|
-| [enterprisePolicy.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/enterprisePolicy.ts) | `loadPolicy` `fetchPolicy` `applyPolicy` `FAILCLOSED_POLICY`（代理宕机时 fail-closed） |
-| [artifactSync.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/artifactSync.ts) | 企业云备份（小程序/建站/PPT 镜像到企业对象存储，按 open_id 隔离） |
-| [configBackup.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/configBackup.ts) | 本地备份与恢复（配置 + 保存的产物 + 经验 + 会话导出文件） |
-
 ---
 
 ## 11. 侧边栏 UI
@@ -623,7 +575,6 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 - **主题/强调色**（light/dark + 7 预设强调色，localStorage 持久化）
 - **标签页**（chat/scenes/clip，按页面类型默认切换，但绝不打断进行中的对话/构建/剪藏）
 - **网络检查**（CIDR 限制时 `checkNetworkAccess`）
-- **企业策略**（`loadPolicy` + `fetchPolicy`，fail-closed）
 - **拖入文件**（CSV/TSV → `fileToClip` → 剪藏流程）
 
 ### 11.2 组件清单（[src/sidepanel/components/](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/../sidepanel/components/)）
@@ -650,7 +601,6 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 | [BaseContextBadge](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/BaseContextBadge.tsx) | Base 上下文徽章 |
 | [NetworkBlocked](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/NetworkBlocked.tsx) | 网络受限提示 |
 | [DemoPanel](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/DemoPanel.tsx) | 示例体验面板（无需登录） |
-| [SkillSuggest](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/SkillSuggest.tsx) | 技能建议 |
 | [Skeleton](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/Skeleton.tsx) | 骨架屏 |
 | [useEscapeToClose](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/sidepanel/components/useEscapeToClose.ts) | Esc 关闭 hook |
 
@@ -673,25 +623,24 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 | 1 | **只用用户身份** | `auth.ts resolveToken` 绝不回退 tenant |
 | 2 | **文件级删除拒绝** | `agent.ts isFileLevelDelete`；内容删除走确认门 `DESTRUCTIVE_TOOLS` |
 | 3 | **通用 API 白名单** | `assertApiCallAllowed` / `API_BLOCKED`（禁 im/通讯录/权限/所有权） |
-| 4 | **出站只走 feishuReq/feishuFetch** | 出站守卫 + 重试 + 私有化版本回退；LLM 走 `assertSafeBaseUrl` |
+| 4 | **出站只走 feishuReq/feishuFetch** | 出站守卫 + 重试；LLM 走 `assertSafeBaseUrl` |
 | 5 | **沙箱隔离** | 生成代码在 opaque origin + `connect-src:'none'`，不加 `allow-same-origin` |
-| 6 | **secret 不进明文包** | 加密 `appSecretEnc` 或代理 `oauthProxyUrl` |
+| 6 | **secret 不进明文包** | 加密 `appSecretEnc` |
 | 7 | **写操作不自动重试** | `robustFetch` 只重试 GET |
 
 ### 12.2 出站锁定（双重）
 
 - **代码层**：`isFeishuOutboundAllowed`（飞书域）+ `assertSafeBaseUrl`（LLM，可选 host 白名单）
-- **CSP 层**：`connect-src 'self' https://*.${baseDomain} [代理 origin] [LLM hosts | https:]`
+- **CSP 层**：`connect-src 'self' https://*.${baseDomain} [LLM hosts | https:]`
 
-私有化 + `VITE_OPENAI_ALLOWED_HOSTS` → 纯内网出站锁定。
+`VITE_OPENAI_ALLOWED_HOSTS` → 出站锁定。
 
-### 12.3 凭据保护（三档）
+### 12.3 凭据保护（两档）
 
 | 档位 | 配置 | secret 位置 |
 |---|---|---|
 | 明文 | `VITE_FEISHU_APP_SECRET` | 打进包（.crx 视为机密） |
 | 密码加密 | `VITE_FEISHU_APP_SECRET_ENC` | 密文进包，用户输密码解锁（PBKDF2→AES-GCM） |
-| 代理 | `VITE_OAUTH_PROXY_URL` | 服务端，不进包（推荐企业/私有化） |
 
 ### 12.4 数据脱敏
 
@@ -746,9 +695,9 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 ### 14.1 单元测试（Vitest，~460 用例）
 
 测试文件与源码同目录（`*.test.ts` / `*.test.tsx`），覆盖：
-- AI：`agent.test.ts` `dataviz.test.ts` `docaudit.test.ts` `docsummary.test.ts` `llmConfig.test.ts` `recipes.test.ts` `redact.test.ts` `report.test.ts` `skills.test.ts` `slides.test.ts` `smartfill.test.ts` `text.test.ts` `vision.test.ts`
-- 飞书：`api.test.ts` `appSecret.test.ts` `compose.live.test.ts` `compose.unit.test.ts` `docx.test.ts` `http.test.ts` `http.version.test.ts` `im.test.ts` `live.test.ts` `managedAppId.test.ts` `pageUrl.test.ts` `task.test.ts` `undo.test.ts` `userAppCreds.test.ts` `utoken.test.ts` `version.test.ts`
-- 其他：`config.test.ts` `configBackup.test.ts` `crypto.test.ts` `clip/*` `dataviz/*` `smartfill/*` `templates/*` `theme.test.ts` `network.test.ts` `providers.test.ts` `url.test.ts` `artifactSync.test.ts` `features-validate.test.ts` `redact-unconditional.test.ts`
+- AI：`agent.test.ts` `dataviz.test.ts` `docaudit.test.ts` `docsummary.test.ts` `recipes.test.ts` `redact.test.ts` `report.test.ts` `slides.test.ts` `smartfill.test.ts` `text.test.ts` `vision.test.ts`
+- 飞书：`api.test.ts` `appSecret.test.ts` `compose.live.test.ts` `compose.unit.test.ts` `docx.test.ts` `http.test.ts` `im.test.ts` `live.test.ts` `pageUrl.test.ts` `task.test.ts` `undo.test.ts` `userAppCreds.test.ts` `utoken.test.ts`
+- 其他：`config.test.ts` `configBackup.test.ts` `crypto.test.ts` `clip/*` `dataviz/*` `smartfill/*` `templates/*` `theme.test.ts` `network.test.ts` `providers.test.ts` `url.test.ts` `features-validate.test.ts` `redact-unconditional.test.ts`
 
 ### 14.2 端到端测试（[src/harness/](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/harness/)）
 
@@ -756,11 +705,7 @@ type VizSpec = ChartSpec | RawChartSpec | TableSpec | DashboardSpec | SiteSpec |
 - [templates.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/harness/templates.ts)：测试模板
 - 场景：`smoke.test.ts` `compose.test.ts` `docx.test.ts` `hr-template.e2e.test.ts` `replicate.test.ts` `report.test.ts` `rich.test.ts` `sheets.test.ts` `transfer.test.ts`
 
-### 14.3 服务端验证（`npm run validate:server`）
-
-`docs/sim/validate-server.mjs`，29 条合成数据端到端断言，验证企业服务端套件（无需真飞书）。
-
-### 14.4 迭代循环（每次改完都跑）
+### 14.3 迭代循环（每次改完都跑）
 
 ```bash
 npm run typecheck   # 必须 0 错
@@ -801,7 +746,6 @@ npm run typecheck && npm test   # 改完必跑
 - **导出 PDF 没反应** → sandbox `allow-modals` 需 iframe 属性 + `vite.config.ts` CSP 两层都有
 - **token 2h 失效** → OAuth 必须含 `offline_access`（`oauth.ts` 已强制）
 - **环境变量没生效** → Vite 只读 `.env` 文件的 `VITE_*`，不读 `process.env`；用 `--mode` + `.env.<mode>.local`
-- **私有化端点 404** → `feishuFetch` 自动 `/vN/`→`v(N-1)` 回退（仅 `IS_PRIVATE_DEPLOY`）
 - **构建偶发 TLS 报错** → 重试（`read ECONNRESET` 是 vite-plugin-web-extension 处理 manifest 时的网络问题）
 
 ### 15.5 提交约定
@@ -821,21 +765,6 @@ openssl rsa -in my-extension-key.pem -pubout -outform DER | openssl base64 -A
 ```
 
 并改掉文档中的扩展 ID / 重定向 URL / `ALLOW_ORIGIN` 占位。
-
----
-
-## 附录：企业服务端套件（可选）
-
-全部在 `docs/` 下，零依赖 Node，挂在 OAuth 代理同进程，全部 `HAS_* = 开关 && 有代理` 双门控，商店版死代码消除：
-
-| 文件 | 作用 |
-|---|---|
-| `docs/oauth-proxy-server.mjs` | OAuth 代理（换 token + 托管 App ID/LLM/策略） |
-| `docs/skill-proxy-server.mjs` | 共享技能库（`/skills/*`，脱敏经验汇聚/去重/打分/晋级） |
-| `docs/artifact-proxy-server.mjs` | 企业云备份（`/artifacts/*`，按 open_id 隔离，可选 AES） |
-| `docs/admin-server.mjs` + `docs/admin-ui.html` | 运维管理台（`/admin`，看板/技能审核/备份/配置/审计） |
-
-客户端门控见 [config.ts](file:///e:/个人项目/feishu/feishu-doc-ai-assistant/src/shared/config.ts) 的 `HAS_SKILLS` / `HAS_ARTIFACT_SYNC` / `HAS_MANAGED_APP_ID` / `HAS_MANAGED_LLM` / `HAS_ENTERPRISE_POLICY`。
 
 ---
 

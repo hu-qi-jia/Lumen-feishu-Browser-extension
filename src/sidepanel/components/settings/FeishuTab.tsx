@@ -5,7 +5,6 @@ import {
   HAS_APP_SECRET,
   HAS_BUILTIN_CREDS,
   HAS_ENCRYPTED_SECRET,
-  HAS_MANAGED_APP_ID,
 } from '@/shared/config'
 import { clearUserToken, getTenantAccessToken, saveUserToken } from '@/shared/feishu/auth'
 import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '@/shared/feishu/appSecret'
@@ -230,12 +229,10 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
           <span className="builtin-icon">密钥</span>
           <div className="builtin-text">
             <span className="builtin-label">
-              App Credentials（{HAS_MANAGED_APP_ID ? '企业代理下发' : '已内置'}）
+              App Credentials（已内置）
             </span>
             <span className="builtin-sub">
-              {HAS_MANAGED_APP_ID
-                ? 'App ID 由企业代理按需下发、App Secret 留在服务端，无需手动配置。直接用飞书账号授权即可。'
-                : '此版本已打包 App ID，无需手动配置。如需覆盖，可在下方填写 user_access_token。'}
+              此版本已打包 App ID，无需手动配置。如需覆盖，可在下方填写 user_access_token。
             </span>
           </div>
         </div>

@@ -120,10 +120,6 @@ export interface AppSettings {
   /** Auto mode: auto-approve CONTENT-level deletes (rows/fields/blocks/dedupe) within a
    *  document — no per-action button click. File-level deletes stay hard-blocked. Default off. */
   autoConfirm?: boolean
-  /** Enterprise managed-LLM builds only: which LLM config to use — 'managed' (fetched from the
-   *  proxy, the default) or 'manual' (the openai* fields above). Ignored when not a managed build,
-   *  or when the build locks managed (VITE_LLM_LOCK_MANAGED). */
-  llmSource?: 'managed' | 'manual'
   /** API 协议格式：'openai'（Chat Completions，默认）或 'anthropic'（Messages）。 */
   llmFormat?: 'openai' | 'anthropic'
   /** Obsidian Local REST API base URL (loopback only). Default http://127.0.0.1:27123. */

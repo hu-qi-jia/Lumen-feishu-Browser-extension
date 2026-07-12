@@ -3,9 +3,9 @@
 # Personal Quick Deployment (5 Steps to Get Started)
 
 > 🟢 **No build (use the store version)**: installing from the **[Chrome Web Store](https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc)** ("Add to Chrome") skips the clone / pack / load steps. But the store build ships **no credentials** and still uses **your own** Feishu app: after creating the app in **Step 1** below, open the extension's "**Settings → Custom Feishu app**", enter your **App ID / Secret** (instead of editing `.env`), register the callback URL shown there, then "Authorize with Feishu" + enter your LLM key. Feature usage: [`USER_GUIDE.md`](USER_GUIDE.en.md).
-> **Steps 2–4 below** (fill `.env` / pack / load) are only for **building it yourself** — when you want the App ID baked into the package, custom dev, or private deployment.
+> **Steps 2–4 below** (fill `.env` / pack / load) are only for **building it yourself** — when you want the App ID baked into the package, or for custom dev.
 >
-> Aimed at **personal use** (install it yourself, use it yourself, not distributed to others / not published to a store). For enterprise / private deployment, see [`DEPLOYMENT.md`](DEPLOYMENT.en.md) / [`PRIVATE_DEPLOYMENT.md`](PRIVATE_DEPLOYMENT.en.md).
+> Aimed at **personal use** (install it yourself, use it yourself, not distributed to others / not published to a store).
 > **Publishing to the Chrome Web Store** (no credentials in the build, users bring their own Feishu app): see [`STORE_PUBLISHING.md`](STORE_PUBLISHING.en.md).
 > If you get stuck, check [`FAQ.md`](FAQ.en.md).
 
@@ -15,7 +15,7 @@ The whole flow is just: **configure the Feishu app → fill in build config → 
 
 ## 1. Create and Configure the Feishu App
 
-1. Open **[open.feishu.cn](https://open.feishu.cn) → Developer Console → Create a custom enterprise app**, and note down the **App ID** and **App Secret**.
+1. Open **[open.feishu.cn](https://open.feishu.cn) → Developer Console → Create a custom app**, and note down the **App ID** and **App Secret**.
 2. **Permission Management**: enable the scopes below, and **check "User identity" for each one** (this extension always operates as you personally, not as the app identity):
 
    | scope | Purpose | Required? |

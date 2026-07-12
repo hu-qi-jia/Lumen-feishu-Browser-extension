@@ -28,57 +28,18 @@ export const BUILD_CONFIG = {
   feishuOauthScope: (import.meta.env.VITE_FEISHU_OAUTH_SCOPE ?? '') as string,
   allowedCidrs:    (import.meta.env.VITE_ALLOWED_CIDRS     ?? '')
     .split(',').map((s: string) => s.trim()).filter(Boolean) as string[],
-  /** Optional enterprise pin: comma-separated hostnames the LLM endpoint may point at.
-   *  When set, the OpenAI base URL is restricted to these hosts (data-exfil guard for
-   *  managed deploys). Empty = no host restriction, only the https/validity check. */
+  /** Optional host pin: comma-separated hostnames the LLM endpoint may point at.
+   *  When set, the OpenAI base URL is restricted to these hosts (data-exfil guard).
+   *  Empty = no host restriction, only the https/validity check. */
   openaiAllowedHosts: (import.meta.env.VITE_OPENAI_ALLOWED_HOSTS ?? '')
     .split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean) as string[],
-  /** Optional OAuth proxy base URL. When set, the user-token code-exchange + refresh go
-   *  through it so the client_secret never ships in the bundle (enterprise / private
-   *  deploys). Empty = direct flow using the baked-in secret (personal use). */
-  oauthProxyUrl: (_storePkg ? '' : (import.meta.env.VITE_OAUTH_PROXY_URL ?? '')).trim() as string,
-  /** Optional shared key sent as `X-Proxy-Key` to the OAuth proxy. Anti-abuse only (it ships in
-   *  the bundle, so it's NOT a strong secret) — real access control is IP allowlist / intranet+SSO
-   *  in front of the proxy. Empty = don't send the header. */
-  oauthProxyKey: (import.meta.env.VITE_OAUTH_PROXY_KEY ?? '').trim() as string,
-  /** Enterprise: fetch the LLM config (base URL + API key + model) from the OAuth proxy instead of
-   *  shipping/asking it per-user — the proxy only hands it to verified members of your Feishu tenant,
-   *  so the company key never lives in the bundle. Personal builds leave this off (users self-config). */
-  llmFromProxy: (import.meta.env.VITE_LLM_FROM_PROXY ?? '') === '1',
-  /** Enterprise: fetch the App ID from the proxy (grant_type 'app_config') instead of baking it in,
-   *  so a single enterprise build (only the proxy URL is baked) serves any tenant and the App ID can
-   *  rotate server-side. The App ID is PUBLIC (it appears in every OAuth URL) so the proxy serves it
-   *  WITHOUT a token; the App Secret stays server-side as before. Needs a proxy → store/BYO off. */
-  appIdFromProxy: (import.meta.env.VITE_APP_ID_FROM_PROXY ?? '') === '1',
-  /** Enterprise hardening: forbid the per-user "switch to manual LLM" override — lock to the managed
-   *  (proxy) config. Default off = the switch is offered (enterprise CAN still configure manually). */
-  llmLockManaged: (import.meta.env.VITE_LLM_LOCK_MANAGED ?? '') === '1',
-  /** Enterprise hardening: keep the managed LLM config in MEMORY only — never write it to
-   *  chrome.storage (re-fetched from the proxy each cold start). Lowers at-rest key exposure. */
-  llmNoPersist: (import.meta.env.VITE_LLM_NO_PERSIST ?? '') === '1',
-  /** Enterprise: pull a central policy (force-off clip / auto-confirm, etc.) from the proxy and lock
-   *  those toggles. Requires a proxy. */
-  enterprisePolicy: (import.meta.env.VITE_ENTERPRISE_POLICY ?? '') === '1',
-  /** Shared SKILL library (enterprise): report de-identified successful patterns to the proxy +
-   *  pull community high-score skills. OFF by default; needs a proxy. Store/BYO builds have no
-   *  proxy (force-cleared above) → always off, never any extra network calls. */
-  skillsEnabled: (import.meta.env.VITE_SKILLS_ENABLED ?? '') === '1',
-  /** Enterprise CLOUD BACKUP of generated artifacts (mini-programs / sites / decks): mirror the
-   *  user's own saved outputs to the enterprise's OWN private object storage via the proxy, so a
-   *  lost/cleared/reinstalled device can pull them back. OFF by default; needs a proxy. Store/BYO
-   *  builds have no proxy (force-cleared above) → always off, never any extra network calls. */
-  artifactSync: (import.meta.env.VITE_ARTIFACT_SYNC ?? '') === '1',
   /** Redact likely-sensitive values (CN phone / email / ID / bank card) from data BEFORE it's sent
    *  to the LLM. Only affects the copy sent to the model — never the source Feishu data. */
   llmRedact: (import.meta.env.VITE_LLM_REDACT ?? '') === '1',
   /** Hard cap (chars) on a single data payload embedded in an LLM prompt. 0 = no extra cap. */
   llmMaxPayloadChars: Number(import.meta.env.VITE_LLM_MAX_PAYLOAD_CHARS ?? '') || 0,
-  /** Feishu BASE DOMAIN. Public SaaS = feishu.cn. A private (on-prem) deployment only
-   *  differs by this suffix: set it to e.g. `test.com` and every host derives from it —
-   *  open-platform = open.test.com, accounts = accounts.test.com, tenant pages live at
-   *  <tenant>.test.com. All API paths & call styles are identical across deployments. */
-  feishuBaseDomain: ((import.meta.env.VITE_FEISHU_BASE_DOMAIN ?? 'feishu.cn') as string)
-    .trim().toLowerCase().replace(/^\.+|\.+$/g, '').replace(/^https?:\/\//, ''),
+  /** Feishu BASE DOMAIN. Public SaaS = feishu.cn. */
+  feishuBaseDomain: 'feishu.cn',
   /** Screenshot clipper: capture the visible tab into a Feishu Base/Sheet/Doc via vision OCR.
    *  Gesture-gated + activeTab only (no new host_permissions, no new egress). Default on;
    *  set VITE_CLIP_ENABLED=false to ship without it. */
@@ -87,10 +48,6 @@ export const BUILD_CONFIG = {
    *  VITE_KNOWLEDGE_BASE=false to ship without it. Loopback-only egress
    *  (see isObsidianOutboundAllowed + manifest host_permissions). */
   knowledgeBaseEnabled: ((import.meta.env.VITE_KNOWLEDGE_BASE ?? 'true') as string).trim().toLowerCase() !== 'false',
-  /** Optional enterprise governance (v2 — flag defined now, enforcement deferred):
-   *  comma-separated domains where clipping is allowed. Empty = allow anywhere. */
-  clipManagedDomains: (import.meta.env.VITE_CLIP_MANAGED_DOMAINS ?? '')
-    .split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean) as string[],
   /** Store-PACKAGING flag (VITE_WEBSTORE): strips manifest `key` + applies the store name/desc
    *  (in vite.config.ts). Does NOT by itself disable remote code — that's a separate, opt-in flag
    *  below, so a full-featured BYO build can still be packaged for the store. */
@@ -105,20 +62,13 @@ export const BUILD_CONFIG = {
     (import.meta.env.VITE_NO_REMOTE_CODE ?? '') === 'true',
 } as const
 
-/** Enterprise managed-App-ID mode: the App ID itself comes from the proxy (not baked). Double-gated:
- *  needs the flag AND a proxy → store/BYO (no proxy) is always false. Implies the proxy also holds the
- *  App Secret, so OAuth is fully doable without anything tenant-specific baked but the proxy URL. */
-export const HAS_MANAGED_APP_ID = BUILD_CONFIG.appIdFromProxy && !!BUILD_CONFIG.oauthProxyUrl
-
 /** True when an App ID is configured AND we can mint a user token — a baked-in secret (direct),
- *  a password-encrypted secret (direct, after unlock), an OAuth proxy, OR the App ID is served by
- *  the proxy (managed-App-ID: the proxy provides both App ID and the secret-side token exchange). */
+ *  or a password-encrypted secret (direct, after unlock). */
 export const HAS_BUILTIN_CREDS =
-  !!((BUILD_CONFIG.feishuAppId &&
-    (BUILD_CONFIG.feishuAppSecret || BUILD_CONFIG.appSecretEnc || BUILD_CONFIG.oauthProxyUrl))
-    || (BUILD_CONFIG.appIdFromProxy && BUILD_CONFIG.oauthProxyUrl))
+  !!(BUILD_CONFIG.feishuAppId &&
+    (BUILD_CONFIG.feishuAppSecret || BUILD_CONFIG.appSecretEnc))
 
-/** True when a PLAINTEXT client_secret is baked in (direct OAuth, no password/proxy). */
+/** True when a PLAINTEXT client_secret is baked in (direct OAuth, no password). */
 export const HAS_APP_SECRET = !!BUILD_CONFIG.feishuAppSecret
 
 /** True when the App Secret ships ENCRYPTED and needs a password to unlock at runtime. */
@@ -126,22 +76,6 @@ export const HAS_ENCRYPTED_SECRET = !!BUILD_CONFIG.appSecretEnc && !BUILD_CONFIG
 
 /** True when CIDR allowlist was configured */
 export const HAS_NETWORK_RESTRICTION = BUILD_CONFIG.allowedCidrs.length > 0
-
-/** Enterprise managed-LLM mode is available (build opted in AND a proxy is configured to serve it). */
-export const HAS_MANAGED_LLM = BUILD_CONFIG.llmFromProxy && !!BUILD_CONFIG.oauthProxyUrl
-
-/** Enterprise central policy is available (build opted in AND a proxy is configured to serve it). */
-export const HAS_ENTERPRISE_POLICY = BUILD_CONFIG.enterprisePolicy && !!BUILD_CONFIG.oauthProxyUrl
-
-/** Shared skill library available (opted in AND a proxy to serve it). Double-gated: the store/BYO
- *  build has no proxy → always false → all skill code no-ops, store release totally unaffected. */
-export const HAS_SKILLS = BUILD_CONFIG.skillsEnabled && !!BUILD_CONFIG.oauthProxyUrl
-
-/** Enterprise cloud backup/restore of generated artifacts available (opted in AND a proxy to serve
- *  it). Double-gated: the store/BYO build has no proxy → always false → all backup code no-ops and
- *  is dead-code-eliminated, store release totally unaffected. The backed-up content goes ONLY to the
- *  enterprise's own object storage, read-gated by Feishu tenant-member auth (see artifactSync.ts). */
-export const HAS_ARTIFACT_SYNC = BUILD_CONFIG.artifactSync && !!BUILD_CONFIG.oauthProxyUrl
 
 /** Knowledge Base (Obsidian) feature flag. When off, all KB code no-ops and the
  *  Hub card / chat toggle are hidden. Store builds disable via VITE_KNOWLEDGE_BASE=false. */
@@ -155,10 +89,6 @@ export const CLIP_ENABLED = BUILD_CONFIG.clipEnabled
  *  store-packaging flag, so a store build can keep full features (remote code) while still BYO. */
 export const NO_REMOTE_CODE = BUILD_CONFIG.noRemoteCode
 
-/** A private / on-prem Feishu deploy (base domain ≠ public SaaS). Its API versions may lag
- *  behind SaaS, so the request layer probes older `/<svc>/vN/` paths when a newer one 404s. */
-export const IS_PRIVATE_DEPLOY = BUILD_CONFIG.feishuBaseDomain !== 'feishu.cn'
-
 // ─── Derived Feishu endpoints (all derived from the one base domain) ───────────
 /** https://open.<domain>/open-apis — base for all OpenAPI calls. */
 export const FEISHU_API_BASE = `https://open.${BUILD_CONFIG.feishuBaseDomain}/open-apis`
@@ -169,22 +99,15 @@ export const FEISHU_AUTHORIZE_URL = `https://accounts.${BUILD_CONFIG.feishuBaseD
  *  the tenant pages, etc.) — all live under the one base domain. e.g. `*.feishu.cn`. */
 export const FEISHU_HOST_PATTERN = `*.${BUILD_CONFIG.feishuBaseDomain}`
 
-/** Optional OAuth proxy hostname (may sit on a different domain than Feishu). */
-export const OAUTH_PROXY_HOST: string = (() => {
-  if (!BUILD_CONFIG.oauthProxyUrl) return ''
-  try { return new URL(BUILD_CONFIG.oauthProxyUrl).hostname.toLowerCase() } catch { return '' }
-})()
-
 /** Code-layer outbound guard for the FEISHU group: true only when the URL targets a
- *  subdomain of the configured base domain (open/accounts/tenant…) or the OAuth proxy.
+ *  subdomain of the configured base domain (open/accounts/tenant…).
  *  The assistant only ever reaches two endpoint groups — Feishu (this) and the LLM
  *  (guarded separately by assertSafeBaseUrl / openaiAllowedHosts). */
 export function isFeishuOutboundAllowed(url: string): boolean {
   try {
     const host = new URL(url).hostname.toLowerCase()
     const d = BUILD_CONFIG.feishuBaseDomain
-    if (host === d || host.endsWith('.' + d)) return true
-    return !!OAUTH_PROXY_HOST && host === OAUTH_PROXY_HOST
+    return host === d || host.endsWith('.' + d)
   } catch {
     return false
   }

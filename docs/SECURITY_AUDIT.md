@@ -41,156 +41,6 @@
 
 ---
 
-## ★ App Secret 与 OAuth 安全模型（图解）
-
-> 回答两个常见担忧：**①App Secret 泄露怎么办？ ②代理凭什么决定"谁能用"？**
-
-### 0. 一句话结论
-
-- 运行时**只用"用户本人的 user_access_token"**操作飞书（`resolveToken` 不回退 tenant）。App Secret **只用于 OAuth 换 token**，不是操作身份。
-- **怕泄露 → 用「代理模式」**：secret 只留服务端，扩展包里一字节都不带。
-- **真正决定"谁能授权" = 飞书后台「可用范围」**（全员/部门/指定人）。代理本身只做"防滥用"，不是主鉴权。
-- **降低泄露后果 → 飞书后台 scope 只勾「用户身份」、不勾「应用身份」**：即使 secret 泄露，攻击者换出的 tenant token 几乎读写不了任何数据。
-
-### 1. 三种部署模式
-
-| 模式 | secret 在哪 | 谁能拿到 secret | 适用 | 配置 |
-|---|---|---|---|---|
-| 直连·明文 | 打进 .crx，明文 | 任何人解包即得 🔴 | 仅本地联调 | `VITE_FEISHU_APP_SECRET` |
-| 直连·密码加密 | 打进 .crx，AES-GCM 密文 | 有 .crx **且**有解锁口令的人 🟡 | 个人 / 小型 | `VITE_FEISHU_APP_SECRET_ENC`（见 L5b） |
-| **代理（推荐企业）** | **只在你的服务器** | **没人**（客户端拿不到）🟢 | 企业 / 私有化 | `VITE_OAUTH_PROXY_URL`（见下） |
-
-### 2. 代理模式安全流程图
-
-```
-┌───────────────────────┐   ① 点「飞书授权」          ┌─────────────────────────────┐
-│   浏览器扩展 (.crx)     │ ─────────────────────────▶ │      飞书 OAuth 同意页         │  ◀── 真正的闸门
-│   不含 App Secret      │                            │  · 校验「可用范围」(后台设定)   │     谁能授权由飞书+你的
-│   只有 client_id +      │ ◀── ② 授权 code ────────── │  · 用户登录 + 点「同意」         │     可用范围决定，不在代理
-│   redirect_uri          │   (一次性·短时·绑定该用户·    │  · 绑定固定 redirect_uri        │
-└──────────┬────────────┘    绑定 redirect_uri)        └─────────────────────────────┘
-           │ ③ POST { grant_type, code, redirect_uri, client_id }  (+可选 X-Proxy-Key)
-           │    只发"授权材料"，绝不含 secret
-           ▼
-┌──────────────────────────────────────────────────┐
-│  你的自托管代理  docs/oauth-proxy-server.mjs        │   ── 防滥用层（非主鉴权）──
-│  · Origin 锁 chrome-extension://<扩展ID>           │   · IP 白名单（公司出口/内网，强）
-│  · redirect_uri 白名单（防当通用换码 oracle）        │   · 每 IP 限流
-│  · client_id 校验                                  │   · 可选共享密钥(防随手滥用)
-│  ★ 注入 client_secret —— 只在服务端，永不下发        │
-└──────────┬───────────────────────────────────────┘
-           │ ④ POST { code, client_id, client_secret }
-           ▼
-┌──────────────────────┐
-│   飞书 token 接口      │ ── ⑤ 返回「该用户本人的 user_access_token」──▶ 代理原样透传回扩展
-└──────────────────────┘                                              (代理不解析/不落盘/不日志)
-           
-⑥ 之后扩展【直接】拿 user_access_token 调飞书读写 —— 代理不经手任何用户数据。
-```
-
-### 3. 威胁矩阵：攻击者拿到 X，能做什么？
-
-| 攻击者拥有 | 代理模式 | 密码模式 |
-|---|---|---|
-| 只有 .crx（解包） | 拿到 client_id + 代理 URL，**拿不到 secret** | 拿到密文 + KDF 参数，需**离线爆破口令** |
-| .crx + 代理 URL，直接打代理 | **换不出任何 token**（没有效 code；有 code 也只是某用户自己的 token，代理不提权、不泄密） | — |
-| .crx + 解锁口令 | — | 拿到明文 secret（→ 见下一行） |
-| **App Secret 本身（泄露）** | 能换 tenant token，但若 scope **只勾用户身份**→ 几乎读写不了数据；**轮换 secret 即作废** | 同左 |
-| 别人的 .crx 想读你的数据 | 不行——只能换到**他自己**的 token（≡ 他本人飞书权限） | 同左 |
-
-> 要点：**代理不靠"识别用户能否拿 secret"来保证安全（secret 压根不下发）**；它把"谁能换 token"托管给飞书 OAuth 同意 + 可用范围，自己只当"不泄密的换码中转 + 防滥用"。**CORS 不是强鉴权**（curl 可绕过），只挡浏览器跨域。
-
-### 4. 生产级代理（自托管，无需 Cloudflare）
-
-参考实现：**`oauth-proxy-server.mjs`**（零依赖 Node ≥18；另有 Cloudflare 版 `oauth-proxy-worker.js`）。已内置：
-
-- Origin 锁定 `ALLOW_ORIGIN=chrome-extension://<扩展ID>`、`redirect_uri` 白名单、`client_id` 校验；
-- **IP 白名单** `IP_ALLOWLIST`（IPv4/CIDR，强控制）、每 IP **限流**、可选**共享密钥** `PROXY_SHARED_KEY`（对应客户端 `VITE_OAUTH_PROXY_KEY`，防滥用非强密钥）；
-- 请求体大小上限、`timingSafeEqual` 比密钥、安全响应头、**不打印/不落盘任何 token/code/secret**、`/healthz`。
-
-### 5. 企业级部署（无 Cloudflare）
-
-"谁能调代理 = 谁是公司员工"——交给**内网 + 身份网关**，代理只兜底防滥用：
-
-```
-扩展 ──HTTPS──▶ 公司反向代理(nginx) ──(127.0.0.1:8787)──▶ oauth-proxy-server.mjs ──▶ 飞书
-                    └─ 前置 SSO：oauth2-proxy / Authelia / 你司零信任网关（员工登录才放行）
-            或：本服务只绑内网、仅 VPN 可达，并设 IP_ALLOWLIST=公司出口/内网网段
-```
-
-- systemd / Docker 示例见 `oauth-proxy-server.mjs` 文件末尾。多实例时把内存限流换成 Redis。
-- secret 用 `wrangler secret`／systemd `Environment=`／Docker secret／K8s Secret 注入，**不要写进镜像或仓库**。
-
-### 6. 泄露应急
-
-1. 飞书后台**重置 App Secret**（旧的立即作废）→ 改代理/构建里的值。
-2. 复核 scope **只勾用户身份**、删掉 `im`/`contact:contact`/`transfer_owner`/`permissions`/`admin`。
-3. `feishu-app-config.txt`（明文）用完即删、绝不分享（已 `.gitignore`，未进仓库历史）。
-
----
-
-## ★ 企业托管 LLM / 策略 / 脱敏 安全模型
-
-> 企业可让 LLM 配置、统一策略**经代理下发**，并对外发数据脱敏。核心：**公司大模型 key 不进 .crx，
-> 只发给本企业飞书成员**。个人版不受影响（仍各自配置）。配置见 [`oauth-proxy/README.md`](oauth-proxy/README.md) §5。
-
-### 身份闸门（谁能拿到公司配置）
-- 客户端用**用户自己的 `user_access_token`** 向代理证明身份；代理调飞书 `authen/v1/user_info`
-  校验 + 核对 **`tenant_key == FEISHU_TENANT_KEY`**，通过才下发 `llm_config` / `policy`。
-- **Fail-CLOSED**：未设 `FEISHU_TENANT_KEY` 时一律**拒绝**下发（杜绝"任意飞书账号都能取到公司 key"）。
-- 代理输出结构化**审计日志** `[audit] <时间> ip=… action=llm_config|policy user=<open_id> status=…`（不含 token/内容）。
-
-### 数据外发控制
-- **脱敏**（`VITE_LLM_REDACT`）：发给 LLM 前掩盖手机号(含 +86)/邮箱/身份证；应用于一次性生成器
-  **以及 agent 工具结果 + Base 结构上下文**（主外发通道）。仅改发给模型的副本，不动飞书原数据。
-- **外发上限**（`VITE_LLM_MAX_PAYLOAD_CHARS`）：截断单次载荷；smartfill 用不截断的脱敏以免破坏需回传的 JSON。
-- **key 仅内存**（`VITE_LLM_NO_PERSIST`）：托管 key 不落盘、每会话重取。
-- **每用户限流**（`LLM_LIMIT_PER_HOUR`）：按 open_id 限取配置次数。
-
-### 策略下发（fail-closed）
-- 代理 `POLICY_AUTO_CONFIRM` / `POLICY_LEARN` / `POLICY_NOTICE` → 客户端**强制并锁定**对应开关。
-- 策略未知（无缓存 / 代理不可达）时**默认收紧**（不自动确认删除），代理故障不会放松管控。
-
-### 已知残留与待评估（记录在案，后续决定是否做）
-1. **绑定到本 app**：`tenant_key` 已挡**跨租户**；但同租户内**另一飞书 app 的 user token** 仍能过
-   （属内部成员场景，本就有合法访问）。彻底绑定需 token 反查或下面的网关模式。
-2. **LLM 网关模式**：当前 key 下发到客户端后由客户端直连 LLM；更彻底是 LLM 调用**也经代理**，
-   key 永不离开服务端 + 按**每次调用**计量限流（现限流仅针对"取配置"）。改造较大。
-3. **托管 key 轮换自愈**：已加并发去重；LLM 返回 401 时尚未自动清缓存重取，用户需在设置点「重新获取」。
-4. **脱敏边角**：手机号内部含空格/横杠、15 位旧身份证、银行卡（无 Luhn）未覆盖；正则保守以免误伤数据。
-
-## ★ 企业服务端套件 安全模型（技能库 / 云备份 / 托管 App ID / 管理台）
-
-> 一个零依赖 Node 进程同源挂载这几个子服务。统一前置：`IP_ALLOWLIST`（**已含管理台**）→ 各子服务自带
-> CORS / 鉴权 / 限流。经两轮代码审查 + 一轮安全审查，**所有中危及以上风险均已整改**：
-
-### 托管 App ID（`grant_type:'app_config'`）
-- App ID 是**公开值**（每个 OAuth URL 里都有）→ 无需 token 即可下发；**App Secret 仍只在服务端**。
-- 客户端对下发的 App ID 做**格式校验**（`cli_…`）后缓存，防被错配代理投毒；轮换有 epoch 守卫防竞态回灌。
-
-### 共享技能库（`/skills/*`）— 只收脱敏数据
-- 客户端外发的只有：LLM 蒸馏的**一句话经验** + **工具名** + **匿名安装 id**；**无条件 PII 脱敏**（不依赖
-  `VITE_LLM_REDACT` 开关）。**匹配查询用去标识经验、绝不发原始任务文本**（修复了一处会外发原文的高危）。
-- 服务端 `SKILLS_MAX` 上限 + 最差淘汰，防持（弱）代理键者用随机上报撑爆内存/磁盘。
-
-### 企业云备份（`/artifacts/*`）— 按 open_id 隔离
-- 身份用**用户本人** `user_access_token` → 服务端校验租户成员 + 取 `open_id`；**存储路径由服务端 open_id
-  生成、客户端不可指定** → 互相读不到（实测 B 读不到 A）。校验缓存以 `sha256(token)` 为键，不存明文 token。
-- 内容进**企业自有**对象存储；可选静态 AES-GCM。导入备份时按 host 白名单**校验 `openaiBaseUrl`**，防恶意备份把对话+key 外发到攻击者站点。
-
-### 管理台（`/admin`）
-- 设了 `ADMIN_PASSWORD` 才挂载；登录换 **HMAC 签名会话**，**签名密钥与登录密码解耦**（`ADMIN_TOKEN_SECRET`
-  或启动随机 → 重启即吊销）。**已纳入 IP 白名单**（在所有子服务分发之前）。
-- 防点击劫持（`X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`）+ 同源校验 + 登录限流（`TRUST_PROXY`
-  时按真实客户端 IP 计；上游反代须**覆盖**而非追加 `X-Forwarded-For`）。
-- 单页对所有服务端数据 HTML 转义（含单引号），杜绝注入。
-
-### 商店版隔离（不变的硬约束）
-- 上述全部 `HAS_* = 开关 && 有代理` 双门控；商店/BYO 无代理 → 折叠为 **false** 常量 → 死代码消除。
-  构建后 `dist` 里技能/备份/`app_config` 端点串**全为 0**、无 appid（每次发版校验）。
-
----
-
 ## 一、Critical
 
 ### S1 ✅ `feishu_api_call` 通用 API 工具被注入即可越权 — 已锁死
@@ -284,9 +134,9 @@
 - **风险**：base_url 指向任意主机，整段对话/表格内容可被外发（数据外泄）。
 - **修复**：在 **runAgent 真正发请求前**校验 base URL —— 篡改/错填会**响亮报错**而非静默外泄：
   - 拒绝空/不可解析 URL；
-  - **强制 https://**（仅 localhost 允许 http，供本地代理/harness）；
-  - **企业可选硬锁**：构建时 `VITE_OPENAI_ALLOWED_HOSTS` 设了则只准发到这些 host（含子域），
-    10 万人管理员可钉死端点；不设则任意 https host 放行，保留"自定义 OpenAI 兼容端点"功能。
+  - **强制 https://**（仅 localhost 允许 http，供本地 harness）；
+  - **可选硬锁**：构建时 `VITE_OPENAI_ALLOWED_HOSTS` 设了则只准发到这些 host（含子域），
+    管理员可钉死端点；不设则任意 https host 放行，保留"自定义 OpenAI 兼容端点"功能。
   - Settings 内对非内置厂商 host 给软提醒（对话内容将发往此地址）。
 - **测试**：`providers.test.ts` 5 例（https 强制、localhost 例外、归一化、有/无企业白名单）。
 
@@ -323,16 +173,9 @@
 
 ## 四、Low / 已知接受
 
-### L5 ✅ app_secret 打包进前端 bundle — 现提供「代理模式」可彻底移除
+### L5 app_secret 打包进前端 bundle
 - **位置**：构建注入 `VITE_FEISHU_APP_SECRET` ｜ `oauth.ts` `requestToken()` ｜ `config.ts`
 - **说明**：飞书 token 接口即使用 PKCE 仍强制 `client_secret`，纯客户端无法不暴露。
-- **方案**：新增**可选 OAuth 代理模式**——构建时设 `VITE_OAUTH_PROXY_URL` 且**不**注入
-  secret，则 code 换 token / refresh 改 POST 到代理（代理服务端持有 secret，客户端只发
-  授权码/refresh_token），**secret 不再进包**。参考实现：**`oauth-proxy-server.mjs`**
-  （零依赖 Node，自托管、无需 Cloudflare，内置 Origin 锁/redirect 白名单/IP 白名单/限流/可选共享密钥）；
-  另有 Cloudflare 版 `oauth-proxy-worker.js`。
-- **图解 + 威胁模型 + 企业部署**：见上方 [★ App Secret 与 OAuth 安全模型（图解）](#-app-secret-与-oauth-安全模型图解)。
-- **三种部署**：个人=直连带 secret 或**密码加密 secret**；企业/私有化=代理模式(secret 不进包)。owner 可按需选。
 
 ### L5b ✅ 个人模式 secret 加固：密码加密 + 运行时解锁
 - **位置**：`scripts/encrypt-secret.mjs` ｜ `src/shared/feishu/appSecret.ts` ｜ Settings 解锁 UI
@@ -342,16 +185,6 @@
 - **效果**：拿到公开 .crx 也只能拿到密文 + KDF 参数，需**离线暴力破解密码**（PBKDF2 210k 拖慢），
   远高于明文 grep。混淆（minify + 密文非明文串）只是附带，不作安全边界。强密码是关键。
 - **测试**：`appSecret.test.ts`（密码往返、错误密码 GCM 失败、损坏密文），并实测加密构建包内无明文。
-
-### M7 ✅ 私有化域名 + 出站端点锁定（纯内网）— 新增
-- **位置**：`config.ts`（`feishuBaseDomain` + `isFeishuOutboundAllowed`）｜ `vite.config.ts`
-  （`transformManifest`）｜ `http.ts`/`api.ts` 出站守卫
-- **私有化**：所有飞书 host 由**单一基础域名**派生（`open.<域名>`/`accounts.<域名>`/
-  `<租户>.<域名>`），`VITE_FEISHU_BASE_DOMAIN` 一处配置；API 路径与调用完全一致。
-- **出站锁定（双重）**：助手访问三类端点——飞书 + 大模型 + **Obsidian-loopback**（见 M12，仅本机回环，第三组严格隔离）。
-  - 代码层：`isFeishuOutboundAllowed` 只放行基础域名的子域(+代理)，`feishuReq`/`req` 强制；大模型由 `assertSafeBaseUrl` 把关；Obsidian 由 `isObsidianOutboundAllowed` 把关（loopback）。
-  - CSP 层：`vite.config` 按 env 把 `connect-src`/`host_permissions`/`content_scripts` 锁成 `*.<域名>` + 钉死的大模型 host；设了 `VITE_OPENAI_ALLOWED_HOSTS` 时**去掉 `https:` 通配 → 纯内网**。Obsidian 额外放行 `http://127.0.0.1:*`/`http://localhost:*`（见 M12，仅 loopback）。
-- **测试**：`config.test.ts`（子域放行/后缀仿冒拒绝/端点派生），并实测私有化构建 `connect-src` 仅含内网 host。
 
 ### M8 ✅ 网页剪藏（Web Clipper）— 手势门控、不破坏出站锁定
 - **位置**：`background/index.ts`（`clipActiveTab`/`runCapture`）｜ `shared/clip/capture.ts`（注入函数）｜
@@ -365,7 +198,7 @@
 - **受限页**：`chrome://`/商店/其他扩展无法注入 → 友好提示而非静默失败。
 - **写入复用既有卡点**：经 `runAgent` 的 `create_record`/`batch_create_records` → `resolveToken`（用户身份）、
   `assertApiCallAllowed`、禁文件级删除等全部继承；剪藏只插入、`requestConfirmation` 对 delete 一律拒绝。
-- **企业治理**：`VITE_CLIP_ENABLED=false` 可整体关闭；`VITE_CLIP_MANAGED_DOMAINS` 域名白名单（v2 强制）。
+- **企业治理**：`VITE_CLIP_ENABLED=false` 可整体关闭。
 - **测试**：`capture.test.ts`（敏感剥离/截断/选区）、`ClipPanel.test.tsx`（预览先于发送/未配置门控/受限页提示）。
 
 ### M9 ✅ AI 数据可视化 — 沙箱执行 LLM 生成代码，不破坏出站锁定
@@ -429,8 +262,8 @@
 
 ### L5-legacy ⚪ （历史）app_secret 默认进包 — 个人模式仍接受
 - **位置**：构建注入 `VITE_FEISHU_APP_SECRET`
-- **说明**：MV3 扩展无后端代理时，OAuth/tenant token 换取需要 client_secret，必然进前端包，
-  可被解包提取。彻底消除需引入后端代理。
+- **说明**：MV3 扩展无后端时，OAuth/tenant token 换取需要 client_secret，必然进前端包，
+  可被解包提取。
 - **决策**：**owner 明确接受此风险**（要求"工具尽量少依赖"，不引后端）。已通过：扩展 `key` 固定
   扩展 ID、凭据文件全部 gitignore、storage 内凭据 AES-256-GCM 加密（per-device seed）等降低实际可利用性。
 

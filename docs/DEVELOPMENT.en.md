@@ -40,7 +40,7 @@ Preview does not require a real extension: `npm run dev:ui` (uses `src/dev/chrom
 | `src/content/` | Content scripts injected into Feishu pages. `viz-overlay.ts` = draggable floating window (hosts the sandbox iframe); page-context detection |
 | `src/sandbox/` | **Sandbox iframe** (opaque origin, `connect-src:'none'`). `main.ts` runs the LLM-generated visualization/site-building/PPT code; `index.html` contains the design-system CSS + ECharts |
 | `src/shared/ai/` | `agent.ts` (the ~50-tool tool-calling main loop, 1.3k lines), `llm.ts`, `slides.ts`, `dataviz.ts`, `docaudit/summary.ts`, `*Store.ts`, `recipes.ts` |
-| `src/shared/feishu/` | `api.ts` (bitable), `sheets.ts`, `docx.ts`, `http.ts` (`feishuReq`/`feishuFetch`), `auth.ts` (token lifecycle), `oauth.ts`, `appSecret.ts`, `version.ts` (private-deployment version fallback), `pageUrl.ts` |
+| `src/shared/feishu/` | `api.ts` (bitable), `sheets.ts`, `docx.ts`, `http.ts` (`feishuReq`/`feishuFetch`), `auth.ts` (token lifecycle), `oauth.ts`, `appSecret.ts`, `pageUrl.ts` |
 | `src/shared/dataviz/` | `store.ts` (saved dashboards/sites, `dataviz_v1`), `scope.ts` (attribution to the current table), `send.ts`, `data.ts` |
 | `src/shared/` | `config.ts` (all `VITE_*` → `BUILD_CONFIG`), `crypto.ts` (device encryption), `theme.ts` (color scheme), `types.ts` |
 | `src/shared/{templates,smartfill,report,clip}/` | template library / smart fill / data reports / web clipping |
@@ -72,7 +72,7 @@ These are **security boundaries hardcoded in the code**; prompts don't count. If
 3. **Generic API allowlist + hard bans**: `assertApiCallAllowed`/`API_BLOCKED` block messaging (`im`)/contacts/permissions/ownership/path traversal.
 4. **Outbound lockdown**: all Feishu requests go through `feishuReq`/`feishuFetch` (the `isFeishuOutboundAllowed` guard); the LLM is restricted by `assertSafeBaseUrl`. Don't bypass them with a direct `fetch`.
 5. **Sandbox isolation**: generated code runs at an opaque origin + `connect-src:'none'`. **Do not** add `allow-same-origin` to the sandbox or open up connect-src.
-6. **Secret never ships in plaintext**: direct connection uses a password-encrypted secret (`appSecretEnc`) or a proxy (`oauthProxyUrl`); plaintext `VITE_FEISHU_APP_SECRET` is for local debugging only.
+6. **Secret never ships in plaintext**: direct connection uses a password-encrypted secret (`appSecretEnc`); plaintext `VITE_FEISHU_APP_SECRET` is for local debugging only.
 7. **Write operations are not auto-retried**: `http.ts robustFetch` sends POST/PUT/PATCH/DELETE only once (a creation that timed out may have already succeeded).
 
 > When changing these areas, the top of README also warns: changes touching `isFileLevelDelete`/`assertApiCallAllowed`/`resolveToken` need extra care and an accompanying harness.
@@ -82,7 +82,7 @@ These are **security boundaries hardcoded in the code**; prompts don't count. If
 ## 5. Common changes (recipes)
 
 - **Add an AI tool**: add the schema to the tool-definitions array in `agent.ts` + add a branch in `executeTool`; depending on its nature, add it to `DESTRUCTIVE_TOOLS`/`WRITE_TOOLS`/`FILE_LEVEL_DELETE_TOOLS`/`CREATE_ONCE_TOOLS`; add to `agent.test.ts`.
-- **Add a Feishu API**: write a wrapper in `api.ts`/`sheets.ts`/`docx.ts`, and you **must** use `feishuReq`/`req` (which bring the outbound guard + version fallback). Write the path for the current SaaS version (e.g. `/bitable/v1/...`); private-deployment fallback is handled automatically.
+- **Add a Feishu API**: write a wrapper in `api.ts`/`sheets.ts`/`docx.ts`, and you **must** use `feishuReq`/`req` (which bring the outbound guard + version fallback). Write the path for the current SaaS version (e.g. `/bitable/v1/...`).
 - **Add a side-panel panel**: create `XxxPanel.tsx` under `src/sidepanel/components/`, mount it into `ScenarioPanel.tsx` (grouped by `requires: 'table'|'doc'|'any'|'content'`, context-aware). Generation-type panels must handle busy/cancel/cache restore/`isTokenExpiredError` error copy.
 - **Change sandbox rendering (dashboard/site/PPT)**: the logic is in `sandbox/main.ts` (`ui.*` helpers, `render()`, message listener); the styles are in the design-system CSS of `sandbox/index.html`. The floating-window chrome (🖨/🎨/✕/submit) is in `content/viz-overlay.ts`.
 - **Change colors/theme**: `shared/theme.ts` (`deriveAccent` for the side panel, `vizAccent` for the sandbox).
@@ -96,7 +96,6 @@ These are **security boundaries hardcoded in the code**; prompts don't count. If
 |---|---|
 | Export PDF (🖨) does nothing | the sandbox needs `allow-modals`, and **both layers are required**: the iframe attribute in `viz-overlay.ts` + the CSP `sandbox` directive in `vite.config.ts` (they're intersected). |
 | token expires after ~2h (`99991677`) | OAuth must include `offline_access` to be issued a refresh_token. `oauth.ts` already **forces** the request; don't remove it when changing auth logic. |
-| a private-deployment endpoint returns 404 | `feishuFetch`'s `/vN/` → `v(N-1)` fallback (`version.ts`), effective only under `IS_PRIVATE_DEPLOY`. |
 | an env var has no effect | **Vite only reads `VITE_*` from `.env` files, not `process.env`**. For multiple config sets, use `.env.<mode>.local` + `vite build --mode <mode>`. |
 | `npm run build` occasionally throws a TLS error | network jitter from the manifest plugin — **just retry**. |
 | duplicate write operations (created two tables) | don't add retries to write methods (`robustFetch` deliberately only retries GET). |
@@ -107,8 +106,8 @@ These are **security boundaries hardcoded in the code**; prompts don't count. If
 
 ## 7. Testing conventions
 
-- Pure logic (`version.ts`/`scope.ts`/`crypto`, etc.): `*.test.ts` unit tests, **preferred**.
-- Things needing chrome/config: inject via `vi.mock('../config', ...)` (see `http.version.test.ts` forcing `IS_PRIVATE_DEPLOY`).
+- Pure logic (`scope.ts`/`crypto`, etc.): `*.test.ts` unit tests, **preferred**.
+- Things needing chrome/config: inject via `vi.mock('../config', ...)`.
 - UI: `MessageList.test.tsx` etc. use jsdom + testing-library.
 - Visual (sandbox rendering/printing/colors): use puppeteer + `page.emulateMediaType('print')`/screenshots, validated with throwaway scripts (refer to the `_print_diag`/`_accent_shot` patterns in the session).
 - Feishu live test: `FEISHU_LIVE=1 npx vitest run src/shared/feishu/live.test.ts` (requires `feishu-app-config.txt`).
@@ -118,7 +117,7 @@ These are **security boundaries hardcoded in the code**; prompts don't count. If
 ## 8. Config and secrets (cheat sheet)
 
 - All build variables are in [`../.env.example`](../.env.example); at runtime they're read from `config.ts BUILD_CONFIG`.
-- Key derivations: `HAS_BUILTIN_CREDS`, `HAS_ENCRYPTED_SECRET`, `IS_PRIVATE_DEPLOY`, `FEISHU_API_BASE`, `OAUTH_PROXY_HOST`.
+- Key derivations: `HAS_BUILTIN_CREDS`, `HAS_ENCRYPTED_SECRET`, `FEISHU_API_BASE`.
 - Persistence all lives in `chrome.storage.local`, with keys carrying `_v1` (no data loss on update; remember to migrate when changing the schema — don't bump to `_v2` bare).
 - secret: `encrypt-secret.mjs` generates the ciphertext → `VITE_FEISHU_APP_SECRET_ENC`; decryption is in `appSecret.ts` (PBKDF2 210k → AES-GCM).
 

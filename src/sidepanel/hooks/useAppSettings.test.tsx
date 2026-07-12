@@ -4,10 +4,6 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 
 // crypto 走 identity，避免 jsdom 里跑真 AES（obsidian 字段非密钥，本就不加密；feishu/openai 走 identity 也无妨）。
 vi.mock('@/shared/crypto', () => ({ encryptField: async (s: string) => s, decryptField: async (s: string) => s }))
-// 企业策略不影响本测试，短路成无策略。
-vi.mock('@/shared/enterprisePolicy', () => ({
-  loadPolicy: async () => null, fetchPolicy: async () => null, applyPolicy: (s: any) => s, FAILCLOSED_POLICY: null,
-}))
 
 const store = new Map<string, unknown>()
 beforeEach(() => {

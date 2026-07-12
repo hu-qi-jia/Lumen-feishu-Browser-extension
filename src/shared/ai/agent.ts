@@ -3,10 +3,8 @@ import type { ChatCompletionMessageParam } from 'openai/resources'
 import type { ChatMessage, AppSettings, PageContext, ToolCallDef } from '../types'
 import { HAS_BUILTIN_CREDS, BUILD_CONFIG } from '../config'
 import { assertSafeBaseUrl } from '../providers'
-import { resolveLlmConfig } from './llmConfig'
 import { redactSensitive } from './redact'
 import { loadRecipes, recordRecipe, relevantRecipes, formatRecipes, type Recipe } from './recipes'
-import { matchSkills, formatSkills, preloadSkills, type Skill } from './skills'
 import { loadUserSkills } from './userSkills'
 import type { BaseCtx } from '../feishu/context'
 import { invalidateToken } from '../feishu/auth'
@@ -29,6 +27,16 @@ import {
   rewriteFeishuOrigins,
   resolveTenantOrigin,
 } from './agent-executor'
+
+/** Resolve LLM endpoint config directly from user settings. */
+function llmConfig(settings: AppSettings) {
+  return {
+    baseUrl: settings.openaiBaseUrl,
+    apiKey: settings.openaiApiKey,
+    model: settings.openaiModel,
+    format: (settings.llmFormat ?? 'openai') as 'openai' | 'anthropic',
+  }
+}
 
 export interface ConfirmRequest {
   kind: 'create_base' | 'delete' | 'write'
@@ -91,24 +99,21 @@ export async function runAgent(
 ): Promise<void> {
   // Validate the endpoint before sending any conversation/table content to it — a
   // tampered or mistyped base URL must fail loudly here, never silently exfiltrate.
-  // Enterprise managed mode resolves the company LLM config from the proxy; else user settings.
   // "越用越聪明": feed back the most relevant locally-learned recipes (if enabled).
   const learn = settings.learnFromHistory !== false
   const resourceKind = context.feishu?.kind ?? 'general'
   const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? ''
 
   // Run the independent turn-start I/O CONCURRENTLY so the first model request fires after
-  // max() not sum(): resolveLlmConfig (a proxy fetch on enterprise cold-start, else instant)
-  // overlaps loading the local recipe store AND the local user-skill store. The skill match
-  // still follows recipes — its query is the lesson distilled FROM them — so it stays one step
-  // after. Behavior-preserving: a recipe-load / user-skill-load failure still yields []
+  // max() not sum(): loading the local recipe store AND the local user-skill store.
+  // Behavior-preserving: a recipe-load / user-skill-load failure still yields []
   // (the .catch), matching the old try/catch default.
-  const [llmCfg, loadedRecipes, loadedUserSkills] = await Promise.all([
-    resolveLlmConfig(settings),
+  const [loadedRecipes, loadedUserSkills] = await Promise.all([
     learn && lastUserText ? loadRecipes().catch(() => [] as Recipe[]) : Promise.resolve([] as Recipe[]),
     loadUserSkills().catch(() => []),
   ])
 
+  const llmCfg = llmConfig(settings)
   const baseURL = assertSafeBaseUrl(llmCfg.baseUrl, BUILD_CONFIG.openaiAllowedHosts)
   // Agent 工具调用循环深度集成 OpenAI Chat Completions 格式（tool_calls / function calling）。
   // Anthropic 原生 Messages 格式不兼容此协议——选择 Anthropic 格式时，请填写 OpenAI 兼容端点
@@ -124,28 +129,12 @@ export async function runAgent(
 
   let systemPrompt = buildSystemPrompt(context, settings, baseCtx, kbEnabled, loadedUserSkills)
 
-  // Community skills matched at turn start — re-surfaced once at a failure point (Phase 4). Empty
-  // unless enterprise+proxy, so the fallback never fires on the store/BYO build.
-  let matchedSkills: Skill[] = []
   if (learn && lastUserText) {
-    let recipes: Recipe[] = []
     try {
-      recipes = relevantRecipes(loadedRecipes, lastUserText, resourceKind)
+      const recipes = relevantRecipes(loadedRecipes, lastUserText, resourceKind)
       const hints = formatRecipes(recipes)
       if (hints) systemPrompt += '\n\n' + hints
     } catch { /* recall is best-effort */ }
-    // Community skills from the shared server — no-op unless enterprise+proxy (store unaffected).
-    // PRIVACY: NEVER send the raw task text to the proxy. Match on a DE-IDENTIFIED query — the top
-    // locally-distilled lesson (data-free) when we have one; otherwise fall back to kind-based preload
-    // (no user text leaves at all). Kept in `matchedSkills` to RE-SURFACE on failure (Phase 4).
-    try {
-      const lessonQuery = recipes.find((r) => r.lesson?.trim())?.lesson ?? ''
-      matchedSkills = lessonQuery
-        ? await matchSkills({ resourceKind, intent: lessonQuery })
-        : await preloadSkills(resourceKind)
-      const skillHints = formatSkills(matchedSkills)
-      if (skillHints) systemPrompt += '\n\n' + skillHints
-    } catch { /* best-effort */ }
   }
 
   // vision 降级标志：非 vision 模型首次拒绝 image_url part 后置为 false，
@@ -173,8 +162,6 @@ export async function runAgent(
   const erroredDestructiveSigs = new Set<string>()
   // Tool names that succeeded this turn (in order) — captured as a recipe on success.
   const succeededTools: string[] = []
-  // Phase 4 fallback: re-surface community skills ONCE, at the first failing round, to nudge a retry.
-  let skillFallbackTried = false
 
   // Latest user-message attachments for image tools to consume
   const latestAttachments = (() => {
@@ -305,7 +292,6 @@ export async function runAgent(
       }
     }
 
-    let roundHadError = false
     for (const tc of rawToolCalls) {
       totalToolCalls++
 
@@ -434,7 +420,6 @@ export async function runAgent(
       callbacks.onToolEnd(tc.id, result, isError)
       // Record only real, successful operations.
       if (!isError) succeededTools.push(tc.function.name)
-      if (isError) roundHadError = true
 
       const toolMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -447,19 +432,6 @@ export async function runAgent(
       callbacks.onToolMessage(toolMsg)
 
       msgs.push({ role: 'tool', content: result, tool_call_id: tc.id })
-    }
-
-    // Phase 4 — failure fallback: a tool just errored. Re-surface the community's high-score
-    // skills (matched at turn start) as a fresh nudge right at the failure point, so the model
-    // retries with what worked for others instead of blindly repeating. Once per turn; reuses the
-    // turn-start match (no extra network, no new outbound data); empty off proxy → never fires.
-    if (roundHadError && !skillFallbackTried && matchedSkills.length) {
-      skillFallbackTried = true
-      const hint = formatSkills(matchedSkills)
-      if (hint) msgs.push({
-        role: 'system',
-        content: '【上一步出错了——下面是社区里很多人这样做成功的做法，换个思路再试一次；务必按当前真实数据/字段名校准、先读后写，别照搬名称与值】\n' + hint,
-      })
     }
   }
 

@@ -40,3 +40,6 @@ feishu-package.zip
 .claude/
 # superpowers SDD scratch (progress ledger, review-package diffs)
 .superpowers/
+
+# local backup before cleanup (enterprise/private deployment removal)
+_archive/

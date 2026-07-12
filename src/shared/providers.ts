@@ -91,7 +91,7 @@ function hostAllowed(host: string, allowed: string[]): boolean {
  *
  * - Rejects empty / unparseable URLs.
  * - Requires https:// (http only allowed for localhost dev / a local proxy).
- * - When `allowedHosts` is non-empty (enterprise pin), the host must be in it; otherwise
+ * - When `allowedHosts` is non-empty (host pin), the host must be in it; otherwise
  *   any https host is permitted (the "custom OpenAI-compatible endpoint" feature stays open).
  *
  * Returns the normalized origin+path on success; throws Error on rejection.
@@ -114,7 +114,7 @@ export function assertSafeBaseUrl(baseUrl: string, allowedHosts: string[] = []):
 
   if (allowedHosts.length > 0 && !hostAllowed(host, allowedHosts) && !isLocalhost(host)) {
     throw new Error(
-      `企业策略限制：模型 API 主机「${host}」不在允许列表内，已阻止以防数据外泄。` +
+      `模型 API 主机「${host}」不在允许列表内，已阻止以防数据外泄。` +
       `允许的主机：${allowedHosts.join('、')}。`
     )
   }

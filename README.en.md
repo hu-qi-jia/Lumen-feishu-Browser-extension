@@ -32,10 +32,9 @@ create tables, fill in data, write formulas, generate documents, revise drafts b
 ▶️ [Watch on YouTube](https://youtu.be/JhPNeOK1n8g) ·  Can't open YouTube? [Download the local demo mp4](docs/media/demo.mp4)
 
 > 📚 **Full documentation** → [`docs/PROJECT.md`](docs/PROJECT.en.md) (architecture / features / security / deployment / configuration, all in one place)
-> · **Deployment guide (quick start for enterprise / personal / private deployment)** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.en.md)
+> · **Deployment guide (quick start for personal / store)** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.en.md)
 > · User guide (with screenshots) [`docs/USER_GUIDE.md`](docs/USER_GUIDE.en.md)
 > · Module details [`ARCHITECTURE.md`](docs/ARCHITECTURE.en.md) · Security audit [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.en.md)
-> · Enterprise MDM forced install [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.en.md)
 
 ---
 
@@ -45,7 +44,7 @@ create tables, fill in data, write formulas, generate documents, revise drafts b
 
 ### Build it yourself / use your own Feishu app (5 steps)
 
-> Needed only if you want the App ID/Secret **baked into the package** (so you don't enter it in Settings on each device), custom dev, or private deployment. Full version (per-permission notes, encrypted mode, troubleshooting): [`docs/QUICKSTART.md`](docs/QUICKSTART.en.md).
+> Needed only if you want the App ID/Secret **baked into the package** (so you don't enter it in Settings on each device), or custom dev. Full version (per-permission notes, encrypted mode, troubleshooting): [`docs/QUICKSTART.md`](docs/QUICKSTART.en.md).
 
 1. **Configure the Feishu app** ([open.feishu.cn](https://open.feishu.cn) → create a custom app): note the App ID / Secret; under "Permissions" enable `offline_access` (required) + as needed `bitable:app` `docx:document` `sheets:spreadsheet` `drive:drive` `wiki:wiki` `contact:user.base:readonly` (**all under "User identity"**); add `https://jhdbgegkmhcopcilclkpioilclemkeog.chromiumapp.org/` to "Redirect URLs"; add yourself to "Availability" and **publish**.
 2. **Fill config**: `cp .env.example .env.local` → set `VITE_FEISHU_APP_ID` + `VITE_FEISHU_APP_SECRET` (or run `node scripts/encrypt-secret.mjs` to get ciphertext for `VITE_FEISHU_APP_SECRET_ENC` and leave the plaintext empty).
@@ -84,9 +83,7 @@ create tables, fill in data, write formulas, generate documents, revise drafts b
   **Check items can be opened and edited directly, persisted on your machine** — you define what gets checked.
 - **Document summary** 📝: reads through the current document and generates a summary per your requirements (abstract / key points / to-dos…), which can be copied.
   The **summary requirements (prompt) can be edited directly and persisted on your machine** — Feishu's native AI quick-read is fixed, but here you call the shots.
-- **Three deployment modes**: personal / enterprise SaaS / private (on-prem), all switched via build-time configuration.
-- **Enterprise server suite** 🏢 (optional · one zero-dep Node process): on top of the token-exchange proxy, the same process mounts — **managed App ID / App Secret / LLM / policy** delivery (employees configure nothing, secrets stay server-side, rotatable), a **shared skill library** (de-identified cross-user lessons, dedup / score / promote / proactive push), **enterprise cloud backup** (mini-programs/sites/decks mirrored to the company's own object storage, isolated per open_id, optional AES, restorable on loss), and an **admin console** (`/admin`: dashboard / skill moderation / backup management / config inspector / audit). All double-gated `HAS_* = flag && proxy` → the store build (no proxy) **dead-code-eliminates it, zero release impact**. See [`docs/index.html`](docs/index.html).
-- **Local backup & restore** 💾 (all builds): export config + saved artifacts + local lessons + sessions to a file; import to recover after a device change / reinstall (secrets excluded by default, opt-in).
+- **Local backup & restore** 💾: export config + saved artifacts + local lessons + sessions to a file; import to recover after a device change / reinstall (secrets excluded by default, opt-in).
 
 ---
 
@@ -106,9 +103,6 @@ npm run dev:ui      # pure UI preview (mock chrome, not connected to Feishu)
 npm run typecheck && npm run test
 ```
 
-> For internal enterprise distribution (without listing on the store or using developer mode), see [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.en.md):
-> use the project scripts to build a `.crx` + force-install via Chrome policy (includes a ready-made macOS `.mobileconfig`).
-
 ---
 
 ## Configuration (all optional, see [`.env.example`](.env.example))
@@ -123,9 +117,7 @@ template library address; the "gets smarter the more you use it" toggle.
 | `VITE_FEISHU_APP_ID` | Feishu App ID |
 | `VITE_FEISHU_APP_SECRET` | Plaintext secret (personal · plaintext, ends up in the bundle) |
 | `VITE_FEISHU_APP_SECRET_ENC` | Password-encrypted secret (personal · encrypted, generated by `scripts/encrypt-secret.mjs`) |
-| `VITE_OAUTH_PROXY_URL` | OAuth proxy address (enterprise / private; secret does not enter the bundle, see `docs/oauth-proxy-worker.js`) |
-| `VITE_FEISHU_BASE_DOMAIN` | Feishu base domain suffix, defaults to `feishu.cn`; for private deployment, fill in the intranet domain (derives `open.<domain>`, etc.) |
-| `VITE_OPENAI_ALLOWED_HOSTS` | Large-model host allowlist (when set, CSP is also locked down → pure intranet) |
+| `VITE_OPENAI_ALLOWED_HOSTS` | Large-model host allowlist (when set, CSP is also locked down) |
 | `VITE_ALLOWED_CIDRS` | Device intranet CIDR gate |
 | `VITE_MAX_TOOL_CALLS` | Per-turn tool-call limit (default 30) |
 | `VITE_CLIP_ENABLED` | Web clipping toggle (on by default; set to `false` to ship without the clipping feature) |
@@ -139,8 +131,8 @@ The assistant **operates with the user's own user_access_token**, with all permi
 - **Never exceeds the user's identity**: AI cannot read documents the user cannot read; it does not fall back to the application (tenant) identity.
 - **No file-level deletion**: it never deletes an entire table / Sheet / document / cloud file; content-level deletion requires button confirmation.
 - **Injection defense**: the generic API uses a deny-by-default allowlist + hard blocking of messaging / contacts / permissions / ownership.
-- **Credential protection**: AES-256-GCM within storage; the App Secret supports three tiers — plaintext / password-encrypted / proxy.
-- **Outbound lockdown**: only accesses two kinds of endpoints, Feishu + the large model (code-layer allowlist + CSP, both; private deployment can be pure intranet).
+- **Credential protection**: AES-256-GCM within storage; the App Secret supports two tiers — plaintext / password-encrypted.
+- **Outbound lockdown**: only accesses two kinds of endpoints, Feishu + the large model (code-layer allowlist + CSP, both).
 
 See [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.en.md) for each item in detail.
 
@@ -156,7 +148,7 @@ When distributing your own build, please **generate your own signing key** and r
 openssl genrsa 2048 > my-extension-key.pem
 # 2) Take its public key (base64 DER) to replace the "key" field in manifest.json
 openssl rsa -in my-extension-key.pem -pubout -outform DER | openssl base64 -A
-# 3) Build the .crx with your private key (see docs/enterprise/DEPLOY.md)
+# 3) Build the .crx with your private key (chrome --pack-extension=dist --pack-extension-key=my-extension-key.pem)
 ```
 
 This way you have an independent extension ID and signing authority, and can roll out smooth updates yourself. **Never commit any `*.pem` / `.env.local` /
@@ -170,20 +162,17 @@ unlock passwords to the repo** (already in `.gitignore`).
 
 | Document | Contents |
 |---|---|
-| [`docs/index.html`](docs/index.html) | **Full doc site** (single HTML): overview / usage / deployment (personal · enterprise suite · store · private) / architecture / security / admin console / validation / FAQ |
+| [`docs/index.html`](docs/index.html) | **Full doc site** (single HTML): overview / usage / deployment (personal · store) / architecture / security / FAQ |
 | [`docs/QUICKSTART.md`](docs/QUICKSTART.en.md) | **Personal quick start**: configure Feishu app permissions → fill config → `npm run pack` one-click package → load & use (5 steps) |
 | [`docs/STORE_PUBLISHING.md`](docs/STORE_PUBLISHING.en.md) | **Publish to the Chrome Web Store**: no-credentials public build + user bring-your-own-app setup + submission checklist + review-risk mitigations |
 | [`PRIVACY.md`](PRIVACY.md) | **Privacy Policy** (bilingual): the privacy URL required for store submission, ready to host |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.en.md) | **Deployment guide**: quick start for enterprise / personal / private deployment (path selection + commands + variable cheat sheet) |
-| [`docs/PRIVATE_DEPLOYMENT.md`](docs/PRIVATE_DEPLOYMENT.en.md) | **Private-deployment specific**: complete solution for intranet / private Feishu (outbound lockdown / proxy / version rollback / verification checklist) |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.en.md) | **Deployment guide**: quick start for personal / store (path selection + commands + variable cheat sheet) |
 | [`docs/USER_GUIDE.md`](docs/USER_GUIDE.en.md) | **User guide**: full-feature walkthrough with text and images (includes screenshots) |
-| [`docs/FAQ.md`](docs/FAQ.en.md) | **FAQ**: troubleshooting for authentication / export / upgrade / private deployment |
+| [`docs/FAQ.md`](docs/FAQ.en.md) | **FAQ**: troubleshooting for authentication / export / upgrade |
 | [`CLAUDE.md`](CLAUDE.md) · [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.en.md) | **Development guide**: agent-oriented rapid iteration (loop / repo map / hard constraints / minefields) |
 | [`docs/PROJECT.md`](docs/PROJECT.en.md) | **All in one**: architecture / features / security / deployment / configuration |
 | [`ARCHITECTURE.md`](docs/ARCHITECTURE.en.md) | The deep end: module structure, tool inventory, field types, API real-world pitfalls, template engine internals |
 | [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.en.md) | Item-by-item security design audit + attack scenarios + fixes (includes App Secret / OAuth diagrams) |
-| [`docs/enterprise/DEPLOY.md`](docs/enterprise/DEPLOY.en.md) | Internal enterprise distribution (.crx + force install via Chrome policy, includes macOS `.mobileconfig`) |
-| [`docs/oauth-proxy/`](docs/oauth-proxy/README.en.md) · [`docs/oauth-proxy-server.mjs`](docs/oauth-proxy-server.mjs) | OAuth proxy: self-hosted Node (Docker/nginx) + Cloudflare version, secret does not enter the bundle |
 | [`.env.example`](.env.example) | All build-time configuration options |
 | [`CHANGELOG.md`](docs/CHANGELOG.md) | Version changelog |
 

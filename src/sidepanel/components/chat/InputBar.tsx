@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, KeyboardEvent, DragEvent, ChangeEvent } from 'react'
 import type { AppSettings, Attachment, DocRefAttachmentData, DocSelectionPayload, SessionKind } from '@/shared/types'
 import { fileToAttachment, validateAttachmentCount, tryAddSelectionAttachment, previewSelectionText, tryAddDocRefAttachment, resolveDocRefFromUrl, updateDocRefAttachment, getCachedSubTables, setCachedSubTables } from '@/shared/attachments'
-import { preloadSkills, type Skill } from '@/shared/ai/skills'
 import { loadUserSkills, type UserSkill } from '@/shared/ai/userSkills'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import { buildFeishuUrl } from '@/shared/feishu/pageUrl'
@@ -12,7 +11,7 @@ import type { RecentFile } from '../../services/recentFiles'
 import { displayName } from '../../services/recentFiles'
 import Tooltip from '../ui/Tooltip'
 import Dropdown from '../ui/Dropdown'
-import { IconPlus, IconUpload, IconBook, IconSparkle, IconTools, IconLink, KindIcon } from '../ui/icons'
+import { IconPlus, IconUpload, IconBook, IconTools, IconLink, KindIcon } from '../ui/icons'
 import IconButton from '../ui/IconButton'
 import './InputBar.css'
 
@@ -38,7 +37,8 @@ interface Props {
   /** The user's current page selection — auto-filled into the box so they can describe an
    *  edit right after selecting a field/cell. */
   selection?: string
-  /** Resource kind for skill preloading. */
+  /** Resource kind of the current page (base/sheet/doc/wiki). Used to gate auto-fill of selection
+   *  (doc/wiki use the selection button instead). */
   resourceKind?: string
   /** A doc selection staged for the next send (App drives this on SELECTION_INCOMING). Consumed once. */
   stagedSelection?: DocSelectionPayload | null
@@ -77,7 +77,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   const setText = (t: string) =>
     setDrafts((prev) => (prev[draftKey] === t ? prev : { ...prev, [draftKey]: t }))
   const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [skills, setSkills] = useState<Skill[]>([])
   const [plusOpen, setPlusOpen] = useState(false)
   const [userSkills, setUserSkills] = useState<UserSkill[]>([])
   const [slashOpen, setSlashOpen] = useState(false)
@@ -111,12 +110,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   textRef.current = text
   const lastInsertedRef = useRef('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Preload skills when resource kind changes
-  useEffect(() => {
-    if (!resourceKind) return
-    preloadSkills(resourceKind).then(setSkills)
-  }, [resourceKind])
 
   // Load user skills once for the "/" picker
   useEffect(() => { loadUserSkills().then(setUserSkills).catch(() => {}) }, [])
@@ -1071,24 +1064,6 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                   </span>
                   <span className="plus-menu-title">知识库</span>
                 </button>
-              )}
-              {skills.length > 0 && (
-                <div className="plus-menu-group" role="group" aria-label="技能建议">
-                  {skills.slice(0, 6).map((s) => (
-                    <button
-                      key={s.skillId}
-                      className="plus-menu-item"
-                      onClick={() => { insert(s.lesson || s.intent); setPlusOpen(false) }}
-                      type="button"
-                      role="menuitem"
-                    >
-                      <span className="plus-menu-icon plus-menu-icon--skill">
-                        <IconSparkle width={14} height={14} />
-                      </span>
-                      <span className="plus-menu-title">{s.intent}</span>
-                    </button>
-                  ))}
-                </div>
               )}
             </Dropdown>
           </div>

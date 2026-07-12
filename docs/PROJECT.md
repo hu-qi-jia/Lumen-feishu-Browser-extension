@@ -2,7 +2,7 @@
 
 # 飞书文档AI助手 — 项目总文档
 
-> 单文件权威参考。覆盖：项目概览 / 软件架构 / 实现功能 / 安全设计 / 支持场景 /
+> 单文件权威参考。覆盖：项目概览 / 软件架构 / 实现功能 / 安全设计 /
 > 二次开发 / 打包 / 部署 / 配置。
 > 配套：模块细节见 [ARCHITECTURE.md](ARCHITECTURE.md)，逐条安全审计见 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)。
 > 快照：2026-05-31。测试 177 passed / 32 skipped。
@@ -46,7 +46,7 @@ shared/
     tools.ts           50 个工具的 schema
   feishu/
     auth.ts            resolveToken（用户身份）/ getValidUserToken（自动续期）
-    oauth.ts           OAuth + 可选代理 requestToken
+    oauth.ts           OAuth 鉴权
     appSecret.ts       密码加密 secret 的运行时解锁
     http.ts api.ts     OpenAPI 封装（robustFetch + 出站守卫）
     sheets.ts docx.ts  电子表格 / 文档底层
@@ -105,7 +105,7 @@ harness/ dev/          离线测试驱动 / mock
 - **Auto 模式**：自动确认文档内的内容删除（行/字段/内容块/去重），不再逐次点确认；
   **文件级删除始终硬拦**，Auto 模式也不放开。默认关。
 - **语音输入** 🎤：浏览器语音识别(zh-CN)转文字填入输入框。⚠️ 走 Google 服务、音频外发，
-  故仅公网默认构建启用；私有化/锁定构建自动禁用。
+  故仅公网默认构建启用。
 
 ---
 
@@ -130,18 +130,17 @@ harness/ dev/          离线测试驱动 / mock
 - 批量操作原子性、部分失败 `partial_failure` 上报；写后按实际条数校验；写操作不重试 +
   创建去重（防重复建表/孤儿表）；`robustFetch` 30s 超时、GET 重试。
 
-### 4.4 凭据保护（App Secret 三模式）
+### 4.4 凭据保护（App Secret 两模式）
 | 模式 | 配置 | 包里 | 攻击者拿到包 |
 |---|---|---|---|
 | 个人·明文 | `VITE_FEISHU_APP_SECRET` | 明文 | 直接 grep ❌ |
 | 个人·加密 | `VITE_FEISHU_APP_SECRET_ENC`（`scripts/encrypt-secret.mjs` 生成） | 仅密文 | 需暴破密码（PBKDF2 210k）✅ |
-| 企业/私有化·代理 | `VITE_OAUTH_PROXY_URL`（见 `docs/oauth-proxy-worker.js`） | 无 secret | 拿不到 ✅✅ |
 - storage 内 token/secret 用 `crypto.ts` AES-256-GCM（PBKDF2(扩展ID+设备种子)）加密。
 - user token 自动续期（refresh_token 加密存储），长会话不掉线。
 
 ### 4.5 出站与网络锁定
 - **只访问两类端点**：飞书 + 大模型。代码层 `isFeishuOutboundAllowed`（基础域名子域）+
-  `assertSafeBaseUrl`（大模型）；CSP 层 `connect-src` 按部署锁定（私有化时去掉 `https:` 通配 → 纯内网）。
+  `assertSafeBaseUrl`（大模型）；CSP 层 `connect-src` 按部署锁定。
 - 模型端点白名单 `VITE_OPENAI_ALLOWED_HOSTS` 防对话/表格内容外泄。
 - 设备内网门 `VITE_ALLOWED_CIDRS`（本机 IP 不在范围则锁扩展）。
 - 显式 CSP：`script-src 'self'`（禁内联/eval）、`object-src/base-uri/frame-ancestors` 收紧。
@@ -149,49 +148,32 @@ harness/ dev/          离线测试驱动 / mock
 
 ---
 
-## 5. 支持场景（部署矩阵）
+## 5. 二次开发
 
-| | 个人 | 企业 SaaS | 私有化(on-prem) |
-|---|---|---|---|
-| App Secret | 明文或**密码加密** | 代理（不进包） | 代理（内网，不进包） |
-| `VITE_OAUTH_PROXY_URL` | — | ✓ | ✓（内网） |
-| `VITE_FEISHU_BASE_DOMAIN` | feishu.cn（默认） | 默认 | 内网域名（如 test.com） |
-| `VITE_OPENAI_ALLOWED_HOSTS` | — | 可选 | 内网大模型 |
-| connect-src 锁定 | `https:`（宽） | 可选 | 仅 `*.<域名>`+大模型（纯内网） |
-| `VITE_ALLOWED_CIDRS`（设备内网） | — | 可选 | ✓ |
-| 分发 | 手动加载/打包 | Chrome 企业策略强制安装 | 同左（内网） |
-
-私有化要点：**只换基础域名后缀**，`open.<域名>`/`accounts.<域名>`/`<租户>.<域名>` 全派生，
-API 路径与调用方式完全一致。
-
----
-
-## 6. 二次开发
-
-### 6.1 本地开发
+### 5.1 本地开发
 ```bash
 npm install
-cp .env.example .env.local     # 填配置（见 §9）
+cp .env.example .env.local     # 填配置（见 §8）
 npm run dev:ext                # 扩展开发模式（HMR），dist 加载到 chrome://extensions
 npm run dev:ui                 # 纯 UI 预览（mock chrome，不连飞书）
 npm run typecheck && npm run test
 ```
 
-### 6.2 加一个工具
+### 5.2 加一个工具
 1. `shared/ai/tools.ts` 加 schema（name/description/parameters）。
 2. `shared/ai/agent.ts` 的 `executeTool` 分发里加实现（或归类到 SHEET_TOOLS/DOC_TOOLS）。
 3. 底层调用走 `shared/feishu/api.ts`（Base）或 sheets/docx；**新增删除/写要纳入 §4 卡点**
    （破坏性进 `DESTRUCTIVE_TOOLS`，文件级进 `FILE_LEVEL_DELETE_TOOLS`，创建进 `CREATE_ONCE_TOOLS`）。
 4. 补单测。
 
-### 6.3 加一个模板
+### 5.3 加一个模板
 在 `shared/templates/builtin/` 仿 `crm.ts` 写 `ScenarioTemplate`，在 `builtin/index.ts` 导出。
 字段类型码见 ARCHITECTURE；关联/Lookup/公式字段跳过示例数据。或走远程 registry。
 
-### 6.4 加一个大模型厂商
+### 5.4 加一个大模型厂商
 `shared/providers.ts` 的 `LLM_PROVIDERS` 加条目（id/name/baseUrl/models/region）。
 
-### 6.5 测试约定
+### 5.5 测试约定
 - 纯逻辑/算子放 `*.test.ts`（vitest node）。
 - 组件用 `// @vitest-environment jsdom` + testing-library。
 - 需真机/网络的用例标 skip（live.test.ts），靠 harness/driver 离线跑。
@@ -199,7 +181,7 @@ npm run typecheck && npm run test
 
 ---
 
-## 7. 如何打包
+## 6. 如何打包
 
 ```bash
 # 个人·加密 secret（推荐）：
@@ -209,52 +191,41 @@ npm run build                            # 产物 dist/
 ```
 - `dist/` 即未打包扩展；`manifest.json` 的 `key` 固定 ID（各设备一致 → OAuth 重定向 URL 稳定）。
 - 验证：`grep -r <明文secret> dist/` 应**无结果**（加密构建明文不进包）。
-- 私有化/代理构建：设对应 env（§9）后 `npm run build`，`vite.config` 会按 env 把
-  `host_permissions`/`content_scripts`/`connect-src` 模板化。
 
 ---
 
-## 8. 如何部署
+## 7. 如何部署
 
-### 8.1 自测 / 小范围（加载未打包）
+### 7.1 自测 / 小范围（加载未打包）
 1. 拷 `dist/` 到目标机 → `chrome://extensions` → 开发者模式 → 「加载已解压的扩展程序」。
 2. 飞书后台一次性配：**安全设置 → 重定向 URL** 加 `https://<扩展ID>.chromiumapp.org/`（末尾斜杠）。
 3. 应用「测试中」阶段：目标账号需加为**测试成员**；scope 在应用后台开启一次。
 4. 侧边栏：解锁密钥（加密模式）→ 用飞书账号授权 → 填大模型 Key。
 
-### 8.2 给全员（10 万人）
-- **飞书应用**：创建版本 → 提交发布 → 管理员审核 → 设**可用范围**（全员/部门）→ 范围内所有人直接授权，
-  **无需逐个加测试成员**；scope/重定向 URL 只配一次。
-- **扩展分发**：Chrome 企业策略 **ExtensionInstallForcelist** 由 IT 统一强制安装，用户无需手动加载。
-- **去 secret**：用 OAuth 代理（`docs/oauth-proxy-worker.js`，设 `FEISHU_APP_ID/SECRET` 两个服务端 secret）。
-- **私有化**：基础域名设内网、`OPENAI_ALLOWED_HOSTS` 设内网大模型、代理设内网 → 纯内网出站。
-
 ---
 
-## 9. 如何配置
+## 8. 如何配置
 
-### 9.1 构建时（`.env.local`，全部可选；见 `.env.example`）
+### 8.1 构建时（`.env.local`，全部可选；见 `.env.example`）
 | 变量 | 作用 |
 |---|---|
 | `VITE_FEISHU_APP_ID` | 飞书 App ID |
-| `VITE_FEISHU_APP_SECRET` | 明文 secret（个人·明文；与下两者互斥取一） |
+| `VITE_FEISHU_APP_SECRET` | 明文 secret（个人·明文；与下者互斥取一） |
 | `VITE_FEISHU_APP_SECRET_ENC` | 密码加密的 secret（个人·加密；`scripts/encrypt-secret.mjs` 生成） |
-| `VITE_OAUTH_PROXY_URL` | OAuth 代理地址（企业/私有化，secret 不进包） |
 | `VITE_FEISHU_OAUTH_SCOPE` | 空格分隔 scope（bitable:app docx:document sheets:spreadsheet drive:drive wiki:wiki …） |
-| `VITE_FEISHU_BASE_DOMAIN` | 飞书基础域名后缀，默认 feishu.cn；私有化填内网域名 |
 | `VITE_OPENAI_ALLOWED_HOSTS` | 逗号分隔大模型 host 白名单（设了则 CSP 也锁死 → 纯内网） |
 | `VITE_ALLOWED_CIDRS` | 设备内网 CIDR 门（本机 IP 不在范围则锁扩展） |
 | `VITE_DEFAULT_REGISTRY_URL` | 默认远程模板库（生产禁 localhost） |
 
-### 9.2 运行时（侧边栏「设置」，不打包）
+### 8.2 运行时（侧边栏「设置」，不打包）
 - 大模型：厂商预设 / Base URL / API Key / Model（默认 DeepSeek）。
 - 飞书：解锁密码（加密模式）、用飞书账号授权（OAuth）、open_id、可选手填 user_access_token。
 - 强调色、模板库 URL 覆盖。
 - 开关：越用越聪明（默认开）、Auto 模式（默认关，含警告）、语音输入（默认开，仅公网构建可见）。
 
-### 9.3 安全约定（务必遵守）
+### 8.3 安全约定（务必遵守）
 - 凭据文件全部 gitignore：`.env.local`/`*token*.txt`/`feishu-app-config.txt`/`deepseek-*.txt`/
   `unlock-password.txt`/`extension-key.pem`/`*.zip`——**永不入库**。
 - 明文与加密 secret **只能留一个**（留明文等于没加密）。
 - 解锁密码无法找回（密钥从它派生）；丢了重跑 `encrypt-secret.mjs` 重打包。
-- L5（个人·明文模式 secret 在包内）是 MV3 无后端的固有限制，已用「加密 / 代理」两条路提供消除方案。
+- L5（个人·明文模式 secret 在包内）是 MV3 无后端的固有限制，已用加密路提供消除方案。

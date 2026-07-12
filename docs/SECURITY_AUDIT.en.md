@@ -40,127 +40,6 @@ and can reach documents the user has no access to, which is exactly the escalati
 
 ---
 
-## ★ App Secret & OAuth security model (illustrated)
-
-> Answers two common concerns: **① What if the App Secret leaks? ② On what basis does the proxy decide "who may use it"?**
-
-### 0. One-sentence conclusion
-
-- At runtime we **only use "the user's own user_access_token"** to operate Feishu (`resolveToken` does not fall back to tenant). The App Secret is **only used to exchange the OAuth token**, not as the operating identity.
-- **Afraid of a leak → use "proxy mode"**: the secret stays only on the server side; not a single byte ships in the extension package.
-- **What truly decides "who can authorize" = the Feishu admin console's "availability scope"** (all staff / department / designated people). The proxy itself only does "abuse prevention", not the primary authentication.
-- **Reduce the consequences of a leak → in the Feishu admin console, grant only "user identity" scopes, not "app identity"**: even if the secret leaks, the tenant token an attacker exchanges can read/write almost no data.
-
-### 1. Three deployment modes
-
-| Mode | Where the secret lives | Who can obtain the secret | Suitable for | Config |
-|---|---|---|---|---|
-| Direct · plaintext | Built into .crx, plaintext | Anyone who unpacks it 🔴 | Local debugging only | `VITE_FEISHU_APP_SECRET` |
-| Direct · password-encrypted | Built into .crx, AES-GCM ciphertext | Someone with the .crx **and** the unlock passphrase 🟡 | Personal / small team | `VITE_FEISHU_APP_SECRET_ENC` (see L5b) |
-| **Proxy (recommended for enterprises)** | **Only on your server** | **Nobody** (the client never gets it) 🟢 | Enterprise / on-premise | `VITE_OAUTH_PROXY_URL` (see below) |
-
-### 2. Proxy-mode security flowchart
-
-```
-┌───────────────────────┐   ① Click "Feishu Authorize"      ┌─────────────────────────────┐
-│   浏览器扩展 (.crx)     │ ─────────────────────────▶ │      飞书 OAuth 同意页         │  ◀── the real gate
-│   不含 App Secret      │                            │  · 校验「可用范围」(后台设定)   │     who can authorize is decided
-│   只有 client_id +      │ ◀── ② 授权 code ────────── │  · 用户登录 + 点「同意」         │     by Feishu + your availability
-│   redirect_uri          │   (一次性·短时·绑定该用户·    │  · 绑定固定 redirect_uri        │     scope, not by the proxy
-└──────────┬────────────┘    绑定 redirect_uri)        └─────────────────────────────┘
-           │ ③ POST { grant_type, code, redirect_uri, client_id }  (+optional X-Proxy-Key)
-           │    sends only "authorization material", never the secret
-           ▼
-┌──────────────────────────────────────────────────┐
-│  Your self-hosted proxy  docs/oauth-proxy-server.mjs │   ── abuse-prevention layer (not primary auth) ──
-│  · Origin lock chrome-extension://<extension ID>   │   · IP allowlist (corp egress/intranet, strong)
-│  · redirect_uri allowlist (prevents being a generic │   · per-IP rate limit
-│    code-exchange oracle)                            │   · optional shared key (deters casual abuse)
-│  · client_id check                                 │
-│  ★ injects client_secret —— only server-side, never sent down │
-└──────────┬───────────────────────────────────────┘
-           │ ④ POST { code, client_id, client_secret }
-           ▼
-┌──────────────────────┐
-│   Feishu token endpoint │ ── ⑤ returns "this user's own user_access_token" ──▶ proxy passes it back verbatim
-└──────────────────────┘                                              (proxy does not parse / store / log it)
-
-⑥ Afterward the extension uses the user_access_token to call Feishu read/write [directly] —— the proxy never handles any user data.
-```
-
-### 3. Threat matrix: attacker has X — what can they do?
-
-| Attacker has | Proxy mode | Password mode |
-|---|---|---|
-| Only the .crx (unpacked) | Gets client_id + proxy URL, **cannot get the secret** | Gets ciphertext + KDF params, must **brute-force the passphrase offline** |
-| .crx + proxy URL, hits the proxy directly | **Cannot exchange any token** (no valid code; even with a code it's only some user's own token — the proxy neither escalates privilege nor leaks) | — |
-| .crx + unlock passphrase | — | Gets the plaintext secret (→ see next row) |
-| **The App Secret itself (leaked)** | Can exchange a tenant token, but if scopes grant **user identity only** → can read/write almost no data; **rotating the secret invalidates it** | Same as left |
-| Someone else's .crx wants to read your data | No — they can only exchange **their own** token (≡ their own Feishu permissions) | Same as left |
-
-> Key point: **the proxy does not rely on "identifying whether a user can obtain the secret" for security (the secret is never sent down)**; it delegates "who may exchange a token" to Feishu OAuth consent + availability scope, and itself merely acts as a "non-leaking code-exchange relay + abuse prevention". **CORS is not strong authentication** (curl can bypass it); it only blocks cross-origin browser requests.
-
-### 4. Production-grade proxy (self-hosted, no Cloudflare needed)
-
-Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥18; a Cloudflare version `oauth-proxy-worker.js` is also available). Built in:
-
-- Origin lock `ALLOW_ORIGIN=chrome-extension://<extension ID>`, `redirect_uri` allowlist, `client_id` check;
-- **IP allowlist** `IP_ALLOWLIST` (IPv4/CIDR, strong control), per-IP **rate limit**, optional **shared key** `PROXY_SHARED_KEY` (matching the client-side `VITE_OAUTH_PROXY_KEY`, abuse-deterrent not a strong key);
-- request body size limit, `timingSafeEqual` for key comparison, secure response headers, **prints/persists no token/code/secret**, `/healthz`.
-
-### 5. Enterprise-grade deployment (no Cloudflare)
-
-"Who can call the proxy = who is a company employee" — delegate this to the **intranet + identity gateway**; the proxy is only a last-resort abuse guard:
-
-```
-扩展 ──HTTPS──▶ 公司反向代理(nginx) ──(127.0.0.1:8787)──▶ oauth-proxy-server.mjs ──▶ 飞书
-                    └─ 前置 SSO：oauth2-proxy / Authelia / 你司零信任网关（员工登录才放行）
-            或：本服务只绑内网、仅 VPN 可达，并设 IP_ALLOWLIST=公司出口/内网网段
-```
-
-- systemd / Docker examples are at the end of the `oauth-proxy-server.mjs` file. For multiple instances, replace the in-memory rate limit with Redis.
-- Inject the secret via `wrangler secret` / systemd `Environment=` / Docker secret / K8s Secret — **do not bake it into the image or repo**.
-
-### 6. Leak response
-
-1. **Reset the App Secret** in the Feishu admin console (the old one is immediately invalidated) → update the value in the proxy/build.
-2. Re-review scopes to ensure **only user identity is granted**; remove `im` / `contact:contact` / `transfer_owner` / `permissions` / `admin`.
-3. `feishu-app-config.txt` (plaintext) should be deleted right after use and never shared (already in `.gitignore`, never entered repo history).
-
----
-
-## ★ Enterprise managed LLM / policy / redaction security model
-
-> Enterprises can have the LLM config and unified policy **delivered via the proxy**, and redact outbound data. Core: **the company's LLM key never enters the .crx,
-> and is delivered only to this enterprise's Feishu members**. The personal edition is unaffected (everyone still configures their own). For config see [`oauth-proxy/README.en.md`](oauth-proxy/README.en.md) §5.
-
-### Identity gate (who can obtain the company config)
-- The client proves its identity to the proxy using **the user's own `user_access_token`**; the proxy calls Feishu `authen/v1/user_info`
-  to validate it + check that **`tenant_key == FEISHU_TENANT_KEY`**, and only then delivers `llm_config` / `policy`.
-- **Fail-CLOSED**: if `FEISHU_TENANT_KEY` is not set, delivery is **always refused** (preventing "any Feishu account can fetch the company key").
-- The proxy emits a structured **audit log** `[audit] <time> ip=… action=llm_config|policy user=<open_id> status=…` (no token/content).
-
-### Outbound data controls
-- **Redaction** (`VITE_LLM_REDACT`): masks phone numbers (incl. +86) / emails / ID-card numbers before sending to the LLM; applied to the one-shot generators
-  **as well as agent tool results + Base structure context** (the main outbound channel). Only modifies the copy sent to the model, never touches the original Feishu data.
-- **Outbound cap** (`VITE_LLM_MAX_PAYLOAD_CHARS`): truncates a single payload; smartfill uses non-truncated redaction so as not to break JSON that must be returned.
-- **Key in memory only** (`VITE_LLM_NO_PERSIST`): managed keys are never persisted, and are re-fetched each session.
-- **Per-user rate limit** (`LLM_LIMIT_PER_HOUR`): limits config-fetch count per open_id.
-
-### Policy delivery (fail-closed)
-- The proxy's `POLICY_AUTO_CONFIRM` / `POLICY_LEARN` / `POLICY_NOTICE` → the client **enforces and locks** the corresponding toggles.
-- When policy is unknown (no cache / proxy unreachable), it **defaults to tighter** behavior (no auto-confirming deletions); a proxy failure never relaxes controls.
-
-### Known residual & to-be-evaluated (recorded; decide later whether to do)
-1. **Bind to this specific app**: `tenant_key` already blocks **cross-tenant**; but within the same tenant, **a user token from another Feishu app** still passes
-   (this is an internal-member scenario with legitimate access by design). Fully binding would require token reverse-lookup or the gateway mode below.
-2. **LLM gateway mode**: currently the key is delivered to the client and the client calls the LLM directly; a more thorough approach is to have **LLM calls also go through the proxy**,
-   so the key never leaves the server side + metering/rate-limiting **per call** (current rate limiting only covers "config fetch"). This is a sizable change.
-3. **Managed-key rotation self-healing**: concurrency dedupe is added; on an LLM 401 the cache is not yet auto-cleared and re-fetched — the user must click "Re-fetch" in settings.
-4. **Redaction edge cases**: phone numbers with internal spaces/dashes, 15-digit legacy ID cards, and bank cards (no Luhn) are not covered; the regexes are conservative to avoid corrupting data.
-
----
-
 ## I. Critical
 
 ### S1 ✅ The generic `feishu_api_call` API tool was escalation-prone via injection — now locked down
@@ -250,9 +129,9 @@ Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥
 - **Risk**: base_url pointing at an arbitrary host means the entire conversation/table content could be exfiltrated (data leakage).
 - **Fix**: validate the base URL **right before runAgent actually sends the request** — tampering/misconfiguration **fails loudly** rather than silently exfiltrating:
   - reject empty/unparseable URLs;
-  - **enforce https://** (only localhost allows http, for a local proxy/harness);
-  - **optional enterprise hard lock**: if `VITE_OPENAI_ALLOWED_HOSTS` is set at build time, only these hosts (incl. subdomains) are allowed,
-    so the admin of a 100,000-person deployment can pin the endpoint; if unset, any https host is allowed, preserving the "custom OpenAI-compatible endpoint" feature.
+  - **enforce https://** (only localhost allows http, for a local harness);
+  - **optional hard lock**: if `VITE_OPENAI_ALLOWED_HOSTS` is set at build time, only these hosts (incl. subdomains) are allowed,
+    so the admin can pin the endpoint; if unset, any https host is allowed, preserving the "custom OpenAI-compatible endpoint" feature.
   - Settings gives a soft reminder for non-built-in vendor hosts (conversation content will be sent to this address).
 - **Tests**: `providers.test.ts` 5 cases (https enforcement, localhost exception, normalization, with/without enterprise allowlist).
 
@@ -289,16 +168,9 @@ Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥
 
 ## IV. Low / Known & accepted
 
-### L5 ✅ app_secret bundled into the frontend — "proxy mode" now lets you remove it entirely
+### L5 app_secret bundled into the frontend
 - **Location**: build injects `VITE_FEISHU_APP_SECRET` ｜ `oauth.ts` `requestToken()` ｜ `config.ts`
 - **Explanation**: the Feishu token endpoint still mandates `client_secret` even with PKCE, so a pure client cannot avoid exposing it.
-- **Solution**: added an **optional OAuth proxy mode** — if `VITE_OAUTH_PROXY_URL` is set at build time and the secret is **not** injected,
-  then code-to-token / refresh are POSTed to the proxy instead (the proxy server holds the secret, the client only sends the
-  authorization code / refresh_token), so **the secret no longer enters the package**. Reference implementation: **`oauth-proxy-server.mjs`**
-  (zero-dependency Node, self-hosted, no Cloudflare needed; built-in Origin lock / redirect allowlist / IP allowlist / rate limit / optional shared key);
-  a Cloudflare version `oauth-proxy-worker.js` is also available.
-- **Diagram + threat model + enterprise deployment**: see [★ App Secret & OAuth security model (illustrated)](#-app-secret--oauth-security-model-illustrated) above.
-- **Three deployments**: personal = direct with secret or **password-encrypted secret**; enterprise/on-premise = proxy mode (secret not in package). The owner chooses as needed.
 
 ### L5b ✅ Personal-mode secret hardening: password encryption + runtime unlock
 - **Location**: `scripts/encrypt-secret.mjs` ｜ `src/shared/feishu/appSecret.ts` ｜ Settings unlock UI
@@ -308,16 +180,6 @@ Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥
 - **Effect**: obtaining the public .crx yields only ciphertext + KDF params, requiring **offline brute-forcing of the password** (slowed by PBKDF2 210k),
   far beyond a plaintext grep. Obfuscation (minify + ciphertext, no plaintext string) is incidental and not a security boundary. A strong password is what matters.
 - **Tests**: `appSecret.test.ts` (password round-trip, wrong-password GCM failure, corrupted ciphertext), with actual verification that the encrypted build package has no plaintext.
-
-### M7 ✅ On-premise domain + outbound endpoint lock (pure intranet) — added
-- **Location**: `config.ts` (`feishuBaseDomain` + `isFeishuOutboundAllowed`) ｜ `vite.config.ts`
-  (`transformManifest`) ｜ `http.ts`/`api.ts` outbound guards
-- **On-premise**: all Feishu hosts are derived from a **single base domain** (`open.<domain>`/`accounts.<domain>`/
-  `<tenant>.<domain>`), configured once via `VITE_FEISHU_BASE_DOMAIN`; API paths and calls are exactly the same.
-- **Outbound lock (twofold)**: the assistant accesses only two kinds of endpoints — Feishu + the LLM.
-  - Code layer: `isFeishuOutboundAllowed` only allows subdomains of the base domain (+proxy), enforced by `feishuReq`/`req`; the LLM is gated by `assertSafeBaseUrl`.
-  - CSP layer: `vite.config` locks `connect-src`/`host_permissions`/`content_scripts` to `*.<domain>` + the pinned LLM host per env; when `VITE_OPENAI_ALLOWED_HOSTS` is set it **removes the `https:` wildcard → pure intranet**.
-- **Tests**: `config.test.ts` (subdomain allowed / suffix-spoofing rejected / endpoint derivation), with actual verification that an on-premise build's `connect-src` contains only intranet hosts.
 
 ### M8 ✅ Web Clipper — gesture-gated, doesn't break the outbound lock
 - **Location**: `background/index.ts` (`clipActiveTab`/`runCapture`) ｜ `shared/clip/capture.ts` (injected function) ｜
@@ -331,7 +193,7 @@ Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥
 - **Restricted pages**: `chrome://` / store / other extensions can't be injected → a friendly notice rather than a silent failure.
 - **Writing reuses existing checkpoints**: via `runAgent`'s `create_record`/`batch_create_records` → `resolveToken` (user identity),
   `assertApiCallAllowed`, file-level-delete prohibition, etc. are all inherited; clipping only inserts, and `requestConfirmation` always refuses delete.
-- **Enterprise governance**: `VITE_CLIP_ENABLED=false` can disable it entirely; `VITE_CLIP_MANAGED_DOMAINS` is a domain allowlist (enforced in v2).
+- **Governance**: `VITE_CLIP_ENABLED=false` can disable it entirely.
 - **Tests**: `capture.test.ts` (sensitive stripping / truncation / selection), `ClipPanel.test.tsx` (preview before send / unconfigured gating / restricted-page notice).
 
 ### M9 ✅ AI data visualization — sandboxed execution of LLM-generated code, doesn't break the outbound lock
@@ -378,8 +240,8 @@ Reference implementation: **`oauth-proxy-server.mjs`** (zero-dependency Node ≥
 
 ### L5-legacy ⚪ (historical) app_secret enters the package by default — still accepted in personal mode
 - **Location**: build injects `VITE_FEISHU_APP_SECRET`
-- **Explanation**: when an MV3 extension has no backend proxy, OAuth/tenant token exchange requires the client_secret, which inevitably enters the frontend package
-  and can be extracted by unpacking. Fully eliminating it requires introducing a backend proxy.
+- **Explanation**: when an MV3 extension has no backend, OAuth/tenant token exchange requires the client_secret, which inevitably enters the frontend package
+  and can be extracted by unpacking.
 - **Decision**: **the owner explicitly accepts this risk** (requiring "the tool to depend on as little as possible", no backend). Mitigations in place: the extension `key` pins the
   extension ID, all credential files are gitignored, credentials in storage are AES-256-GCM encrypted (per-device seed), etc., to lower actual exploitability.
 

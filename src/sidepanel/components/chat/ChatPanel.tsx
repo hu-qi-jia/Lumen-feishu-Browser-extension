@@ -22,7 +22,6 @@ import ConfirmDialog from './ConfirmDialog'
 import DocSelector from './DocSelector'
 import type { RecentFile } from '../../services/recentFiles'
 import { messagesForRetry } from '../../sessions/logic'
-import SkillSuggest from './SkillSuggest'
 import Tooltip from '../ui/Tooltip'
 import IconButton from '../ui/IconButton'
 import './ChatPanel.css'
@@ -498,14 +497,6 @@ export default function ChatPanel({
         if (!fields.length) return null
         return <FieldChips fields={fields} onPick={(t) => inputRef.current?.insert(t)} />
       })()}
-
-      {/* 主动推送：新会话时把社区高分做法做成 chip，点一下填进输入框（复核后再发）。
-          enterprise+proxy 才会有数据；store/BYO 无 proxy → 永远空 → 不渲染。 */}
-      <SkillSuggest
-        resourceKind={context.feishu?.kind ?? 'general'}
-        show={!disabled && !streaming && messages.length === 0}
-        onPick={(t) => inputRef.current?.insert(t)}
-      />
 
       <InputBar
         ref={inputRef}

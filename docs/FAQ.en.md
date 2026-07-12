@@ -45,35 +45,10 @@ Supported—it automatically resolves the Wiki to the real underlying table/doc 
 **Q: Does it send data to the LLM?**
 Only when executing a task you explicitly initiate does it send **necessary and capped** data to **the LLM you configured yourself**; generated code running in the sandbox has `connect-src 'none'`, so **even with the data it can't send anything out**.
 
-## Private Deployment
-
-**Q: Some operation in private deployment returns 404, but the feature should be supported?**
-Private Feishu versions often lag behind SaaS. The request layer **automatically falls back** `/<service>/vN/` → `v(N-1)` (see [`PRIVATE_DEPLOYMENT.md`](PRIVATE_DEPLOYMENT.en.md) §6). If it still 404s, that endpoint may not be available in your private version.
-
-**Q: LLM requests are rejected?**
-The private build locks `VITE_OPENAI_ALLOWED_HOSTS`; the Base URL must fall within the allowlist.
-
-**Q: Full-screen "Checking network access permission"?**
-`VITE_ALLOWED_CIDRS` is set but the browser (WebRTC mDNS) can't obtain the internal IP. Switch to gateway-level restriction, or adjust this config.
-
 ## Installation
 
 **Q: Dragging in the `.crx` won't install?**
-Regular Chrome blocks `.crx` installs from outside the store by default. For personal use, the most reliable path is **unzip the zip → Developer Mode → Load unpacked**; for enterprises, install via MDM policy (see [`enterprise/DEPLOY.md`](enterprise/DEPLOY.en.md)).
+Regular Chrome blocks `.crx` installs from outside the store by default. For personal use, the most reliable path is **unzip the zip → Developer Mode → Load unpacked**.
 
 **Q: Where do I enter the LLM Key?**
 Each user enters it themselves in **Settings** (OpenAI-compatible, DeepSeek by default); it's stored only on your machine, saved encrypted.
-
-## Enterprise Edition (centrally provisioned LLM)
-
-**Q: The company-issued build works even though I never entered an API Key?**
-The Enterprise Edition can have the LLM config centrally provisioned by the company: after you **authorize with your company Feishu account**, it's fetched automatically with no Key needed. In Settings, "LLM config source" can switch between "Enterprise unified / Manual" (admins may lock it to enterprise-unified only).
-
-**Q: I see "Your account does not belong to this enterprise, cannot fetch LLM config"?**
-Your Feishu account is not within the company app's availability scope/tenant. Re-authorize with your **company Feishu account**; if it still fails, ask the admin to add you to the availability scope.
-
-**Q: After the company changed the LLM key, I get errors?**
-Settings → "LLM config source" → click **Re-fetch** (clears the locally cached old config and pulls again).
-
-**Q: How does the admin configure this?**
-On the proxy set `LLM_BASE_URL/LLM_API_KEY/LLM_MODEL` + the **required `FEISHU_TENANT_KEY`**, and build the client with `VITE_LLM_FROM_PROXY=1`. See [`DEPLOYMENT.md` §3.4](DEPLOYMENT.en.md) and [`oauth-proxy/README.md` §5](oauth-proxy/README.en.md).

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings } from '@/shared/types'
 import FormSwitch from '../ui/FormSwitch'
 import { IconTrash } from '../ui/icons'
 import Tooltip from '../ui/Tooltip'
@@ -12,15 +11,11 @@ import { loadNewsSettings, saveNewsSettings } from '@/shared/news/store'
 import type { TranslationEngine } from '@/shared/news/types'
 import { clearRecipes, recipeCount } from '@/shared/ai/recipes'
 
-interface Props extends SettingsTabProps {
-  policyLocks: Set<keyof AppSettings>
-}
-
 const AUTO_CONFIRM_TIP = '删除文档行、字段、内容块及去重等操作不再确认。文件级删除始终拦截。'
 const TRANSLATION_TIP = 'Bing 翻译免费，AI 翻译使用已配置模型。翻译结果会缓存。'
 
 /** 通用 tab：删除自动确认、本地经验、GitHub Trending翻译。 */
-export default function GeneralTab({ form, patch, policyLocks }: Props) {
+export default function GeneralTab({ form, patch }: SettingsTabProps) {
   const [engine, setEngine] = useState<TranslationEngine>('bing')
   useEffect(() => { void loadNewsSettings().then((s) => setEngine(s.translationEngine)) }, [])
   const changeEngine = (value: string) => {
@@ -51,14 +46,10 @@ export default function GeneralTab({ form, patch, policyLocks }: Props) {
           <span className="settings-row-control">
             <FormSwitch
               checked={form.autoConfirm === true}
-              disabled={policyLocks.has('autoConfirm')}
               onChange={(checked) => patch({ autoConfirm: checked })}
             />
           </span>
         </div>
-        {policyLocks.has('autoConfirm') && (
-          <p className="field-hint">（由企业策略锁定）</p>
-        )}
       </SettingsSection>
 
       {/* ── 本地经验 ── */}
@@ -71,7 +62,6 @@ export default function GeneralTab({ form, patch, policyLocks }: Props) {
           <span className="settings-row-control">
             <FormSwitch
               checked={form.learnFromHistory !== false}
-              disabled={policyLocks.has('learnFromHistory')}
               onChange={(checked) => patch({ learnFromHistory: checked })}
             />
             <Tooltip content="清空学到的经验" position="bottom">
@@ -81,9 +71,6 @@ export default function GeneralTab({ form, patch, policyLocks }: Props) {
             </Tooltip>
           </span>
         </div>
-        {policyLocks.has('learnFromHistory') && (
-          <p className="field-hint">（由企业策略锁定）</p>
-        )}
       </SettingsSection>
 
       {/* ── GitHub Trending翻译 ── */}
