@@ -44,14 +44,21 @@ export function displayName(r: RecentFile): string {
  *  "unknown" so the no-clobber rule + the API backfill can replace them with a real name. */
 const PLACEHOLDER_TITLES = new Set(['未命名文档', '未命名表格', '未命名多维表格'])
 
+/** Session placeholder title pattern — `会话 xxxxxxxx…` (logic.ts ensureSession generates this
+ *  before the real doc name is resolved). It must NEVER reach the recent-files list as a stored
+ *  title, or the dropdown shows "会话XXXXX" entries that leak from session metadata. Match the
+ *  same regex used by logic.ts isPlaceholderTitle so the two stay in sync. */
+const SESSION_PLACEHOLDER_RE = /^会话\s.+…$/
+
 /** The real, stable name hidden in a raw title — '' when it's empty, a Feishu brand/loading
- *  string, OR one of our own placeholders. This is what we STORE (real-or-''); displayName()
- *  re-adds the placeholder at render time. Keeping "unknown" as '' in storage (rather than
- *  baking the placeholder in) is what lets a later real title overwrite it instead of sticking
- *  — the fix for "doc name disappears and never comes back". */
+ *  string, OR one of our own placeholders (incl. session placeholders). This is what we STORE
+ *  (real-or-''); displayName() re-adds the placeholder at render time. Keeping "unknown" as ''
+ *  in storage (rather than baking the placeholder in) is what lets a later real title overwrite
+ *  it instead of sticking — the fix for "doc name disappears and never comes back". */
 export function realRecentTitle(title: string): string {
   const cleaned = cleanDocTitle(title)
   if (!cleaned || PLACEHOLDER_TITLES.has(cleaned.trim())) return ''
+  if (SESSION_PLACEHOLDER_RE.test(cleaned.trim())) return ''
   return cleaned
 }
 
