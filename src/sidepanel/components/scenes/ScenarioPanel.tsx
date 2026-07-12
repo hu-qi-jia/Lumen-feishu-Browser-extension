@@ -42,7 +42,7 @@ type View =
 const stroke = { stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 const Svg = (d: React.ReactNode) => <svg viewBox="0 0 24 24" fill="none" {...stroke}>{d}</svg>
 const HUB_ICONS: Record<string, React.ReactNode> = {
-  chart: Svg(<><path d="M4 14a8 8 0 0 1 16 0" /><path d="M4 14h16" /><path d="M12 14l4.5-3.5" /><circle cx="12" cy="14" r="1.1" fill="currentColor" stroke="none" /></>),
+  chart: Svg(<><path d="M3 3v18h18" /><rect x="6.5" y="13" width="2.5" height="5" rx="0.5" /><rect x="11" y="10" width="2.5" height="8" rx="0.5" /><rect x="15.5" y="6" width="2.5" height="12" rx="0.5" /><path d="M6.5 9.5l4.5-2 4.5 1.2 3.5-3.2" /></>),
   slides: Svg(<><rect x="2" y="3" width="20" height="13" rx="2" /><path d="M12 16v4" /><path d="M8 21h8" /></>),
   file: Svg(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z" /><polyline points="14.5 2 14.5 7.5 20 7.5" /><path d="M8 13h8" /><path d="M8 17h6" /></>),
   table: Svg(<><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" /></>),
