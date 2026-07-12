@@ -14,8 +14,9 @@ import Button from '../ui/Button'
 import DocLinkField from '../session/DocLinkField'
 import Tooltip from '../ui/Tooltip'
 import IconButton from '../ui/IconButton'
-import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory } from '../ui/icons'
+import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory, IconDownload } from '../ui/icons'
 import { downloadSlidesHtml } from '@/shared/ai/slidesExport'
+import { downloadSlidesPptx } from '@/shared/ai/slidesExportPptx'
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getTheme } from '@/shared/ai/slidesThemes'
 import { ThemeThumb } from '../ui/ThemeThumb'
 import { ImagePicker } from '../ui/ImagePicker'
@@ -231,6 +232,15 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
     catch (e) { setErrMsg(errText(e)) }
   }
 
+  /** 导出 PPTX — 用 PptxGenJS 生成 .pptx 文件（可在 PowerPoint/Keynote/WPS 中编辑）。
+   *  pptxgenjs 动态加载，导出期间禁用其他操作。 */
+  async function exportPptx() {
+    if (!last.current || busy) return
+    setErrMsg(''); setStatus('正在生成 PPTX…')
+    try { await downloadSlidesPptx(last.current.slides, last.current.name, getTheme(themeId), images); setStatus('已导出 PPTX 文件') }
+    catch (e) { setErrMsg(errText(e)); setStatus('') }
+  }
+
   // Reopen a saved deck WITHOUT regenerating.
   async function openSaved(d: SavedDeck) {
     if (busy) return
@@ -373,6 +383,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
             <div className="sl-export-row">
               <Button icon={<IconCode />} onClick={exportHtml}>导出 HTML</Button>
               <Button icon={<IconFileText />} onClick={exportPdf}>导出 PDF</Button>
+              <Button icon={<IconDownload />} onClick={exportPptx} disabled={busy}>导出 PPTX</Button>
             </div>
 
             {/* Image-pool visibility post-generation: shows which page each image landed on via
