@@ -146,6 +146,7 @@ export default defineConfig(({ command, mode }) => {
       sourcemap: command === 'serve', // sourcemaps in dev, stripped in prod
       minify: command === 'build',
       target: 'esnext',
+      emptyOutDir: true, // 清理 dist 中不再使用的旧产物（如重命名/删除依赖后的残留 chunk）
     },
   }
 })
