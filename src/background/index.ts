@@ -220,8 +220,18 @@ async function refreshNewsSource(source: NewsSourceId): Promise<void> {
     if (source === 'github') {
       const items = await fetchGitHubTrending(settings.githubSince)
       // Apply cached translations (instant — no API call) so previously-translated
-      // descriptions show up on refresh. The user clicks the translate button for new ones.
+      // descriptions show up on refresh.
       await applyTranslationCache(items).catch(() => {})
+      // Auto-translate cache misses when the user has enabled translation. Previously the
+      // user had to click the translate button for every new item; if the SW was asleep or
+      // Bing was rate-limited at that moment, translation silently failed. Auto-translating
+      // during refresh means most items are already translated by the time the user sees
+      // the list — the translate button becomes a retry for stragglers. GitHub trending
+      // changes slowly, so typically only 1-3 new items need translation per refresh.
+      if (settings.translationEngine !== 'off') {
+        const app = settings.translationEngine === 'ai' ? await loadSettingsBg() : null
+        await translateDescriptions(settings.translationEngine, items, app ?? undefined).catch(() => {})
+      }
       await saveNewsCacheEntry('github', { items, fetchedAt: Date.now() })
     } else {
       const items = await fetchWeiboHotSearch()

@@ -71,6 +71,22 @@ describe('translateViaBing', () => {
     expect(result).toEqual([])
     expect(mockFetch).not.toHaveBeenCalled()
   })
+
+  it('falls back to one-by-one when batch gets 429 twice', async () => {
+    // Auth succeeds once; token is cached for subsequent calls.
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('token') }) // auth
+      .mockResolvedValueOnce({ ok: false, status: 429 }) // batch attempt 1 → 429
+      .mockResolvedValueOnce({ ok: false, status: 429 }) // batch attempt 2 → 429
+      // One-by-one: item 1 succeeds, item 2 fails twice → undefined
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ translations: [{ text: '翻译一' }] }]) })
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+
+    const result = await translateViaBing(['desc1', 'desc2'])
+    expect(result[0]).toBe('翻译一')
+    expect(result[1]).toBeUndefined()
+  })
 })
 
 describe('translateViaAI', () => {

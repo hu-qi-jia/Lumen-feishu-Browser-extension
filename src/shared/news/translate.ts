@@ -35,37 +35,53 @@ async function getBingToken(): Promise<string> {
   return token
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
 /**
  * Translate a batch of English texts to zh-Hans via Bing. Returns translations in the same
- * order as the input. The Bing API accepts up to 100 texts per request and 10000 chars total;
- * 25 short GitHub descriptions fit easily. Throws on HTTP/parse failure (caller falls back
- * to English).
+ * order as the input. The Bing API accepts up to 100 texts per request and 10000 chars total.
  *
- * On 429 (rate limit) the batch request is retried one-by-one with a short delay — slower
- * but completes instead of leaving all descriptions untranslated.
+ * The free Edge endpoint aggressively rate-limits (429) — even a 2-item batch can be throttled
+ * if recent requests are too close. Strategy:
+ *   1. Try the full batch.
+ *   2. On 429, wait 1.5s and retry the batch once (transient throttle).
+ *   3. If still throttled, fall back to one-by-one with 500ms spacing and per-item 429 retry.
+ * This is slower than a single batch but reliably completes instead of leaving all
+ * descriptions untranslated.
  */
 export async function translateViaBing(texts: string[]): Promise<(string | undefined)[]> {
   if (texts.length === 0) return []
+  // First attempt: full batch.
   try {
     return await bingTranslateBatch(texts)
   } catch (e) {
-    // 429 rate-limit → fall back to one-by-one so a single throttled batch request doesn't
-    // kill the entire translation. Each sub-request gets its own error boundary.
-    if (e instanceof Error && e.message.includes('429')) {
-      const results: (string | undefined)[] = []
-      for (const t of texts) {
-        try {
-          const r = await bingTranslateBatch([t])
-          results.push(r[0])
-        } catch {
-          results.push(undefined)
-        }
-        await new Promise((r) => setTimeout(r, 200))
-      }
-      return results
-    }
-    throw e
+    if (!(e instanceof Error && e.message.includes('429'))) throw e
   }
+  // Second attempt: wait and retry the batch once (transient throttle).
+  await sleep(1500)
+  try {
+    return await bingTranslateBatch(texts)
+  } catch (e) {
+    if (!(e instanceof Error && e.message.includes('429'))) throw e
+  }
+  // Final fallback: one-by-one with spacing + per-item retry. Each item gets its own
+  // error boundary so one failure doesn't kill the rest.
+  const results: (string | undefined)[] = []
+  for (const t of texts) {
+    let translated: string | undefined
+    for (let attempt = 0; attempt < 2 && translated === undefined; attempt++) {
+      try {
+        const r = await bingTranslateBatch([t])
+        translated = r[0]
+      } catch {
+        // 429 or other error — wait and retry once, then give up on this item.
+        if (attempt === 0) await sleep(1000)
+      }
+    }
+    results.push(translated)
+    await sleep(500) // spacing to avoid triggering 429 on the next item
+  }
+  return results
 }
 
 /** Single Bing translate API call (batch). Handles 401 token refresh internally. */

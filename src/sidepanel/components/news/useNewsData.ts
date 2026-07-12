@@ -93,10 +93,11 @@ export function useNewsData() {
     try {
       // Race the SW response against a timeout: if the SW was terminated mid-translate
       // (MV3 lifecycle) or never responds, the Promise would otherwise hang forever,
-      // leaving the button stuck in loading and all subsequent clicks ignored.
+      // leaving the button stuck in loading and all subsequent clicks ignored. 60s
+      // accommodates Bing's 429 one-by-one fallback (25 items × ~1s each).
       const resp = await Promise.race([
         chrome.runtime.sendMessage({ type: 'NEWS_TRANSLATE' }) as Promise<RefreshResp>,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 30_000)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 60_000)),
       ])
       if (resp?.ok && resp.cache) {
         setCache(resp.cache)
