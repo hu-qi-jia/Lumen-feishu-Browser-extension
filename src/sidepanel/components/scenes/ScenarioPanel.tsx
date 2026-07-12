@@ -38,19 +38,16 @@ type View =
   | { mode: 'skill' }
   | { mode: 'knowledgeBase' }
 
-// ── Hub icons (iOS / SF Symbols style line icons) ──────────────────────────
-const stroke = { stroke: 'currentColor', strokeWidth: '1.6', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+// ── Hub icons (Lucide / Phosphor style — unified geometric line set, 1.5 stroke) ──
+const stroke = { stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 const Svg = (d: React.ReactNode) => <svg viewBox="0 0 24 24" fill="none" {...stroke}>{d}</svg>
 const HUB_ICONS: Record<string, React.ReactNode> = {
-  chart: Svg(<><rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="7" width="4" height="14" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" /></>),
-  report: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="12" y2="17" /></>),
-  audit: Svg(<><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></>),
-  summary: Svg(<><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="4" cy="6" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r=".8" fill="currentColor" stroke="none" /></>),
-  slides: Svg(<><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /><polyline points="6 10 10 14 14 10 18 14" /></>),
-  camera: Svg(<><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></>),
-  file: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><polyline points="9 15 12 12 15 15" /></>),
-  book: Svg(<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>),
-  skill: Svg(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>),
+  chart: Svg(<><path d="M3 21h18" /><rect x="5.5" y="13" width="3" height="7" rx="0.75" /><rect x="10.5" y="9" width="3" height="11" rx="0.75" /><rect x="15.5" y="5" width="3" height="15" rx="0.75" /></>),
+  slides: Svg(<><rect x="2" y="3" width="20" height="13" rx="2" /><path d="M12 16v4" /><path d="M8 21h8" /></>),
+  file: Svg(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z" /><polyline points="14.5 2 14.5 7.5 20 7.5" /><path d="M8 13h8" /><path d="M8 17h6" /></>),
+  table: Svg(<><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" /></>),
+  skill: Svg(<><path d="M12 3l2 7 7 2-7 2-2 7-2-7-7-2 7-2z" /></>),
+  book: Svg(<><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></>),
 }
 
 export default function ScenarioPanel({ settings, context, disabled, onGoToSettings, recentFiles, onRemoveRecent, resolveWikiKind, resolveWikiNode }: Props) {
@@ -72,15 +69,15 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
     type Grp = { key: string; label: string; requires: 'table' | 'doc' | 'any' | 'content'; feats: Feat[] }
     const groups: Grp[] = [
       { key: 'page', label: '数据可视化', requires: 'any', feats: [
-        { icon: 'chart', title: 'AI 看板', desc: '一句话将表格转为图表、报表、看板', go: () => setView({ mode: 'dataviz' }) },
+        { icon: 'chart', title: 'AI 看板', desc: '表格数据生成图表看板', go: () => setView({ mode: 'dataviz' }) },
       ] },
       { key: 'slides', label: '演示文稿', requires: 'content', feats: [
         { icon: 'slides', title: 'PPT 生成', desc: '将文档或表格数据转为演示 PPT', go: () => setView({ mode: 'slides' }) },
       ] },
 
       { key: 'pdf', label: '内容转写', requires: 'any', feats: [
-        { icon: 'file', title: 'PDF 格式转换', desc: 'PDF 转换为可编辑的 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
-        { icon: 'file', title: '表格文件转写', desc: '导入 CSV/TSV/TXT，AI 整理后写入飞书文档或表格', go: () => setView({ mode: 'fileImport' }) },
+        { icon: 'file', title: 'PDF 格式转换', desc: 'PDF 转 Markdown', go: () => setView({ mode: 'pdfTranscribe' }) },
+        { icon: 'table', title: '表格文件转写', desc: 'CSV/TSV 写入飞书文档', go: () => setView({ mode: 'fileImport' }) },
       ] },
     ]
     // 'content' (PPT) works on a doc OR a table, so it's active whenever the page is either (and on
