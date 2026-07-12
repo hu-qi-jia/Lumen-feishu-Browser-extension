@@ -3,7 +3,6 @@ import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
 import { HAS_KNOWLEDGE_BASE } from '@/shared/config'
 import HubCard from '../shell/HubCard'
 import DataVizPanel from './DataVizPanel'
-import SmartFillPanel from './SmartFillPanel'
 import SlidesPanel from './SlidesPanel'
 import PdfTranscribePanel from './PdfTranscribePanel'
 import FileImportPanel from './FileImportPanel'
@@ -31,7 +30,6 @@ interface Props {
 type View =
   | { mode: 'hub' }
   | { mode: 'dataviz' }
-  | { mode: 'smartfill' }
   | { mode: 'slides' }
   | { mode: 'pdfTranscribe' }
   | { mode: 'fileImport' }
@@ -43,7 +41,6 @@ const stroke = { stroke: 'currentColor', strokeWidth: '1.6', strokeLinecap: 'rou
 const Svg = (d: React.ReactNode) => <svg viewBox="0 0 24 24" fill="none" {...stroke}>{d}</svg>
 const HUB_ICONS: Record<string, React.ReactNode> = {
   chart: Svg(<><rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="7" width="4" height="14" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" /></>),
-  sparkle: Svg(<path d="M12 2l1.8 5.5 5.7.3-4.3 3.2 1.4 5.5L12 13l-4.6 3.5 1.4-5.5-4.3-3.2 5.7-.3z" />),
   report: Svg(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="12" y2="17" /></>),
   audit: Svg(<><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></>),
   summary: Svg(<><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="4" cy="6" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r=".8" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r=".8" fill="currentColor" stroke="none" /></>),
@@ -74,9 +71,6 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
     const groups: Grp[] = [
       { key: 'page', label: '数据可视化', requires: 'table', feats: [
         { icon: 'chart', title: 'AI 看板', desc: '一句话将表格转为图表、报表、看板', go: () => setView({ mode: 'dataviz' }) },
-      ] },
-      { key: 'enrich', label: '数据分析', requires: 'table', feats: [
-        { icon: 'sparkle', title: '智能填充', desc: 'AI 推断并补全空缺的列数据', go: () => setView({ mode: 'smartfill' }) },
       ] },
       { key: 'slides', label: '演示文稿', requires: 'content', feats: [
         { icon: 'slides', title: 'PPT 生成', desc: '将文档或表格数据转为演示 PPT', go: () => setView({ mode: 'slides' }) },
@@ -156,10 +150,6 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
 
   if (view.mode === 'dataviz') {
     return <DataVizPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
-  }
-
-  if (view.mode === 'smartfill') {
-    return <SmartFillPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
   }
 
   if (view.mode === 'slides') {

@@ -637,9 +637,8 @@ export async function executeTool(
   }
 
   // Smart fill — preview (read-only) and apply (write). Source resolved from current page,
-  // so dispatched before the Base app_token guard. Wraps the same buildPlan/applyPlan the
-  // dedicated SmartFillPanel uses, giving the chat agent the same key-mapping + type-coercion
-  // + write-back-re-read safety guarantees.
+  // so dispatched before the Base app_token guard. Wraps buildPlan/applyPlan, giving the chat
+  // agent the same key-mapping + type-coercion + write-back-re-read safety guarantees.
   if (name === 'smart_fill_preview') {
     if (!settings) return 'Error: 缺少配置。'
     const f = context.feishu

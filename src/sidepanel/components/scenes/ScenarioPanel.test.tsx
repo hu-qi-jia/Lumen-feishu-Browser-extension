@@ -25,7 +25,6 @@ describe('ScenarioPanel — feature hub', () => {
     const { container } = render(<ScenarioPanel settings={settings} context={baseCtx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
     expect(groupOf(container, '数据可视化').className).not.toContain('sc-hub-group--dim')
-    expect(groupOf(container, '数据分析').className).not.toContain('sc-hub-group--dim')
     expect(groupOf(container, '演示文稿').className).not.toContain('sc-hub-group--dim')
     expect(container.querySelector('.sc-hub-group--dim')).toBeFalsy()
   })
@@ -35,7 +34,6 @@ describe('ScenarioPanel — feature hub', () => {
     const { container } = render(<ScenarioPanel settings={settings} context={docCtx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
     expect(groupOf(container, '数据可视化').className).toContain('sc-hub-group--dim')
-    expect(groupOf(container, '数据分析').className).toContain('sc-hub-group--dim')
     expect(groupOf(container, '演示文稿').className).not.toContain('sc-hub-group--dim')
   })
 
