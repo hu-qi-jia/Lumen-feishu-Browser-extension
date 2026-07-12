@@ -57,6 +57,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   const [sourceData, setSourceData] = useState<DocRefAttachmentData | null>(null)
   const [subItems, setSubItems] = useState<{ id: string; name: string }[]>([])
   const [subDropdownOpen, setSubDropdownOpen] = useState(false)
+  const [subLoading, setSubLoading] = useState(false)
   const [resolving, setResolving] = useState(false)
 
   const [request, setRequest] = useState('')
@@ -70,6 +71,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   const [canSave, setCanSave] = useState(false)
   const [hasGen, setHasGen] = useState(false)
   const subDropdownRef = useRef<HTMLDivElement>(null)
+  const prefetchRef = useRef(new Set<string>())
 
   useEffect(() => { loadVizList().then((all) => setList(all)) }, [])
 
@@ -89,6 +91,61 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     () => recentFiles.filter((f) => f.kind === 'sheet' || f.kind === 'base' || f.kind === 'wiki'),
     [recentFiles],
   )
+
+  // Prefetch sub-table lists for recent table files in the background so that
+  // picking a recent table feels instant. Fire-and-forget; failures are ignored.
+  useEffect(() => {
+    if (disabled || !tableRecentFiles.length) return
+    void (async () => {
+      const userToken = await resolveToken(settings).catch(() => undefined)
+      if (!userToken) return
+      const direct = tableRecentFiles.filter(
+        (f) => (f.kind === 'sheet' || f.kind === 'base') && !getCachedSubTables(f.token) && !prefetchRef.current.has(f.token),
+      )
+      const wikis = tableRecentFiles.filter(
+        (f) => f.kind === 'wiki' && resolveWikiNode && !getCachedSubTables(f.token) && !prefetchRef.current.has(f.token),
+      )
+      direct.forEach((f) => {
+        prefetchRef.current.add(f.token)
+        void (async () => {
+          try {
+            if (f.kind === 'sheet') {
+              const res = await listSheets(userToken, f.token) as {
+                sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+              }
+              setCachedSubTables(f.token, (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+            } else {
+              const res = await listTables(userToken, f.token) as {
+                items?: Array<{ table_id: string; name: string }>
+              }
+              setCachedSubTables(f.token, (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name })))
+            }
+          } catch { /* 单个失败不影响其他 */ }
+        })()
+      })
+      wikis.forEach((f) => {
+        prefetchRef.current.add(f.token)
+        void (async () => {
+          try {
+            const resolved = await resolveWikiNode!(f.token)
+            if (!resolved || (resolved.kind !== 'sheet' && resolved.kind !== 'base')) return
+            if (getCachedSubTables(resolved.docToken)) return
+            if (resolved.kind === 'sheet') {
+              const res = await listSheets(userToken, resolved.docToken) as {
+                sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+              }
+              setCachedSubTables(resolved.docToken, (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+            } else {
+              const res = await listTables(userToken, resolved.docToken) as {
+                items?: Array<{ table_id: string; name: string }>
+              }
+              setCachedSubTables(resolved.docToken, (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name })))
+            }
+          } catch { /* 单个失败不影响其他 */ }
+        })()
+      })
+    })()
+  }, [disabled, tableRecentFiles, resolveWikiNode, settings])
 
   // Build a fake page-context from the selected source for scope matching.
   const sourceCtx = sourceData ? {
@@ -145,6 +202,17 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
       setErrMsg('AI 看板仅支持多维表格和电子表格')
       return
     }
+    // Show the source card immediately so the UI feels responsive; sub-tables load in the background.
+    setSourceData(data)
+    setSubItems([])
+    setSubLoading(true)
+    setSubDropdownOpen(false)
+    setLinkInput('')
+    setErrMsg('')
+    last.current = null
+    setHasGen(false)
+    setCanSave(false)
+    setStatus('')
     try {
       const items = await fetchSubTables(data)
       if (items.length === 0) { setErrMsg('该表格没有子表'); return }
@@ -157,15 +225,10 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         : { ...data, tableId: sel.id, tableName: sel.name }
       setSourceData(updated)
       setSubItems(items)
-      setLinkInput('')
-      setErrMsg('')
-      // Reset generation state — new source.
-      last.current = null
-      setHasGen(false)
-      setCanSave(false)
-      setStatus('')
     } catch (e) {
       setErrMsg(errText(e))
+    } finally {
+      setSubLoading(false)
     }
   }
 
@@ -372,13 +435,19 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
               className="dv-source-card__sub"
               onClick={() => setSubDropdownOpen((o) => !o)}
               type="button"
-              disabled={busy}
+              disabled={busy || subLoading}
             >
               <span className="dv-source-card__sub-label">{sourceData.kind === 'sheet' ? '工作表' : '数据表'}</span>
-              <span className="dv-source-card__sub-name" title={sourceData.sheetName || sourceData.tableName}>{sourceData.sheetName || sourceData.tableName || '全部子表'}</span>
-              <svg className="dv-source-card__sub-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+              <span className="dv-source-card__sub-name">
+                {subLoading
+                  ? '读取子表中…'
+                  : (sourceData.sheetName || sourceData.tableName || '全部子表')}
+              </span>
+              {!subLoading && (
+                <svg className="dv-source-card__sub-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              )}
             </button>
             {subDropdownOpen && (
               <div className="dv-subtable-popup" role="listbox">

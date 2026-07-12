@@ -422,6 +422,24 @@ export async function resolveDocRefFromUrl(
       kind = realKind
       token = n.obj_token
       const title = (n.title ?? '').trim()
+      // Pre-fetch sub-tables for the resolved sheet/base so the picker opens instantly.
+      if ((kind === 'sheet' || kind === 'base') && userToken) {
+        void (async () => {
+          try {
+            if (kind === 'sheet') {
+              const res = await listSheets(userToken, token) as {
+                sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+              }
+              setCachedSubTables(token, (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title })))
+            } else {
+              const res = await listTables(userToken, token) as {
+                items?: Array<{ table_id: string; name: string }>
+              }
+              setCachedSubTables(token, (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name })))
+            }
+          } catch { /* 缓存预热失败不致命 */ }
+        })()
+      }
       return {
         kind,
         docToken: token,
@@ -448,15 +466,38 @@ export async function resolveDocRefFromUrl(
 
   const userToken = await resolveToken(settings).catch(() => undefined)
   let title = ''
-  if (userToken) title = await fetchResourceTitle(kind, token, userToken)
-
-  // 多维表格若已从 URL 拿到 tableId，回填表名（listTables 后取匹配项），失败则只保留 id。
   let baseTableName: string | undefined
-  if (kind === 'base' && baseTableId && userToken) {
-    try {
-      const res = await listTables(userToken, token) as { items?: Array<{ table_id: string; name: string }> }
-      baseTableName = res.items?.find((t) => t.table_id === baseTableId)?.name
-    } catch { /* 保留 id 即可，名字可后补 */ }
+  if (userToken) {
+    // 拉取标题和子表列表并行执行，子表缓存后下游选择器可直接命中。
+    const titlePromise = fetchResourceTitle(kind, token, userToken)
+    const subPromise: Promise<{ id: string; name: string }[] | undefined> = (async () => {
+      if (kind === 'sheet') {
+        try {
+          const res = await listSheets(userToken, token) as {
+            sheets?: Array<{ sheet_id: string; title: string; index?: number }>
+          }
+          const items = (res.sheets ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((s) => ({ id: s.sheet_id, name: s.title }))
+          setCachedSubTables(token, items)
+          return items
+        } catch { return undefined }
+      }
+      if (kind === 'base') {
+        try {
+          const res = await listTables(userToken, token) as {
+            items?: Array<{ table_id: string; name: string }>
+          }
+          const items = (res.items ?? []).map((t) => ({ id: t.table_id, name: t.name }))
+          setCachedSubTables(token, items)
+          return items
+        } catch { return undefined }
+      }
+      return undefined
+    })()
+    const [t, subItems] = await Promise.all([titlePromise, subPromise])
+    title = t
+    if (kind === 'base' && baseTableId && subItems) {
+      baseTableName = subItems.find((it) => it.id === baseTableId)?.name
+    }
   }
 
   return {
