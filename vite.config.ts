@@ -59,7 +59,22 @@ export default defineConfig(({ command, mode }) => {
   return {
     envDir, // honor PKG_ENV_DIR for Vite's own .env loading (hermetic packaging builds)
     resolve: {
-      alias: { '@': resolve(__dirname, 'src') },
+      alias: {
+        '@': resolve(__dirname, 'src'),
+        // pptxgenjs declares Node-only deps (fs/https/path/...) as `browser:false`, which Vite
+        // replaces with its built-in `__vite-browser-external.js` stub. Chrome extensions reject
+        // filenames starting with "_", so alias each to an empty module of our own.
+        fs: resolve(__dirname, 'src/shared/empty-module.ts'),
+        'node:fs': resolve(__dirname, 'src/shared/empty-module.ts'),
+        https: resolve(__dirname, 'src/shared/empty-module.ts'),
+        'node:https': resolve(__dirname, 'src/shared/empty-module.ts'),
+        path: resolve(__dirname, 'src/shared/empty-module.ts'),
+        'node:path': resolve(__dirname, 'src/shared/empty-module.ts'),
+        os: resolve(__dirname, 'src/shared/empty-module.ts'),
+        'node:os': resolve(__dirname, 'src/shared/empty-module.ts'),
+        express: resolve(__dirname, 'src/shared/empty-module.ts'),
+        'image-size': resolve(__dirname, 'src/shared/empty-module.ts'),
+      },
     },
     plugins: [
       react(),
