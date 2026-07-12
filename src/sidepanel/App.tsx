@@ -398,7 +398,7 @@ export default function App() {
                   }}
                 />
               ) : (
-                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} onGoToSettings={() => setTab('settings')} />
+                <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} resolveWikiNode={resolveWikiNode} onGoToSettings={() => setTab('settings')} />
               )}
             </div>
           </main>

@@ -1,4 +1,4 @@
-import type { AppSettings, PageContext } from '../types'
+import type { AppSettings, PageContext, DocRefAttachmentData } from '../types'
 import { resolveToken } from '../feishu/auth'
 import { fetchBaseCtx } from '../feishu/context'
 import { fetchAllRecords, cellToString } from '../feishu/compose'
@@ -99,6 +99,39 @@ export async function deriveVizSource(
     const sid = s?.sheet_id || s?.sheetId
     if (!sid) return null
     return { kind: 'sheet', spreadsheetToken: feishu.spreadsheetToken, range: sheetRange(sid, s?.grid_properties, 2000) }
+  }
+  return null
+}
+
+/**
+ * Derive a viz source from a resolved DocRefAttachmentData (selected via link/recent picker).
+ * Reuses the same logic as deriveVizSource but works from a manually-selected doc instead of
+ * the page context. For sheet, fetches listSheets to find the selected sheet's grid_properties
+ * (or falls back to the first sheet). For base, uses the selected tableId or fetches the first.
+ */
+export async function deriveVizSourceFromDocRef(
+  settings: AppSettings,
+  data: DocRefAttachmentData,
+): Promise<VizSource | null> {
+  const token = await resolveToken(settings)
+  if (data.kind === 'base' && data.docToken) {
+    let tableId = data.tableId
+    if (!tableId) {
+      const ctx = await fetchBaseCtx(token, data.docToken)
+      tableId = ctx.currentTableId || ctx.tables[0]?.tableId
+    }
+    return tableId ? { kind: 'base', appToken: data.docToken, tableId } : null
+  }
+  if (data.kind === 'sheet' && data.docToken) {
+    const meta = (await listSheets(token, data.docToken)) as {
+      sheets?: Array<{ sheet_id?: string; sheetId?: string; grid_properties?: { row_count?: number; column_count?: number } }>
+    }
+    const s = data.sheetId
+      ? meta.sheets?.find((sh) => sh.sheet_id === data.sheetId || sh.sheetId === data.sheetId)
+      : meta.sheets?.[0]
+    const sid = s?.sheet_id || s?.sheetId
+    if (!sid) return null
+    return { kind: 'sheet', spreadsheetToken: data.docToken, range: sheetRange(sid, s?.grid_properties, 2000) }
   }
   return null
 }

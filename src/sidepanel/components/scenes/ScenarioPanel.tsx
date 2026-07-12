@@ -25,6 +25,8 @@ interface Props {
   /** Resolve a wiki-wrapped resource to its real kind, forwarded to SlidesPanel's source dropdown
    *  so wiki-Base/Sheet rows show the right type icon. Optional. */
   resolveWikiKind?: (wikiToken: string) => Promise<SessionKind | undefined>
+  /** Resolve a wiki node to its real kind + obj_token. Reuses the shared cache. */
+  resolveWikiNode?: (wikiToken: string) => Promise<{ kind: SessionKind; docToken: string } | undefined>
 }
 
 type View =
@@ -51,7 +53,7 @@ const HUB_ICONS: Record<string, React.ReactNode> = {
   skill: Svg(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>),
 }
 
-export default function ScenarioPanel({ settings, context, disabled, onGoToSettings, recentFiles, onRemoveRecent, resolveWikiKind }: Props) {
+export default function ScenarioPanel({ settings, context, disabled, onGoToSettings, recentFiles, onRemoveRecent, resolveWikiKind, resolveWikiNode }: Props) {
   const [view, setView] = useState<View>({ mode: 'hub' })
 
   // ── Hub (feature launcher — the 场景 tab landing) ──────────────────────────
@@ -69,7 +71,7 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
     // 'content' = works on a doc OR a table (e.g. 幻灯片/PPT).
     type Grp = { key: string; label: string; requires: 'table' | 'doc' | 'any' | 'content'; feats: Feat[] }
     const groups: Grp[] = [
-      { key: 'page', label: '数据可视化', requires: 'table', feats: [
+      { key: 'page', label: '数据可视化', requires: 'any', feats: [
         { icon: 'chart', title: 'AI 看板', desc: '一句话将表格转为图表、报表、看板', go: () => setView({ mode: 'dataviz' }) },
       ] },
       { key: 'slides', label: '演示文稿', requires: 'content', feats: [
@@ -149,7 +151,7 @@ export default function ScenarioPanel({ settings, context, disabled, onGoToSetti
   }
 
   if (view.mode === 'dataviz') {
-    return <DataVizPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} />
+    return <DataVizPanel settings={settings} context={context} disabled={disabled} onBack={() => setView({ mode: 'hub' })} recentFiles={recentFiles} onRemoveRecent={onRemoveRecent} resolveWikiKind={resolveWikiKind} resolveWikiNode={resolveWikiNode} />
   }
 
   if (view.mode === 'slides') {
