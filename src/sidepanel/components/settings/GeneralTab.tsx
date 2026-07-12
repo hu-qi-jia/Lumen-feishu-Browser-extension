@@ -53,19 +53,19 @@ export default function GeneralTab({ form, patch }: SettingsTabProps) {
       </SettingsSection>
 
       {/* ── 本地经验 ── */}
-      <SettingsSection title={<TitleWithHelp title="本地经验" tip={`任务成功后在本机提炼执行经验（不含表格/文档数据），相似任务自动参考。最多 300 条，已积累 ${recipeN ?? '…'} 条。`} />}>
+      <SettingsSection title={<TitleWithHelp title="本地经验" tip={`任务成功后在本机提炼可复用经验（仅记录任务描述与工具名称，不含文档/表格数据），新任务自动匹配相似经验作为参考。上限 300 条，当前 ${recipeN ?? '…'} 条。`} />}>
         <div className="settings-row">
           <div className="settings-row-main">
-            <span className="settings-row-title">记住成功经验</span>
-            <span className="settings-row-desc">相似任务自动参考历史经验</span>
+            <span className="settings-row-title">经验积累</span>
+            <span className="settings-row-desc">完成后自动提炼经验，相似任务自动复用</span>
           </div>
           <span className="settings-row-control">
             <FormSwitch
               checked={form.learnFromHistory !== false}
               onChange={(checked) => patch({ learnFromHistory: checked })}
             />
-            <Tooltip content="清空学到的经验" position="bottom">
-              <IconButton aria-label="清空学到的经验" onClick={() => void handleClearRecipes()}>
+            <Tooltip content="清空经验库" position="bottom">
+              <IconButton aria-label="清空经验库" onClick={() => void handleClearRecipes()}>
                 <IconTrash />
               </IconButton>
             </Tooltip>
@@ -87,14 +87,6 @@ export default function GeneralTab({ form, patch }: SettingsTabProps) {
               ariaLabel="GitHub 描述翻译引擎"
             />
           </span>
-        </div>
-      </SettingsSection>
-
-      {/* ── 场景模板 ── */}
-      <SettingsSection title="场景模板">
-        <div className="settings-field">
-          <span className="settings-field-label">可用模板</span>
-          <span className="settings-field-desc">内置 CRM、电商、项目管理系统等常用模板，也可通过「模板库地址」接入自定义模板库。</span>
         </div>
       </SettingsSection>
     </>
