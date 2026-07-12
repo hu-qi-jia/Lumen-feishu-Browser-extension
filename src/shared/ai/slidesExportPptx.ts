@@ -389,10 +389,13 @@ const safeName = (name: string): string =>
 /**
  * 导出 PPTX 文件。pptxgenjs 动态加载，调用时才进 bundle。
  *
- * 注意：不使用 pptx.writeFile()——它内部用 isNode 检测决定输出类型，Vite 构建可能
- * 注入 process polyfill 导致误判为 Node 环境，用 nodebuffer 类型生成 ZIP（浏览器不
- * 支持），文件损坏。改用 pptx.write({ outputType: 'blob' }) 直接获取 Blob，自己
- * 触发下载（与 HTML 导出相同的 createObjectURL + <a download> 方式）。
+ * 关键修复：
+ *  1. 加载 pptxgenjs 前临时清除 process.versions.node / process.release.name，
+ *     强制其内部的 isNode 检测返回 false。否则 Vite 注入的 process polyfill 会让
+ *     pptxgenjs 误判为 Node 环境，走 fs/https 分支（已被 alias 到空模块），
+ *     导致图片编码失败、生成的 PPTX 损坏（PowerPoint 无法打开）。
+ *  2. 用 pptx.write({ outputType: 'blob' }) 直接获取 Blob，自己触发下载，
+ *     绕过 writeFile 内部的 isNode 检测（会错误地用 nodebuffer 类型）。
  *
  * @param slides Slide[]（与 HTML 导出同一份数据）
  * @param name 文件名（不含扩展名）
@@ -408,30 +411,44 @@ export async function downloadSlidesPptx(
   const data = (Array.isArray(slides) ? slides : []).filter(Boolean)
   if (data.length === 0) return
 
-  // 动态加载 pptxgenjs（按需 chunk，不进主 bundle）
-  const PptxGenJSClass: PptxGenJS = (await import('pptxgenjs')).default
-  const pptx = new PptxGenJSClass()
-  pptx.layout = 'LAYOUT_WIDE' // 13.33" × 7.5"，16:9
-  pptx.author = '飞书文档 AI 助手'
-  pptx.company = ''
-  pptx.subject = name || '演示文稿'
-  pptx.title = name || '演示文稿'
+  // 临时移除 process.versions.node 和 process.release.name，强制 isNode=false
+  const savedVersionsNode = (globalThis as any).process?.versions?.node
+  const savedReleaseName = (globalThis as any).process?.release?.name
+  if ((globalThis as any).process?.versions) (globalThis as any).process.versions.node = undefined
+  if ((globalThis as any).process?.release) (globalThis as any).process.release.name = undefined
 
-  const total = data.length
-  data.forEach((s, i) => {
-    const slide = pptx.addSlide()
-    renderSlide({ pptx, slide, s, theme, images }, name || '演示文稿', i, total)
-  })
+  try {
+    // 动态加载 pptxgenjs（按需 chunk，不进主 bundle）
+    const PptxGenJSClass: PptxGenJS = (await import('pptxgenjs')).default
+    const pptx = new PptxGenJSClass()
+    pptx.layout = 'LAYOUT_WIDE' // 13.33" × 7.5"，16:9
+    pptx.author = '飞书文档 AI 助手'
+    pptx.company = ''
+    pptx.subject = name || '演示文稿'
+    pptx.title = name || '演示文稿'
 
-  // 直接获取 Blob，绕过 writeFile 的 isNode 检测
-  const blob = await pptx.write({ outputType: 'blob' }) as Blob
-  // 自己触发下载（与 downloadSlidesHtml 相同的方式）
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${safeName(name)}.pptx`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+    const total = data.length
+    data.forEach((s, i) => {
+      const slide = pptx.addSlide()
+      renderSlide({ pptx, slide, s, theme, images }, name || '演示文稿', i, total)
+    })
+
+    // 直接获取 Blob，绕过 writeFile 的 isNode 检测
+    const blob = await pptx.write({ outputType: 'blob' }) as Blob
+    // 自己触发下载（与 downloadSlidesHtml 相同的方式）
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${safeName(name)}.pptx`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } finally {
+    // 恢复原始值，避免影响其他代码
+    if ((globalThis as any).process?.versions && savedVersionsNode !== undefined)
+      (globalThis as any).process.versions.node = savedVersionsNode
+    if ((globalThis as any).process?.release && savedReleaseName !== undefined)
+      (globalThis as any).process.release.name = savedReleaseName
+  }
 }
