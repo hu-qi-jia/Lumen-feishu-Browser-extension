@@ -389,6 +389,11 @@ const safeName = (name: string): string =>
 /**
  * 导出 PPTX 文件。pptxgenjs 动态加载，调用时才进 bundle。
  *
+ * 注意：不使用 pptx.writeFile()——它内部用 isNode 检测决定输出类型，Vite 构建可能
+ * 注入 process polyfill 导致误判为 Node 环境，用 nodebuffer 类型生成 ZIP（浏览器不
+ * 支持），文件损坏。改用 pptx.write({ outputType: 'blob' }) 直接获取 Blob，自己
+ * 触发下载（与 HTML 导出相同的 createObjectURL + <a download> 方式）。
+ *
  * @param slides Slide[]（与 HTML 导出同一份数据）
  * @param name 文件名（不含扩展名）
  * @param theme 主题（默认 business）
@@ -418,5 +423,15 @@ export async function downloadSlidesPptx(
     renderSlide({ pptx, slide, s, theme, images }, name || '演示文稿', i, total)
   })
 
-  await pptx.writeFile({ fileName: `${safeName(name)}.pptx` })
+  // 直接获取 Blob，绕过 writeFile 的 isNode 检测
+  const blob = await pptx.write({ outputType: 'blob' }) as Blob
+  // 自己触发下载（与 downloadSlidesHtml 相同的方式）
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${safeName(name)}.pptx`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
