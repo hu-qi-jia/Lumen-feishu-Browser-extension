@@ -114,7 +114,7 @@ export function useWikiResolve(
       const n = res.node
       if (!n) return undefined
       const f = wikiToFeishu(n.obj_type, n.obj_token)
-      if (!f) return undefined
+      if (!f?.kind) return undefined
       wikiCacheRef.current.set(wikiToken, { ...f, wikiToken })
       const tok = f.kind === 'base' ? f.appToken : f.kind === 'sheet' ? f.spreadsheetToken : f.documentId
       return tok ? { kind: f.kind, docToken: tok } : undefined

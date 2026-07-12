@@ -29,12 +29,13 @@ describe('ScenarioPanel — feature hub', () => {
     expect(container.querySelector('.sc-hub-group--dim')).toBeFalsy()
   })
 
-  it('on a Doc page, table-feature groups are dimmed but content/any groups stay active', () => {
+  it('on a Doc page, AI 看板 stays active (manual table selection) and content groups stay active', () => {
     const docCtx: PageContext = { url: '', title: '', selectedText: '', feishu: { isBase: false, kind: 'doc', documentId: 'd' } }
     const { container } = render(<ScenarioPanel settings={settings} context={docCtx} disabled={false} recentFiles={[]} onGoToSettings={() => {}} />)
     expect(container.querySelector('.sc-hub-title')?.textContent).toBe('应用')
-    expect(groupOf(container, '数据可视化').className).toContain('sc-hub-group--dim')
+    expect(groupOf(container, '数据可视化').className).not.toContain('sc-hub-group--dim')
     expect(groupOf(container, '演示文稿').className).not.toContain('sc-hub-group--dim')
+    expect(container.querySelector('.sc-hub-group--dim')).toBeFalsy()
   })
 
   it('off a Feishu resource, nothing is dimmed (we can\'t tell what the page is)', () => {

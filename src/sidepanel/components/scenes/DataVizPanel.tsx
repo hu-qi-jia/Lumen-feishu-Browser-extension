@@ -357,27 +357,29 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
           </div>
         ) : (
           <div className="dv-source-card" ref={subDropdownRef}>
-            <span className="dv-source-icon">
-              <KindIcon kind={sourceData.kind} />
-            </span>
-            <span className="dv-source-name" title={sourceData.docTitle}>{sourceData.docTitle || '未命名'}</span>
-            <span className="dv-source-divider" aria-hidden="true" />
+            <div className="dv-source-card__top">
+              <span className="dv-source-card__icon">
+                <KindIcon kind={sourceData.kind} />
+              </span>
+              <span className="dv-source-card__name" title={sourceData.docTitle}>{sourceData.docTitle || '未命名'}</span>
+              <Tooltip content="更换数据源">
+                <button className="dv-source-card__remove" onClick={clearSource} disabled={busy} type="button" aria-label="更换数据源">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+              </Tooltip>
+            </div>
             <button
-              className="dv-source-subtable"
+              className="dv-source-card__sub"
               onClick={() => setSubDropdownOpen((o) => !o)}
               type="button"
               disabled={busy}
             >
-              <span>{sourceData.sheetName || sourceData.tableName || '全部子表'}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <span className="dv-source-card__sub-label">{sourceData.kind === 'sheet' ? '工作表' : '数据表'}</span>
+              <span className="dv-source-card__sub-name" title={sourceData.sheetName || sourceData.tableName}>{sourceData.sheetName || sourceData.tableName || '全部子表'}</span>
+              <svg className="dv-source-card__sub-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
-            <Tooltip content="更换数据源">
-              <button className="dv-source-remove" onClick={clearSource} disabled={busy} type="button" aria-label="更换数据源">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </Tooltip>
             {subDropdownOpen && (
               <div className="dv-subtable-popup" role="listbox">
                 {subItems.map((it) => {
@@ -414,20 +416,22 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
               rows={3}
               disabled={disabled || busy}
             />
-            <Button variant="primary" block onClick={() => generate(false)} disabled={disabled || busy || !request.trim()}>
-              {busy ? '处理中…' : hasGen ? '重新生成' : '生成并展示'}
-            </Button>
-            {hasGen && (
-              <Button block onClick={() => generate(true)} disabled={disabled || busy || !request.trim()}>
-                按上面文字微调（只改你说的那处）
+            <div className="dv-actions">
+              <Button variant="primary" block onClick={() => generate(false)} disabled={disabled || busy || !request.trim()}>
+                {busy ? '处理中…' : hasGen ? '重新生成' : '生成并展示'}
               </Button>
-            )}
-            {canSave && (
-              <Button block onClick={save} disabled={busy}>保存为「我的小程序」</Button>
-            )}
-            {hasGen && (
-              <Button block onClick={newDraft} disabled={busy}>新建一个</Button>
-            )}
+              {hasGen && (
+                <Button block onClick={() => generate(true)} disabled={disabled || busy || !request.trim()}>
+                  按上面文字微调（只改你说的那处）
+                </Button>
+              )}
+              {canSave && (
+                <Button block onClick={save} disabled={busy}>保存为「我的小程序」</Button>
+              )}
+              {hasGen && (
+                <Button block onClick={newDraft} disabled={busy}>新建一个</Button>
+              )}
+            </div>
           </>
         )}
 

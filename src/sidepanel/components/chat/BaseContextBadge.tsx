@@ -85,6 +85,7 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
     const el = tabsRef.current
     if (!el) return
     function onWheel(e: WheelEvent) {
+      if (!el) return
       // Only intercept when the wheel is primarily vertical (standard mouse wheel) —
       // trackpads with horizontal scroll (deltaX) are left alone.
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -93,6 +94,7 @@ export default function BaseContextBadge({ ctx, loading, error, settings, onRefr
       }
     }
     function updateOverflow() {
+      if (!el) return
       const { scrollLeft, scrollWidth, clientWidth } = el
       setTabsOverflow({
         left: scrollLeft > 1,
