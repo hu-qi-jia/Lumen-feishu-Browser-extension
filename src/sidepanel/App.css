@@ -113,25 +113,40 @@
   gap: 5px;
 }
 
-/* ── Setup banner ── */
+/* ── Setup banner (Snackbar style) ── */
 .setup-banner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px;
-  background: linear-gradient(180deg, #fff6df 0%, #fff8e8 100%);
+  justify-content: space-between;
+  gap: 12px;
+  width: calc(100% - 24px);
+  margin: 12px auto 0;
+  padding: 12px 14px;
+  background: #1f1f1f;
   border: none;
-  border-bottom: 1px solid #ffe7a8;
-  color: #946a00;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.5;
   cursor: pointer;
-  transition: filter .15s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
+  transition: transform .15s ease, box-shadow .15s ease;
   flex-shrink: 0;
 }
-.setup-banner:hover { filter: brightness(.98); }
+.setup-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .22);
+}
+.setup-banner__text {
+  text-align: left;
+  flex: 1;
+}
+.setup-banner__action {
+  flex-shrink: 0;
+  color: #93b8ff;
+  font-weight: 600;
+  font-size: 12.5px;
+}
 
 /* ── Splash / loading ── */
 .app-splash {
@@ -260,10 +275,11 @@
 [data-theme="dark"] .app-header,
 [data-theme="dark"] .app-tabs { background: rgba(26, 27, 29, .7); }
 [data-theme="dark"] .setup-banner {
-  background: linear-gradient(180deg, #2a2410 0%, #221e0d 100%);
-  border-bottom-color: #4a4020;
-  color: #e3c168;
+  background: #2a2a2a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+  color: #ffffff;
 }
+[data-theme="dark"] .setup-banner__action { color: #a8c6ff; }
 /* dark fixes for hardcoded light fills across components */
 [data-theme="dark"] .md-code { background: rgba(255, 255, 255, .12); }
 [data-theme="dark"] .builtin-badge { background: #16291b; border-color: #285033; }

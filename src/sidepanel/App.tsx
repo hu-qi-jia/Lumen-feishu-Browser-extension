@@ -28,18 +28,6 @@ import './Scrollbar.css'
 
 type NetworkState = 'checking' | 'allowed' | 'blocked'
 
-// Inline info icon for the setup/warning banners — keeps banners on the app's inline-SVG
-// icon style (no emoji / text-as-icon).
-function InfoIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  )
-}
-
 export default function App() {
   const { theme, setTheme, accent, setAccent } = useThemeAccent()
   const { settings, saveSettings } = useAppSettings()
@@ -322,25 +310,22 @@ export default function App() {
         <div className="app-content">
           {!configured && tab !== 'settings' && (
             <button className="setup-banner" onClick={() => setTab('settings')}>
-              <InfoIcon />
-              <span>请先配置 API 密钥</span>
-              <span>→</span>
+              <span className="setup-banner__text">请在设置页中完成模型配置和飞书配置</span>
+              <span className="setup-banner__action">去设置</span>
             </button>
           )}
 
           {configured && needsOwner && !ownerConfigured && tab !== 'settings' && (
             <button className="setup-banner" onClick={() => setTab('settings')}>
-              <InfoIcon />
-              <span>请先用飞书账号授权（获取 open_id），否则无法新建/操作内容</span>
-              <span>→</span>
+              <span className="setup-banner__text">请先用飞书账号授权（获取 open_id），否则无法新建/操作内容</span>
+              <span className="setup-banner__action">去授权</span>
             </button>
           )}
 
           {authExpired && tab !== 'settings' && (
             <button className="setup-banner" onClick={() => setTab('settings')}>
-              <InfoIcon />
-              <span>飞书登录已失效，请重新登录后再使用</span>
-              <span>→</span>
+              <span className="setup-banner__text">飞书登录已失效，请重新登录后再使用</span>
+              <span className="setup-banner__action">重新登录</span>
             </button>
           )}
 
@@ -384,7 +369,7 @@ export default function App() {
                   stagedSelection={stagedSelection}
                   onStagedConsumed={() => setStagedSelection(null)}
                   workDocToken={workDocToken}
-                  kbEnabled={sessions.activeSession?.kbEnabled !== false}
+                  kbEnabled={sessions.activeSession?.kbEnabled === true}
                   onToggleKb={(on: boolean) => {
                     const id = sessions.activeSession?.id
                     if (id) sessions.setKbEnabled(id, on)
