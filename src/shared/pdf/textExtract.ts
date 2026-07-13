@@ -81,24 +81,14 @@ function mostFrequent<T>(arr: T[]): T {
  * 检测一行是否可能是表格行。
  * 与 layout.ts 的 isTableRow 保持一致逻辑，但这里用于段落合并前的预检测。
  *
- * 两种模式：
- *   1. 2+ 空格分隔的多列
- *   2. 单空格分隔的短词序列（>= 4 个短词，每个 <= 12 字符）
+ * 仅按 2+ 空格分隔检测多列（单空格短词序列不可靠，会误判中文标题/英文标题）。
  */
 function isTableRowLike(text: string): boolean {
   if (LIST_START.test(text) || NUM_HEADING.test(text)) return false
   if (TABLE_TITLE_RE.test(text)) return false
   const trimmed = text.trim()
   if (!trimmed) return false
-  // 模式 1：2+ 空格分隔
-  if (trimmed.split(/\s{2,}/).filter((s) => s.length > 0).length >= 2) return true
-  // 模式 2：单空格分隔的短词序列
-  const words = trimmed.split(/\s+/).filter((w) => w.length > 0)
-  if (words.length >= 4) {
-    const shortWords = words.filter((w) => w.length <= 12)
-    if (shortWords.length / words.length >= 0.8) return true
-  }
-  return false
+  return trimmed.split(/\s{2,}/).filter((s) => s.length > 0).length >= 2
 }
 
 /**

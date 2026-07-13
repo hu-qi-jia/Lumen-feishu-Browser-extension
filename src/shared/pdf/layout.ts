@@ -46,9 +46,10 @@ const TABLE_TITLE_RE = /^表\s*\d+[-－‐]\s*\d+/
 /**
  * 检测一行是否可能是表格行。
  *
- * 两种模式：
- *   1. 2+ 空格分隔的多列（原始检测）
- *   2. 单空格分隔的短词序列（>= 4 个短词，每个 <= 12 字符）——覆盖表3-1/表6-1 等列间单空格表格
+ * 仅按 2+ 空格分隔检测多列。单空格分隔的短词序列不可靠——
+ * 中文 PDF 常在字间插入空格（如"作 者 胡起嘉"），英文标题
+ * 也是单空格短词序列（如"Lightweight Design and Service System"），
+ * 这些都不是表格行。
  *
  * 排除：列表行、数字编号标题行、表格标题行（表 X-Y ...）
  */
@@ -58,28 +59,15 @@ function isTableRow(text: string): boolean {
   const trimmed = text.trim()
   if (!trimmed) return false
 
-  // 模式 1：2+ 空格分隔
-  const cols = splitIntoColumns(trimmed)
-  if (cols.length >= 2) return true
-
-  // 模式 2：单空格分隔的短词序列
-  const words = trimmed.split(/\s+/).filter((w) => w.length > 0)
-  if (words.length >= 4) {
-    const shortWords = words.filter((w) => w.length <= 12)
-    // 80% 以上的词是短词 → 可能是表格
-    if (shortWords.length / words.length >= 0.8) return true
-  }
-  return false
+  // 2+ 空格分隔的多列
+  return splitIntoColumns(trimmed).length >= 2
 }
 
-/** 将表格行组转为 Markdown pipe 表格。 */
+/** 将表格行组转为 Markdown pipe 表格。仅按 2+ 空格分列；无 2+ 空格的行整行作为单个单元格。 */
 function rowsToTable(rows: TextLine[]): string {
-  // 每行尝试分列：优先 2+ 空格，否则单空格
   const colRows = rows.map((r) => {
     const multi = splitIntoColumns(r.text)
-    if (multi.length >= 2) return multi
-    // 降级为单空格分列
-    return r.text.trim().split(/\s+/).filter((w) => w.length > 0)
+    return multi.length >= 2 ? multi : [r.text.trim()]
   })
   const maxCols = Math.max(...colRows.map((r) => r.length))
   const aligned = colRows.map((r) => {
