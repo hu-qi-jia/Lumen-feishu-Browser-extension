@@ -116,17 +116,68 @@ export function normalizeFormulaChars(md: string): string {
   result = result.replace(/[\u{1D482}-\u{1D49B}]/gu, (c) => String.fromCharCode(c.charCodeAt(0) - 0x1D482 + 0x61))
   // ∆ (U+2206) → Δ
   result = result.replace(/\u{2206}/gu, 'Δ')
+  // ── Mathematical Greek（U+1D6FC-U+1D71B）→ 希腊字母 ──
+  // 数学斜体希腊小写: α(U+1D6FC) β(U+1D6FD) γ(U+1D6FE) δ(U+1D6FF) ε(U+1D700) θ(U+1D703)
+  // λ(U+1D706) μ(U+1D707) ν(U+1D708) π(U+1D70B) ρ(U+1D70C) σ(U+1D70E) τ(U+1D70F) φ(U+1D711) ω(U+1D714)
+  // 数学斜体希腊大写: Γ(U+1D6E2) Δ(U+1D6E3) Θ(U+1D6E9) Λ(U+1D6EC) Ω(U+1D6F0)
+  const greekMap: Record<string, string> = {
+    '\u{1D6FC}': 'α', '\u{1D6FD}': 'β', '\u{1D6FE}': 'γ', '\u{1D6FF}': 'δ',
+    '\u{1D700}': 'ε', '\u{1D703}': 'θ', '\u{1D706}': 'λ', '\u{1D707}': 'μ',
+    '\u{1D708}': 'ν', '\u{1D70B}': 'π', '\u{1D70C}': 'ρ', '\u{1D70E}': 'σ',
+    '\u{1D70F}': 'τ', '\u{1D711}': 'φ', '\u{1D714}': 'ω',
+    '\u{1D6E2}': 'Γ', '\u{1D6E3}': 'Δ', '\u{1D6E9}': 'Θ', '\u{1D6EC}': 'Λ', '\u{1D6F0}': 'Ω',
+  }
+  for (const [from, to] of Object.entries(greekMap)) {
+    result = result.split(from).join(to)
+  }
   return result
 }
 
 /**
+ * 清理目录中的点线引导符。
+ * 如 "摘 要 ........... I" → "摘 要 I"
+ * 匹配行内连续 5+ 个点（含中间空格）。
+ */
+export function dropTocDotLeaders(md: string): string {
+  if (!md) return ''
+  return md
+    .split('\n')
+    .map((line) => line.replace(/\s*\.{5,}\s*/g, ' '))
+    .join('\n')
+}
+
+/**
+ * 合并参考文献中被拆行的 URL。
+ * 如 "http://xxx.com/\n2009-7-1" → "http://xxx.com/2009-7-1"
+ * 仅在 [EB/OL] 引用项中合并 URL 行与紧接的日期行。
+ */
+export function mergeBrokenUrls(md: string): string {
+  if (!md) return ''
+  return md
+    .split('\n')
+    .reduce((acc: string[], line, i, arr) => {
+      // 上一行以 URL 结尾，当前行是日期/页码片段 → 合并
+      const prev = acc[acc.length - 1]
+      if (prev && /https?:\/\/\S+$/.test(prev) && /^\d{4}-\d/.test(line.trim())) {
+        acc[acc.length - 1] = prev + line.trim()
+      } else {
+        acc.push(line)
+      }
+      return acc
+    }, [])
+    .join('\n')
+}
+
+/**
  * 统一清洗管线。
- * 顺序：公式规范化 → 页码删除 → 页眉删除 → 空行删除 → squeezeBlank。
+ * 顺序：公式规范化 → 目录点线清理 → URL 合并 → 页码删除 → 页眉删除 → 空行删除 → squeezeBlank。
  * 幂等。
  */
 export function cleanPdfMarkdown(md: string): string {
   if (!md) return ''
   let result = normalizeFormulaChars(md)
+  result = dropTocDotLeaders(result)
+  result = mergeBrokenUrls(result)
   result = dropPageNumbers(result)
   result = dropRepeatingHeaders(result)
   result = dropEmptyParagraphs(result)

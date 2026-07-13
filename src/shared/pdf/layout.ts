@@ -40,17 +40,41 @@ function splitIntoColumns(text: string): string[] {
   return text.split(/\s{2,}/).map((s) => s.trim()).filter((s) => s.length > 0)
 }
 
-/** 检测一行是否可能是表格行（有 2+ 列由多空格分隔）。 */
+/**
+ * 检测一行是否可能是表格行。
+ *
+ * 两种模式：
+ *   1. 2+ 空格分隔的多列（原始检测）
+ *   2. 单空格分隔的短词序列（>= 4 个短词，每个 <= 12 字符）——覆盖表3-1/表6-1 等列间单空格表格
+ */
 function isTableRow(text: string): boolean {
-  // 必须有 2+ 列，且不是列表行
   if (LIST_RE.test(text) || NUM_HEADING_RE.test(text)) return false
-  const cols = splitIntoColumns(text)
-  return cols.length >= 2
+  const trimmed = text.trim()
+  if (!trimmed) return false
+
+  // 模式 1：2+ 空格分隔
+  const cols = splitIntoColumns(trimmed)
+  if (cols.length >= 2) return true
+
+  // 模式 2：单空格分隔的短词序列
+  const words = trimmed.split(/\s+/).filter((w) => w.length > 0)
+  if (words.length >= 4) {
+    const shortWords = words.filter((w) => w.length <= 12)
+    // 80% 以上的词是短词 → 可能是表格
+    if (shortWords.length / words.length >= 0.8) return true
+  }
+  return false
 }
 
 /** 将表格行组转为 Markdown pipe 表格。 */
 function rowsToTable(rows: TextLine[]): string {
-  const colRows = rows.map((r) => splitIntoColumns(r.text))
+  // 每行尝试分列：优先 2+ 空格，否则单空格
+  const colRows = rows.map((r) => {
+    const multi = splitIntoColumns(r.text)
+    if (multi.length >= 2) return multi
+    // 降级为单空格分列
+    return r.text.trim().split(/\s+/).filter((w) => w.length > 0)
+  })
   const maxCols = Math.max(...colRows.map((r) => r.length))
   const aligned = colRows.map((r) => {
     while (r.length < maxCols) r.push('')
