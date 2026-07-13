@@ -101,11 +101,8 @@ src/
 │       │   ├── index.ts           # barrel re-export
 │       │   ├── FormField.tsx      # 表单字段容器（label + 错误 + 提示）
 │       │   ├── FormInput.tsx      # 文本输入
-│       │   ├── FormTextArea.tsx   # 多行文本
-│       │   ├── FormSelect.tsx     # 下拉选择
 │       │   ├── FormCheckbox.tsx   # 复选框
 │       │   ├── FormSwitch.tsx     # 开关
-│       │   ├── FormToggle.tsx     # 切换按钮组
 │       │   └── Form.css           # 表单样式
 │       │
 │       ├── session/          # 会话管理 UI

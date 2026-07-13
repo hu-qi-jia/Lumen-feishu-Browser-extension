@@ -49,11 +49,12 @@ export async function fetchBaseCtx(
   appToken: string,
   currentTableId?: string
 ): Promise<BaseCtx> {
-  // App name
-  const appInfo = await API.getApp(token, appToken) as { app?: { name?: string } }
+  // App name + Tables list 之间无数据依赖，并发拉取（sum → max 延迟）
+  const [appInfo, tablesRes] = await Promise.all([
+    API.getApp(token, appToken) as Promise<{ app?: { name?: string } }>,
+    API.listTables(token, appToken) as Promise<{ items?: Array<{ table_id: string; name: string }> }>,
+  ])
 
-  // Tables list
-  const tablesRes = await API.listTables(token, appToken) as { items?: Array<{ table_id: string; name: string }> }
   const tables: TableCtx[] = []
 
   // Fetch fields + views for the first few tables (in parallel, max 6). ALWAYS include the user's
@@ -157,14 +158,14 @@ export async function fetchSheetCtx(
   spreadsheetToken: string,
   currentSheetId?: string
 ): Promise<BaseCtx> {
-  // Spreadsheet title
-  const meta = await Sheets.getSpreadsheet(token, spreadsheetToken) as { spreadsheet?: { title?: string } }
+  // Spreadsheet title + Worksheets list 之间无数据依赖，并发拉取（sum → max 延迟）
+  const [meta, sheetsRes] = await Promise.all([
+    Sheets.getSpreadsheet(token, spreadsheetToken) as Promise<{ spreadsheet?: { title?: string } }>,
+    Sheets.listSheets(token, spreadsheetToken) as Promise<{
+      sheets?: Array<{ sheet_id: string; title: string; column_count?: number }>
+    }>,
+  ])
   const appName = meta?.spreadsheet?.title ?? ''
-
-  // Worksheets list
-  const sheetsRes = await Sheets.listSheets(token, spreadsheetToken) as {
-    sheets?: Array<{ sheet_id: string; title: string; column_count?: number }>
-  }
   const items = sheetsRes.sheets ?? []
 
   // Fetch first-row headers for the first few sheets (max 6, same cap as Base).

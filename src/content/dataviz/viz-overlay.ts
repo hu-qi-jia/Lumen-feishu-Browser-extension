@@ -48,6 +48,57 @@ function newNonce(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
+/**
+ * 自定义确认弹窗（替代原生 confirm()）。content script 注入飞书页面，原生 confirm 会被
+ * 部分页面抑制或样式突兀；这里用 DOM 构建一个轻量模态，与 overlay 视觉风格一致。
+ * 返回 Promise<boolean>：true=确认，false=取消。
+ */
+function customConfirm(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div')
+    overlay.style.cssText = `position:fixed;inset:0;z-index:${zTop + 100};background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;`
+
+    const card = document.createElement('div')
+    card.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(20,23,40,.24);padding:20px;max-width:360px;width:calc(100% - 48px);'
+
+    const msg = document.createElement('div')
+    msg.style.cssText = 'color:#1f2329;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-bottom:18px;'
+    msg.textContent = message
+
+    const actions = document.createElement('div')
+    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;'
+
+    const cancelBtn = document.createElement('button')
+    cancelBtn.textContent = '取消'
+    cancelBtn.style.cssText = 'border:1px solid #e3e6ef;background:#fff;color:#4e5969;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;'
+    const confirmBtn = document.createElement('button')
+    confirmBtn.textContent = '确认'
+    confirmBtn.style.cssText = 'border:none;background:#3a55ee;color:#fff;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;'
+
+    actions.append(cancelBtn, confirmBtn)
+    card.append(msg, actions)
+    overlay.append(card)
+    document.body.append(overlay)
+
+    let done = false
+    const finish = (ok: boolean) => {
+      if (done) return
+      done = true
+      overlay.remove()
+      resolve(ok)
+    }
+    cancelBtn.onclick = () => finish(false)
+    confirmBtn.onclick = () => finish(true)
+    overlay.onclick = (e) => { if (e.target === overlay) finish(false) }
+    // Esc 取消
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { finish(false); document.removeEventListener('keydown', onKey) } }
+    document.addEventListener('keydown', onKey)
+    // 自动聚焦确认按钮（回车 = 确认）
+    confirmBtn.focus()
+    confirmBtn.onkeydown = (e) => { if (e.key === 'Enter') finish(true) }
+  })
+}
+
 function destroy(id: string) {
   const o = overlays.get(id)
   if (o) { o.el.remove(); overlays.delete(id) }
@@ -86,7 +137,7 @@ function ensure(id: string): Overlay {
   // background to batch-write as the user. Nothing is written without this explicit click.
   const submit = document.createElement('button')
   submit.style.cssText = 'display:none;border:none;border-radius:6px;background:#3a55ee;color:#fff;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;flex-shrink:0;'
-  submit.onclick = () => {
+  submit.onclick = async () => {
     const ov = overlays.get(id)
     if (!ov?.source || !ov.pendingEdits?.length) return
     // After Feishu SPA navigation this overlay floats on with its baked-in write-back target. If
@@ -96,7 +147,7 @@ function ensure(id: string): Overlay {
     const ask = onSource
       ? `将更新 ${ov.pendingEdits.length} 行到飞书多维表格，确认提交？`
       : `当前页面已不是这份数据的来源数据表。\n仍要把 ${ov.pendingEdits.length} 行修改写回到原来的数据表吗？`
-    if (!confirm(ask)) return
+    if (!(await customConfirm(ask))) return
     submit.disabled = true; submit.textContent = '提交中…'
     // Watchdog: the result message re-enables the button; if the SW is terminated mid-batch it
     // never arrives, so recover to a warn state after a generous timeout (a late result still
@@ -276,8 +327,11 @@ function onWindowMessage(e: MessageEvent) {
     // user confirm here (the host side, outside the sandbox) before forwarding to the background.
     const act = (d as { action?: { kind?: string; summary?: string } }).action
     const summary = act?.summary ? String(act.summary).slice(0, 200) : ''
-    if (!confirm(`创建飞书任务：\n「${summary}」\n确认？`)) return
-    try { chrome.runtime.sendMessage({ type: 'DATAVIZ_ROW_ACTION', vizId: idOf(target), action: act }) } catch { /* */ }
+    // 异步确认（customConfirm 返回 Promise），用 IIFE 避免改 onWindowMessage 的同步签名
+    void (async () => {
+      if (!(await customConfirm(`创建飞书任务：\n「${summary}」\n确认？`))) return
+      try { chrome.runtime.sendMessage({ type: 'DATAVIZ_ROW_ACTION', vizId: idOf(target), action: act }) } catch { /* */ }
+    })()
   }
 }
 

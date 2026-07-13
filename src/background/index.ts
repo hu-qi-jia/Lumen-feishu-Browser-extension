@@ -37,11 +37,19 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 
 // ─── Saved-viz launcher (background renders, since it holds Feishu host access) ──
 
+// 设置缓存：避免每条消息都触发 chrome.storage.local.get + 2 次 decryptField（service worker
+// 短时间内会处理多条消息）。storage.onChanged 时失效。TTL 30s 兜底防止 onChanged 漏触发。
+let cachedSettings: { data: AppSettings | null; ts: number } | null = null
+const SETTINGS_CACHE_TTL = 30_000
+chrome.storage?.onChanged?.addListener((changes, area) => {
+  if (area === 'local' && changes.settings_v2) cachedSettings = null
+})
+
 async function loadSettingsBg(): Promise<AppSettings | null> {
+  if (cachedSettings && Date.now() - cachedSettings.ts < SETTINGS_CACHE_TTL) return cachedSettings.data
   const r = await chrome.storage.local.get(['settings_v2'])
   const s = r.settings_v2 as Record<string, string> | undefined
-  if (!s) return null
-  return {
+  const data = !s ? null : {
     ...DEFAULT_SETTINGS,
     openaiBaseUrl: s.openaiBaseUrl ?? DEFAULT_SETTINGS.openaiBaseUrl,
     openaiModel: s.openaiModel ?? DEFAULT_SETTINGS.openaiModel,
@@ -49,6 +57,8 @@ async function loadSettingsBg(): Promise<AppSettings | null> {
     feishuAccessToken: await decryptField(s.feishuAccessToken ?? ''),
     feishuOwnerOpenId: s.feishuOwnerOpenId ?? '',
   }
+  cachedSettings = { data, ts: Date.now() }
+  return data
 }
 
 // The launcher pill (content script) asks the background to open a saved viz: fetch LIVE

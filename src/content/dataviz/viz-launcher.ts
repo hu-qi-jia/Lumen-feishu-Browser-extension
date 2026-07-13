@@ -111,8 +111,15 @@ export async function refreshLauncher() {
 }
 
 // Saving/deleting a viz OR a slides deck updates storage → refresh pills without a page reload.
+// Debounce 150ms: a single save may emit multiple onChanged events (dataviz_v1 + slides_decks_v1
+// if a flow touches both), and rapid add/delete bursts would otherwise fire several async
+// refreshLauncher runs (each does 2 storage reads). refreshLauncher's runSeq guard keeps the
+// result correct, but the debounce avoids the wasted work entirely.
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
 try {
   chrome.storage?.onChanged?.addListener((changes, area) => {
-    if (area === 'local' && (changes.dataviz_v1 || changes.slides_decks_v1)) void refreshLauncher()
+    if (area !== 'local' || (!changes.dataviz_v1 && !changes.slides_decks_v1)) return
+    if (refreshTimer) clearTimeout(refreshTimer)
+    refreshTimer = setTimeout(() => { refreshTimer = null; void refreshLauncher() }, 150)
   })
 } catch { /* no storage here */ }

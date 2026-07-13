@@ -25,6 +25,39 @@ async function req<T = unknown>(
   return json.data
 }
 
+// ─── 只读元数据缓存 ──────────────────────────────────────────────────────────
+// listTables / listFields / listViews / getWikiNode 这类元数据在短时间内不会变化，
+// 但会被多个调用点反复拉取（agent 上下文加载、文档引用 chip、子表选择器等）。
+// 按 docToken/tableId 缓存 60s，写操作（createTable/deleteTable/...）显式失效。
+// 缓存键只含资源标识（不含 token）——本扩展始终以单一用户身份操作，同一 appToken 的
+// 元数据对该用户不变；token 轮换（refresh）不改变用户与资源的关系。
+interface CacheEntry<T> { ts: number; data: T }
+const META_CACHE_TTL = 60_000
+const metaCache = new Map<string, CacheEntry<unknown>>()
+
+function cacheGet<T>(key: string): T | undefined {
+  const e = metaCache.get(key)
+  if (e && Date.now() - e.ts < META_CACHE_TTL) return e.data as T
+  if (e) metaCache.delete(key) // 过期，清理
+  return undefined
+}
+
+function cacheSet<T>(key: string, data: T): void {
+  metaCache.set(key, { ts: Date.now(), data })
+}
+
+/** 按前缀失效缓存（如 createTable 后失效该 app 下所有 table/field/view 缓存）。 */
+function cacheInvalidatePrefix(prefix: string): void {
+  for (const key of metaCache.keys()) {
+    if (key.startsWith(prefix)) metaCache.delete(key)
+  }
+}
+
+/** 清空全部元数据缓存（登出/切换用户时调用）。 */
+export function clearApiCache(): void {
+  metaCache.clear()
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export function getApp(token: string, appToken: string) {
@@ -38,7 +71,13 @@ export function createApp(token: string, name: string) {
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
 export function listTables(token: string, appToken: string) {
-  return req('GET', `/bitable/v1/apps/${appToken}/tables`, token)
+  const key = `tables:${appToken}`
+  const hit = cacheGet<unknown>(key)
+  if (hit !== undefined) return Promise.resolve(hit)
+  return req('GET', `/bitable/v1/apps/${appToken}/tables`, token).then((data) => {
+    cacheSet(key, data)
+    return data
+  })
 }
 
 export function createTable(
@@ -47,17 +86,22 @@ export function createTable(
   name: string,
   fields: FeishuField[] = []
 ) {
+  cacheInvalidatePrefix(`tables:${appToken}`)
   return req('POST', `/bitable/v1/apps/${appToken}/tables`, token, {
     table: { name, default_view_name: '默认视图', fields },
   })
 }
 
 export function deleteTable(token: string, appToken: string, tableId: string) {
+  cacheInvalidatePrefix(`tables:${appToken}`)
+  cacheInvalidatePrefix(`fields:${appToken}:`)
+  cacheInvalidatePrefix(`views:${appToken}:`)
   return req('DELETE', `/bitable/v1/apps/${appToken}/tables/${tableId}`, token)
 }
 
 /** Rename a table (数据表) in a Base. */
 export function updateTable(token: string, appToken: string, tableId: string, name: string) {
+  cacheInvalidatePrefix(`tables:${appToken}`)
   return req('PATCH', `/bitable/v1/apps/${appToken}/tables/${tableId}`, token, {
     table: { name },
   })
@@ -66,10 +110,17 @@ export function updateTable(token: string, appToken: string, tableId: string, na
 // ─── Fields ──────────────────────────────────────────────────────────────────
 
 export function listFields(token: string, appToken: string, tableId: string) {
-  return req('GET', `/bitable/v1/apps/${appToken}/tables/${tableId}/fields`, token)
+  const key = `fields:${appToken}:${tableId}`
+  const hit = cacheGet<unknown>(key)
+  if (hit !== undefined) return Promise.resolve(hit)
+  return req('GET', `/bitable/v1/apps/${appToken}/tables/${tableId}/fields`, token).then((data) => {
+    cacheSet(key, data)
+    return data
+  })
 }
 
 export function createField(token: string, appToken: string, tableId: string, field: FeishuField) {
+  cacheInvalidatePrefix(`fields:${appToken}:${tableId}`)
   return req('POST', `/bitable/v1/apps/${appToken}/tables/${tableId}/fields`, token, field)
 }
 
@@ -82,10 +133,12 @@ export function updateField(
 ) {
   // Feishu's update-field API requires field_name + type in the body; callers
   // must supply both (executeTool backfills them from the current field).
+  cacheInvalidatePrefix(`fields:${appToken}:${tableId}`)
   return req('PUT', `/bitable/v1/apps/${appToken}/tables/${tableId}/fields/${fieldId}`, token, field)
 }
 
 export function deleteField(token: string, appToken: string, tableId: string, fieldId: string) {
+  cacheInvalidatePrefix(`fields:${appToken}:${tableId}`)
   return req('DELETE', `/bitable/v1/apps/${appToken}/tables/${tableId}/fields/${fieldId}`, token)
 }
 
@@ -292,16 +345,28 @@ export function searchRecords(
 // obj_type + obj_token. Needs scope wiki:wiki:readonly (or wiki:node:read).
 
 export function getWikiNode(token: string, wikiToken: string) {
+  const key = `wiki:${wikiToken}`
+  const hit = cacheGet<unknown>(key)
+  if (hit !== undefined) return Promise.resolve(hit)
   return req('GET', '/wiki/v2/spaces/get_node', token, undefined, {
     token: wikiToken,
     obj_type: 'wiki',
+  }).then((data) => {
+    cacheSet(key, data)
+    return data
   })
 }
 
 // ─── Views ───────────────────────────────────────────────────────────────────
 
 export function listViews(token: string, appToken: string, tableId: string) {
-  return req('GET', `/bitable/v1/apps/${appToken}/tables/${tableId}/views`, token)
+  const key = `views:${appToken}:${tableId}`
+  const hit = cacheGet<unknown>(key)
+  if (hit !== undefined) return Promise.resolve(hit)
+  return req('GET', `/bitable/v1/apps/${appToken}/tables/${tableId}/views`, token).then((data) => {
+    cacheSet(key, data)
+    return data
+  })
 }
 
 export function createView(
@@ -311,6 +376,7 @@ export function createView(
   viewName: string,
   viewType: 'grid' | 'kanban' | 'gallery' | 'gantt' | 'form'
 ) {
+  cacheInvalidatePrefix(`views:${appToken}:${tableId}`)
   return req('POST', `/bitable/v1/apps/${appToken}/tables/${tableId}/views`, token, {
     view_name: viewName,
     view_type: viewType,

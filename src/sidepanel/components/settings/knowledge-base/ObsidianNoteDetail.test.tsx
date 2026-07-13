@@ -42,23 +42,23 @@ describe('ObsidianNoteDetail', () => {
   it('删除 → 确认 → deleteNote → onDeleted', async () => {
     mockRead.mockResolvedValue('x'); mockDelete.mockResolvedValue(undefined)
     const onDeleted = vi.fn()
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<ObsidianNoteDetail settings={DEFAULT_SETTINGS} path="a.md" onClose={() => {}} onDeleted={onDeleted} />)
     await waitFor(() => expect(mockRead).toHaveBeenCalled())
     fireEvent.click(screen.getByLabelText('删除'))
+    // ConfirmModal 弹出 → 点击确认按钮（textContent="删除"）
+    fireEvent.click(await screen.findByText('删除'))
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(expect.anything(), 'a.md'))
     expect(onDeleted).toHaveBeenCalled()
-    confirmSpy.mockRestore()
   })
 
   it('取消确认 → 不删除', async () => {
     mockRead.mockResolvedValue('x')
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     render(<ObsidianNoteDetail settings={DEFAULT_SETTINGS} path="a.md" onClose={() => {}} onDeleted={() => {}} />)
     await waitFor(() => expect(mockRead).toHaveBeenCalled())
     fireEvent.click(screen.getByLabelText('删除'))
+    // ConfirmModal 弹出 → 点击取消按钮（textContent="取消"）
+    fireEvent.click(await screen.findByText('取消'))
     expect(mockDelete).not.toHaveBeenCalled()
-    confirmSpy.mockRestore()
   })
 
   it('新建态（path=null）→ 输入标题 + 正文 → writeNote(newPath, body)', async () => {

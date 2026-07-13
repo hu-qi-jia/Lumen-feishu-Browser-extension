@@ -10,6 +10,13 @@
  */
 import { feishuReq } from './http'
 
+// ─── 只读元数据缓存 ──────────────────────────────────────────────────────────
+// listSheets 这类工作表元数据短时间内不变，但会被多个调用点反复拉取。按 spreadsheetToken
+// 缓存 60s，写操作（addSheet/deleteSheet/renameSheet）显式失效。
+interface SheetCacheEntry { ts: number; data: unknown }
+const SHEET_CACHE_TTL = 60_000
+const sheetCache = new Map<string, SheetCacheEntry>()
+
 // ─── Spreadsheet ────────────────────────────────────────────────────────────
 
 export function createSpreadsheet(token: string, title: string, folderToken?: string) {
@@ -26,16 +33,25 @@ export function getSpreadsheet(token: string, spreadsheetToken: string) {
 // ─── Worksheets ───────────────────────────────────────────────────────────────
 
 export function listSheets(token: string, spreadsheetToken: string) {
-  return feishuReq('GET', `/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/query`, token)
+  const key = spreadsheetToken
+  const hit = sheetCache.get(key)
+  if (hit && Date.now() - hit.ts < SHEET_CACHE_TTL) return Promise.resolve(hit.data)
+  if (hit) sheetCache.delete(key)
+  return feishuReq('GET', `/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/query`, token).then((data) => {
+    sheetCache.set(key, { ts: Date.now(), data })
+    return data
+  })
 }
 
 export function addSheet(token: string, spreadsheetToken: string, title: string, index?: number) {
+  sheetCache.delete(spreadsheetToken)
   return feishuReq('POST', `/sheets/v2/spreadsheets/${spreadsheetToken}/sheets_batch_update`, token, {
     requests: [{ addSheet: { properties: { title, ...(index != null ? { index } : {}) } } }],
   })
 }
 
 export function deleteSheet(token: string, spreadsheetToken: string, sheetId: string) {
+  sheetCache.delete(spreadsheetToken)
   return feishuReq('POST', `/sheets/v2/spreadsheets/${spreadsheetToken}/sheets_batch_update`, token, {
     requests: [{ deleteSheet: { sheetId } }],
   })
@@ -43,6 +59,7 @@ export function deleteSheet(token: string, spreadsheetToken: string, sheetId: st
 
 /** Rename a worksheet (工作表) in a spreadsheet (sheets/v3 PATCH). */
 export function renameSheet(token: string, spreadsheetToken: string, sheetId: string, title: string) {
+  sheetCache.delete(spreadsheetToken)
   return feishuReq('PATCH', `/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/${sheetId}`, token, {
     sheet: { title },
   })

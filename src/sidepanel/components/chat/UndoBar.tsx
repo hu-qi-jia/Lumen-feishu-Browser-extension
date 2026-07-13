@@ -28,7 +28,10 @@ export default function UndoBar({ settings }: { settings: AppSettings }) {
       if (area === 'local' && changes._last_delete_undo_v1) refresh()
     }
     try { chrome.storage?.onChanged?.addListener(onChanged) } catch { /* no storage in dev mock */ }
-    return () => { try { chrome.storage?.onChanged?.removeListener(onChanged) } catch { /* ignore */ } }
+    return () => {
+      try { chrome.storage?.onChanged?.removeListener(onChanged) } catch { /* ignore */ }
+      clearTimeout(noteTimer.current)
+    }
   }, [])
 
   async function restore() {

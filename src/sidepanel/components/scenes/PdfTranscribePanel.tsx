@@ -60,7 +60,11 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { loadPdfs().then(setPdfs) }, [])
+  useEffect(() => {
+    let cancelled = false
+    loadPdfs().then((p) => { if (!cancelled) setPdfs(p) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Clear any pending "copied" reset on unmount so it can't setState after teardown.
   useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }, [])

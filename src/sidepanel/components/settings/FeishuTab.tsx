@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   BUILD_CONFIG,
-  FEISHU_API_BASE,
   HAS_APP_SECRET,
   HAS_BUILTIN_CREDS,
   HAS_ENCRYPTED_SECRET,
 } from '@/shared/config'
 import { clearUserToken, getTenantAccessToken, saveUserToken } from '@/shared/feishu/auth'
+import { feishuFetch } from '@/shared/feishu/http'
 import { isAppSecretLocked, lockAppSecret, unlockAppSecret } from '@/shared/feishu/appSecret'
 import { getUserAppId, getUserAppSecret, hasUserAppCreds, saveUserAppCreds } from '@/shared/feishu/userAppCreds'
 import {
@@ -204,9 +204,8 @@ export default function FeishuTab({ form, patch, set }: SettingsTabProps) {
         )
         setTestResult({ ok: true, msg: `tenant_access_token 获取成功 (${token.slice(0, 12)}…)` })
       } else {
-        const res = await fetch(`${FEISHU_API_BASE}/bitable/v1/apps/__probe__`, {
-          headers: { Authorization: `Bearer ${form.feishuAccessToken}` },
-        })
+        // 用 feishuFetch 走出站守卫（保留原始 Response 以读取错误码区分 token 有效/无效）
+        const res = await feishuFetch('GET', '/bitable/v1/apps/__probe__', form.feishuAccessToken)
         const json = (await res.json()) as { code: number; msg: string }
         const authFailed = json.code === 99991677 || json.code === 99991668
         setTestResult(

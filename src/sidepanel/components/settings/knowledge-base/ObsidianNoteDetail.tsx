@@ -5,6 +5,7 @@ import { sanitizeVaultPath } from '@/shared/obsidian/util'
 import Markdown from '../../chat/Markdown'
 import TopBar from '../../shell/TopBar'
 import Button from '../../ui/Button'
+import ConfirmModal from '../../ui/ConfirmModal'
 import { IconEdit, IconTrash } from '../../ui/icons'
 import IconButton from '../../ui/IconButton'
 import './ObsidianNoteDetail.css'
@@ -27,6 +28,7 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (isNew) return
@@ -62,7 +64,6 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
   }
 
   async function remove() {
-    if (!window.confirm(`确认删除「${path}」？此操作不可撤销。`)) return
     setSaving(true); setError('')
     try { await deleteNote(settings, path!); onDeleted() }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setSaving(false) }
@@ -79,7 +80,7 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
               {mode === 'view' && (
                 <IconButton onClick={() => setMode('edit')} aria-label="编辑"><IconEdit /></IconButton>
               )}
-              <IconButton onClick={remove} aria-label="删除" disabled={saving}><IconTrash /></IconButton>
+              <IconButton onClick={() => setConfirmDelete(true)} aria-label="删除" disabled={saving}><IconTrash /></IconButton>
             </div>
           ) : undefined
         }
@@ -111,6 +112,16 @@ export default function ObsidianNoteDetail({ settings, path, onClose, onDeleted 
           </div>
         </div>
       ) : null}
+
+      <ConfirmModal
+        open={confirmDelete}
+        title="删除笔记"
+        message={`确认删除「${path}」？此操作不可撤销。`}
+        confirmText="删除"
+        danger
+        onConfirm={() => { setConfirmDelete(false); void remove() }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

@@ -85,14 +85,13 @@ const FORMAT_PROMPT =
 
 /** 仅优化格式与排版（不改内容）：用于文件导入写入前的轻量整理。
  *  与 polishMarkdown 的区别：polish 允许修语义/断句；format 只动结构，逐字保留文本。
- *  长文档自动分块。失败由上层降级到 rawMd。 */
+ *  长文档自动分块、并发处理（最多 3 个并发）后按原顺序拼接。失败由上层降级到 rawMd。 */
 export async function formatMarkdown(settings: AppSettings, rawMd: string): Promise<string> {
   const chunks = chunkMarkdown(rawMd)
-  const out: string[] = []
-  for (const chunk of chunks) {
+  const out = await pMap(chunks, async (chunk) => {
     const text = await chatComplete(settings, chunk, FORMAT_PROMPT)
     if (!text) throw new Error('模型未返回内容。')
-    out.push(text)
-  }
+    return text
+  }, 3)
   return out.join('\n\n')
 }

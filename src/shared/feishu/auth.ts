@@ -2,6 +2,7 @@ import type { AppSettings } from '../types'
 import { HAS_BUILTIN_CREDS, FEISHU_API_BASE, isFeishuOutboundAllowed } from '../config'
 import { encryptField, decryptField } from '../crypto'
 import { refreshUserAccessToken } from './oauth'
+import { clearApiCache } from './api'
 
 interface CachedToken {
   token: string
@@ -9,6 +10,13 @@ interface CachedToken {
 }
 
 const tokenCache = new Map<string, CachedToken>()
+
+// Timestamp of the most recent OAuth refresh failure. When set, forceRefreshUserToken
+// short-circuits for a short window (60s) instead of retrying the same dead refresh_token
+// (which would just fail again after a full network roundtrip — the 401 path already called
+// refresh once via getValidUserToken). Reset on a successful saveUserToken.
+let refreshFailedAt = 0
+const REFRESH_FAILURE_COOLDOWN_MS = 60_000
 
 // ─── User-token bundle (OAuth) with auto-refresh ──────────────────────────────
 // The OAuth user_access_token expires in ~2h. We persist it together with its
@@ -62,11 +70,14 @@ export async function saveUserToken(b: {
     expiresAt: Date.now() + (b.expiresIn || 6600) * 1000,
   }
   await storageSet(UTOKEN_KEY, await encryptField(JSON.stringify(bundle)))
+  refreshFailedAt = 0
 }
 
 /** Drop the stored OAuth bundle (e.g. user switched to a manually-pasted token). */
 export async function clearUserToken(): Promise<void> {
   await storageSet(UTOKEN_KEY, '')
+  // 切换/登出用户时清空元数据缓存，避免新用户看到旧用户的表/字段列表残留。
+  clearApiCache()
 }
 
 async function loadUserToken(): Promise<UTokenBundle | null> {
@@ -98,7 +109,10 @@ export async function getValidUserToken(settings?: AppSettings): Promise<string 
         await saveUserToken(r)
         return r.accessToken
       }
-      // refresh failed — return the (likely expired) token; the 401 will surface clearly
+      // refresh failed — mark it so the 401-retry path (forceRefreshUserToken) doesn't
+      // immediately retry the same dead refresh_token (avoids a redundant roundtrip).
+      // Return the (likely expired) token; the 401 will surface clearly to the user.
+      refreshFailedAt = Date.now()
     }
     return bundle.accessToken
   }
@@ -170,10 +184,15 @@ export function isTokenExpiredError(err: unknown): boolean {
  *  the rotated bundle. Returns the new token, or null when there's no refresh_token (manual
  *  paste) or the refresh_token itself is dead (~30d → user must re-authorize). */
 export async function forceRefreshUserToken(): Promise<string | null> {
+  // Short-circuit when a refresh already failed very recently (getValidUserToken's proactive
+  // refresh, or a prior forceRefresh attempt). Retrying the same dead refresh_token within the
+  // cooldown window just wastes a network roundtrip before the inevitable "需重新授权" error.
+  if (refreshFailedAt && Date.now() - refreshFailedAt < REFRESH_FAILURE_COOLDOWN_MS) return null
   const bundle = await loadUserToken()
   if (!bundle?.refreshToken) return null
   const r = await refreshUserAccessToken(bundle.refreshToken)
   if (r?.accessToken) { await saveUserToken(r); return r.accessToken }
+  refreshFailedAt = Date.now()
   return null
 }
 

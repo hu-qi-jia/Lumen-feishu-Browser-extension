@@ -503,13 +503,10 @@ export async function downloadSlidesPptx(
   const data = (Array.isArray(slides) ? slides : []).filter(Boolean)
   if (data.length === 0) return
 
-  // 调试：检测 process 是否被 polyfill 注入（Vite/依赖可能注入 process polyfill）
+  // Vite/依赖可能注入 process polyfill，导致 PptxGenJS 误判为 Node 环境而走 Node 分支
+  //（图片嵌入失败、生成损坏的 PPTX）。临时移除 process.versions.node 和 process.release.name，
+  // 强制 isNode=false，走浏览器分支。
   const g = globalThis as any
-  const procWasDefined = typeof g.process !== 'undefined'
-  console.info('[pptx] process defined:', procWasDefined,
-    'versions.node:', g.process?.versions?.node, 'release.name:', g.process?.release?.name)
-
-  // 临时移除 process.versions.node 和 process.release.name，强制 isNode=false
   const savedVersionsNode = g.process?.versions?.node
   const savedReleaseName = g.process?.release?.name
   if (g.process?.versions) g.process.versions.node = undefined
@@ -527,16 +524,6 @@ export async function downloadSlidesPptx(
 
     const total = data.length
     const fs = fontSizes(theme)
-    console.info('[pptx] slides:', total, 'images:', images.length)
-    // 检查图片 dataUrl 格式（必须是 data:image/xxx;base64,... 格式）
-    if (images.length > 0) {
-      images.slice(0, 3).forEach((img, i) => {
-        const prefix = img.dataUrl?.slice(0, 40)
-        const valid = img.dataUrl?.toLowerCase().includes('base64,')
-        console.info(`[pptx] image[${i}] id=${img.id} valid=${valid} prefix=${prefix}`)
-      })
-    }
-
     // renderSlide 是异步的（tryAddImage 需要读取图片尺寸），用 for...of 顺序执行
     for (let i = 0; i < data.length; i++) {
       const slide = pptx.addSlide()
@@ -549,10 +536,9 @@ export async function downloadSlidesPptx(
     // 用 'arraybuffer' 比 'blob' 更可控：不依赖 JSZip 在浏览器中的 Blob 构造，
     // 自己用正确 MIME 类型构造 Blob。
     const result = await pptx.write({ outputType: 'arraybuffer' }) as ArrayBuffer
-    console.info('[pptx] write result: ArrayBuffer byteLength=' + result?.byteLength)
 
     if (!result || result.byteLength < 1000) {
-      console.warn('[pptx] output too small, falling back to writeFile')
+      // output 过小通常是 PptxGenJS 内部异常，降级到 writeFile（触发浏览器下载）
       await pptx.writeFile({ fileName: `${safeName(name)}.pptx` })
       return
     }
@@ -560,11 +546,9 @@ export async function downloadSlidesPptx(
     // 检查 magic bytes（ZIP 文件必须以 PK 开头: 0x50 0x4B 0x03 0x04）
     const bytes = new Uint8Array(result)
     const isZip = bytes[0] === 0x50 && bytes[1] === 0x4B
-    console.info('[pptx] magic bytes:', bytes[0], bytes[1], bytes[2], bytes[3],
-      'isZip=' + isZip, 'size=' + result.byteLength)
 
     if (!isZip) {
-      console.warn('[pptx] output not a valid ZIP, falling back to writeFile')
+      // 非 ZIP 输出说明 PptxGenJS 走错了分支，降级到 writeFile
       await pptx.writeFile({ fileName: `${safeName(name)}.pptx` })
       return
     }
@@ -578,11 +562,6 @@ export async function downloadSlidesPptx(
     try {
       const JSZip = (await import('jszip')).default
       const zip = await JSZip.loadAsync(result)
-
-      // 列出实际存在的 slideMasters 文件
-      const existingMasters = Object.keys(zip.files)
-        .filter((f) => /^ppt\/slideMasters\/slideMaster\d+\.xml$/.test(f))
-      console.info('[pptx] existing slideMasters:', existingMasters.length, existingMasters.join(', '))
 
       // 修正 [Content_Types].xml：移除不存在的 slideMaster Override
       const ctFile = zip.file('[Content_Types].xml')
@@ -601,25 +580,28 @@ export async function downloadSlidesPptx(
         })
         const removedCount = (ct.match(masterOverrideRegex) || []).length - matched.length
         if (removedCount > 0) {
-          console.info('[pptx] removed ' + removedCount + ' invalid slideMaster Override(s) from [Content_Types].xml')
           zip.file('[Content_Types].xml', cleanedCt)
           fixedResult = await zip.generateAsync({
             type: 'arraybuffer',
             compression: 'STORE',
           })
-          console.info('[pptx] fixed PPTX size:', fixedResult.byteLength, '(was', result.byteLength, ')')
         }
       }
     } catch (fixErr) {
-      console.error('[pptx] fix [Content_Types].xml failed:', fixErr)
-      // 修复失败则用原始结果
+      // 修复失败意味着 PPTX 仍含 PptxGenJS 4.0.1 的多余 slideMaster Override，
+      // PowerPoint 打开会拒绝识别。抛出明确错误让 UI 提示用户改用 HTML 导出，
+      // 而不是静默给出一个打不开的文件。
+      throw new Error(
+        'PPTX 兼容性修复失败（' +
+        (fixErr instanceof Error ? fixErr.message : String(fixErr)) +
+        '），生成的文件可能无法被 PowerPoint 打开。建议改用「导出 HTML」。'
+      )
     }
 
     // 自己构造 Blob 并触发下载，确保 MIME 类型正确
     const blob = new Blob([fixedResult], {
       type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     })
-    console.info('[pptx] blob size:', blob.size)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

@@ -43,3 +43,4 @@ feishu-package.zip
 
 # local backup before cleanup (enterprise/private deployment removal)
 _archive/
+backup/

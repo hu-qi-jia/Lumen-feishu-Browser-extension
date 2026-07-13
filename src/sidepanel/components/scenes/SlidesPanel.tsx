@@ -85,7 +85,11 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   // every keystroke (an inline .filter() would mint a new array ref each render).
   const sourceRecentFiles = useMemo(() => recentFiles.filter((f) => f.kind !== 'ppt'), [recentFiles])
 
-  useEffect(() => { loadDecks().then(setDecks) }, [])
+  useEffect(() => {
+    let cancelled = false
+    loadDecks().then((d) => { if (!cancelled) setDecks(d) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Live elapsed ticker so the user sees it's still working.
   useEffect(() => {

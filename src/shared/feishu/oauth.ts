@@ -7,7 +7,7 @@
  * Token exchange + refresh need the client_secret. Direct mode (personal):
  *   VITE_FEISHU_APP_SECRET baked in, or password-encrypted, or user-entered (store build).
  */
-import { BUILD_CONFIG, FEISHU_API_BASE, FEISHU_AUTHORIZE_URL } from '../config'
+import { BUILD_CONFIG, FEISHU_API_BASE, FEISHU_AUTHORIZE_URL, isFeishuOutboundAllowed } from '../config'
 import { getClientSecret } from './appSecret'
 import { getUserAppId, hasUserAppCreds } from './userAppCreds'
 
@@ -37,6 +37,9 @@ async function requestToken(payload: Record<string, unknown>): Promise<TokenResp
   const clientSecret = await getClientSecret()
   if (!clientSecret) {
     throw new Error('应用密钥未就绪：请在「设置 → 飞书设置」填写并保存你的 App Secret（内置加密版则先输入解锁密码）。')
+  }
+  if (!isFeishuOutboundAllowed(TOKEN)) {
+    throw new Error(`出站被拦截：${new URL(TOKEN).hostname} 不在允许的飞书主机列表内`)
   }
   const res = await fetch(TOKEN, {
     method: 'POST',
@@ -110,6 +113,9 @@ export function oauthRedirectUrl(): string {
 export async function fetchUserOpenId(userToken: string): Promise<{ openId: string; name: string }> {
   const token = userToken.trim()
   if (!token) throw new Error('请先在上方填入 user_access_token')
+  if (!isFeishuOutboundAllowed(USER_INFO)) {
+    throw new Error(`出站被拦截：${new URL(USER_INFO).hostname} 不在允许的飞书主机列表内`)
+  }
   const ui = (await (await fetch(USER_INFO, {
     headers: { Authorization: `Bearer ${token}` },
   })).json()) as { code: number; msg: string; data?: { open_id: string; name: string } }
@@ -172,6 +178,9 @@ export async function authorizeFeishuUser(): Promise<OAuthResult> {
   const tj = await requestToken({ grant_type: 'authorization_code', code, redirect_uri: redirectUri })
   if (!tj.access_token) {
     throw new Error('换取 token 失败：' + (tj.error_description ?? tj.error ?? JSON.stringify(tj)))
+  }
+  if (!isFeishuOutboundAllowed(USER_INFO)) {
+    throw new Error(`出站被拦截：${new URL(USER_INFO).hostname} 不在允许的飞书主机列表内`)
   }
   const ui = (await (await fetch(USER_INFO, {
     headers: { Authorization: `Bearer ${tj.access_token}` },

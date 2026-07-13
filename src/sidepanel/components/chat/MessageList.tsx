@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import type { ChatMessage } from '@/shared/types'
 import Markdown from './Markdown'
 import Tooltip from '../ui/Tooltip'
@@ -79,34 +79,45 @@ function groupTurns(messages: ChatMessage[]): TurnGroup[] {
 export default function MessageList({ messages, onExample, onRetry, kind, streaming }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    // `behavior:'auto'` (instant), not 'smooth' — this fires on every streamed token (a new
-    // messages ref per chunk), and a smooth scroll restarting mid-animation each token stutters
-    // and never catches the bottom. Instant pins to the bottom per token cleanly.
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [messages])
-
   // Tool chatter is hidden from the UI ENTIRELY — a turn reads as just its text answer, with a
   // 思考中… bubble filling the thinking gaps. The tool messages STAY in `messages` (API history,
   // dataviz / image-export interception, the undo stash all depend on the data); they're simply
   // not drawn. A future "show tool details" toggle could re-surface them.
-  const visible = messages.filter(
-    (m) =>
-      m.role !== 'system' &&
-      m.role !== 'tool' &&
-      !(m.role === 'assistant' && m.tool_calls?.length && !m.content),
+  const visible = useMemo(
+    () =>
+      messages.filter(
+        (m) =>
+          m.role !== 'system' &&
+          m.role !== 'tool' &&
+          !(m.role === 'assistant' && m.tool_calls?.length && !m.content),
+      ),
+    [messages],
   )
 
   // The 思考中… indicator fills every "thinking gap": a turn is streaming AND no assistant text
   // bubble is actively streaming content right now — i.e. before the first token of a round, and
   // between rounds / while tools run. As soon as text starts flowing it hides (the streaming
   // bubble + its blinking cursor take over). `streaming` comes from ChatPanel (whole-turn flag).
-  const hasStreamingText = visible.some(
-    (m) => m.role === 'assistant' && m.isStreaming && (m.content ?? '').trim().length > 0,
+  const hasStreamingText = useMemo(
+    () =>
+      visible.some(
+        (m) => m.role === 'assistant' && m.isStreaming && (m.content ?? '').trim().length > 0,
+      ),
+    [visible],
   )
   const thinking = !!streaming && !hasStreamingText
 
-  const groups = groupTurns(visible)
+  const groups = useMemo(() => groupTurns(visible), [visible])
+
+  useEffect(() => {
+    // `behavior:'auto'` (instant), not 'smooth' — this fires on every streamed token (a new
+    // messages ref per chunk), and a smooth scroll restarting mid-animation each token stutters
+    // and never catches the bottom. Instant pins to the bottom per token cleanly.
+    // 依赖最后一条可见消息的 id + 内容长度，而非整个 messages 数组引用（流式时每个 token
+    // 都会生成新数组引用，但只有末尾消息在变化）。
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在末尾可见消息变化时滚动
+  }, [visible.length, visible[visible.length - 1]?.id, visible[visible.length - 1]?.content])
   const lastGroup = groups[groups.length - 1]
   // Keep the whole turn in ONE bubble: when a thinking gap hits mid-turn (between rounds),
   // render the indicator INSIDE the in-flight reply block — appended under the prior text —
