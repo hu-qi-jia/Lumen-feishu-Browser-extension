@@ -1,13 +1,13 @@
 import type { ChatCompletionTool } from 'openai/resources'
 
-// 与产品无关的通用工具：数据小程序生成 + 通用 OpenAPI 调用。
+// 与产品无关的通用工具：数据看板生成 + 通用 OpenAPI 调用。
 export const CORE_TOOLS: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
       name: 'render_data_app',
       description:
-        '把当前多维表格/电子表格的数据做成一个**嵌在飞书页面里的小程序/数据应用**，渲染成可拖拽的浮窗。' +
+        '把当前多维表格/电子表格的数据做成一个**嵌在飞书页面里的看板/数据应用**，渲染成可拖拽的浮窗。' +
         '能做：图表看板、可打印报表、汇报幻灯片、卡片墙/看板视图、交互计算器。' +
         '当用户说"做个看板/图表/报表/幻灯片/计算器/把这张表做成…"等需求时调用，模型按描述自动选类型。' +
         'request 用一句话描述要什么。数据源是当前页面的表，无需用户提供 id。',

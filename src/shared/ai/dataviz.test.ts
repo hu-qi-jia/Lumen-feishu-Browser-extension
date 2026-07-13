@@ -47,7 +47,7 @@ describe('generateViz', () => {
     await generateViz(settings, input)
     const sent = sentPrompt()
     for (const kind of ['图表看板', '计算器', '打印', '视图']) expect(sent).toContain(kind)
-    // PPT is a SEPARATE feature (AI 幻灯片) — the 小程序 generator must NOT offer making slides itself.
+    // PPT is a SEPARATE feature (AI 幻灯片) — the 看板 generator must NOT offer making slides itself.
     expect(sent).toContain('不做 PPT')
     expect(sent).not.toContain('汇报幻灯片')
     // The 录入表单 kind + sandbox write-back bridge were removed — the generator is read-only.

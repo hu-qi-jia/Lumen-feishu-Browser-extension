@@ -345,7 +345,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
       const sample = await fetchVizData(settings, source, SAMPLE_CAP)
       if (!sample.schema.length) throw new Error('这张表没有可用的字段')
 
-      setStatus(refine ? 'AI 调整当前小程序…' : 'AI 生成小程序代码…')
+      setStatus(refine ? 'AI 调整当前看板…' : 'AI 生成看板代码…')
       const { name, code, spec, warning } = await generateViz(settings, {
         schema: sample.schema, sampleRows: sample.rows, request: request.trim(),
         previousCode: refine ? last.current!.code : undefined,
@@ -386,7 +386,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
       code: last.current.code, spec: last.current.spec, request: last.current.request,
       createdAt: Date.now(), kind: 'viz',
     }
-    setList(await saveViz(v)); setCanSave(false); setStatus(`已保存「${v.name}」到「我的小程序」`)
+    setList(await saveViz(v)); setCanSave(false); setStatus(`已保存「${v.name}」到「我的看板」`)
   }
 
   async function open(v: SavedViz) {
@@ -522,7 +522,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
                 </Button>
               )}
               {canSave && (
-                <Button block onClick={save} disabled={busy}>保存为「我的小程序」</Button>
+                <Button block onClick={save} disabled={busy}>保存为「我的看板」</Button>
               )}
               {hasGen && (
                 <Button block onClick={newDraft} disabled={busy}>新建一个</Button>
@@ -545,10 +545,10 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
       {drawerOpen && (
         <SideDrawer title="历史记录" onClose={() => setDrawerOpen(false)}>
           <div className="sl-decks">
-            {list.length === 0 && <p className="sl-decks-empty">还没有保存过的小程序</p>}
+            {list.length === 0 && <p className="sl-decks-empty">还没有保存过的看板</p>}
             {[...list]
               .sort((a, b) => {
-                // 当前表格的小程序置顶，再按创建时间倒序。
+                // 当前表格的看板置顶，再按创建时间倒序。
                 const aInScope = sourceCtx ? (savedVizMatchesCtx(a, sourceCtx) ? 0 : 1) : 1
                 const bInScope = sourceCtx ? (savedVizMatchesCtx(b, sourceCtx) ? 0 : 1) : 1
                 if (aInScope !== bInScope) return aInScope - bInScope

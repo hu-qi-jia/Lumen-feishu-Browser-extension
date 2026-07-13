@@ -31,7 +31,7 @@ export interface Slide {
   stats?: Array<{ num?: string; label?: string }>
   /** layout:'chart' — a self-contained ECharts option (numbers embedded; rendered via ui.chart). */
   chart?: Record<string, unknown>
-  /** layout:'embed' — a saved 看板/小程序's render code, re-run live against the table's rows. */
+  /** layout:'embed' — a saved 看板's render code, re-run live against the table's rows. */
   code?: string
   /** layout:'embed' — Plan B: a saved board's declarative spec (no-remote-code builds). */
   spec?: import('../dataviz/spec').VizSpec

@@ -18,7 +18,7 @@ import {
   type CleanupIntervalDays,
 } from '@/shared/dataCleanup'
 
-const BACKUP_TIP = '导出配置、小程序、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
+const BACKUP_TIP = '导出配置、看板、PPT、本地经验及会话为一个文件；换设备或重装后导入即可恢复。数据仅存储在本地。'
 
 
 /**
@@ -98,7 +98,7 @@ export default function BackupTab() {
     try {
       const sum = await applyBackup(JSON.parse(await f.text()))
       setBackupMsg(
-        `已恢复：小程序 ${sum.dataviz}、PPT ${sum.slides}、经验 ${sum.recipes}、会话 ${sum.sessions}${sum.settings ? '、配置已更新' : ''}。即将刷新生效…`,
+        `已恢复：看板 ${sum.dataviz}、PPT ${sum.slides}、经验 ${sum.recipes}、会话 ${sum.sessions}${sum.settings ? '、配置已更新' : ''}。即将刷新生效…`,
       )
       setTimeout(() => {
         try {

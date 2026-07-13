@@ -25,6 +25,6 @@ export interface SavedViz {
   /** Original NL request, kept so a legacy code-only board can be re-generated as a spec. */
   request?: string
   createdAt: number
-  /** 'viz' = chart/小程序 (default when absent). Cosmetic label only. */
+  /** 'viz' = chart/看板 (default when absent). Cosmetic label only. */
   kind?: 'viz'
 }

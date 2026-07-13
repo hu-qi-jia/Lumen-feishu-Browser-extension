@@ -67,7 +67,7 @@ function fieldList(schema: VizField[]): string {
 function buildPrompt(schema: VizField[], sampleRows: Record<string, string>[], request: string): string {
   const schemaText = fieldList(schema)
   return (
-    `你是一个"AI 小程序生成器"。根据【字段】【样本数据】和【需求】，生成一个嵌在飞书页面浮窗里的自包含小程序。\n` +
+    `你是一个"AI 看板生成器"。根据【字段】【样本数据】和【需求】，生成一个嵌在飞书页面浮窗里的自包含看板。\n` +
     `输出一个 JSON 对象：{"title": "简短标题", "code": "..."}。code 是构建界面的 JS（可以是直接写语句的"函数体"，` +
     `也可以是完整的 function render(data, echarts, container, theme){...} 或箭头函数，都行），运行时可用：\n` +
     `  - data：完整数据数组（每项一行对象，键=字段名，值是字符串，数字用 Number() 转）。\n` +
@@ -86,7 +86,7 @@ function buildPrompt(schema: VizField[], sampleRows: Record<string, string>[], r
     `数值都远大于0时数值轴 {scale:true} 避免从0留空白；图表类型只用 bar/line/pie/scatter；不在图里再放大标题（浮窗已有标题栏）。\n` +
     `【数据绑定（最重要）】：图表的 series 数据、KPI 数值、表格行**必须在运行时用代码对 data 数组实时计算**` +
     `（分组/求和/计数/过滤都写成对 data 的运算），**绝对禁止把算好的数值/类目写死进 setOption 或 DOM**——` +
-    `样本数据只是给你看结构，真实数据在运行时通过 data 注入；一旦写死，用户改了飞书表格、重新打开小程序就不会更新（变成死数据）。` +
+    `样本数据只是给你看结构，真实数据在运行时通过 data 注入；一旦写死，用户改了飞书表格、重新打开看板就不会更新（变成死数据）。` +
     `例：对 data 按某字段分组求和得到 {类目, 值} 数组，再 setOption；不要直接写 data:[42000,5000,…]。\n` +
     `【通用硬规则】：不要设 backgroundColor（透明）；只用真实存在的字段名、不编造数据；` +
     `**禁止 fetch / XMLHttpRequest / WebSocket / import / require / localStorage 等任何网络与 IO**；` +
@@ -104,7 +104,7 @@ function buildPrompt(schema: VizField[], sampleRows: Record<string, string>[], r
 function buildEditPrompt(previousCode: string, request: string, schema: VizField[]): string {
   const schemaText = fieldList(schema)
   return (
-    `下面是一个嵌在飞书页面浮窗里的"AI 小程序"的**当前完整代码**。请按【修改要求】对它做**最小改动**。\n` +
+    `下面是一个嵌在飞书页面浮窗里的"AI 看板"的**当前完整代码**。请按【修改要求】对它做**最小改动**。\n` +
     `【最重要的规则】只改用户明确提到的那一处（某一个图表 / 某个控件 / 某段文案）；\n` +
     `其它图表、布局、配色、变量名**必须逐字保留、原样不动**——不要顺手重排、不要重命名、不要"优化"没被提到的部分。\n` +
     `运行时仍可用：data（完整数据数组）、echarts、container、theme、feishu（含义与原代码一致）。\n` +
@@ -128,7 +128,7 @@ export async function generateViz(
   const content = NO_REMOTE_CODE
     ? (input.previousSpec ? buildSpecEditPrompt(input.previousSpec, input.request, input.schema) : buildSpecPrompt(input.schema, input.sampleRows, input.request))
     : (input.previousCode ? buildEditPrompt(input.previousCode, input.request, input.schema) : buildPrompt(input.schema, input.sampleRows, input.request))
-  // Stream so the panel shows live progress ("已生成 N 字") + a working cancel — a 小程序 codegen
+  // Stream so the panel shows live progress ("已生成 N 字") + a working cancel — a 看板 codegen
   // can take many seconds and a frozen spinner reads as "hung".
   const out = fences(await chatCompleteStream(settings, content, { signal: input.signal, onChunk: (f) => input.onProgress?.(f.length) }))
   if (!out) throw new Error('模型未返回内容。')
