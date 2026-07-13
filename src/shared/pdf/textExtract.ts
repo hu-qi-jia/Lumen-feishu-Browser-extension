@@ -18,6 +18,8 @@ const LIST_START = /^\s*([-*+]\s+|\d+[.)]\s+|[（(][\d一二三四五六七八�
 /** 标题启发式：纯数字编号（1 / 1.1 / 1.1.1）或全大写短行。 */
 const NUM_HEADING = /^(\d+(?:\.\d+)*)\s+(.+)$/
 const ALL_UPPER = /^[A-Z][A-Z\s\-:]{2,}$/
+/** 表格标题行：表 X-Y 后跟标题文字。不应被误判为表格行。 */
+const TABLE_TITLE_RE = /^表\s*\d+[-－‐]\s*\d+/
 
 /**
  * 将 pdfjs 的 TextItem 数组按 Y 坐标分行。
@@ -76,9 +78,55 @@ function mostFrequent<T>(arr: T[]): T {
 }
 
 /**
+ * 检测一行是否可能是表格行。
+ * 与 layout.ts 的 isTableRow 保持一致逻辑，但这里用于段落合并前的预检测。
+ *
+ * 两种模式：
+ *   1. 2+ 空格分隔的多列
+ *   2. 单空格分隔的短词序列（>= 4 个短词，每个 <= 12 字符）
+ */
+function isTableRowLike(text: string): boolean {
+  if (LIST_START.test(text) || NUM_HEADING.test(text)) return false
+  if (TABLE_TITLE_RE.test(text)) return false
+  const trimmed = text.trim()
+  if (!trimmed) return false
+  // 模式 1：2+ 空格分隔
+  if (trimmed.split(/\s{2,}/).filter((s) => s.length > 0).length >= 2) return true
+  // 模式 2：单空格分隔的短词序列
+  const words = trimmed.split(/\s+/).filter((w) => w.length > 0)
+  if (words.length >= 4) {
+    const shortWords = words.filter((w) => w.length <= 12)
+    if (shortWords.length / words.length >= 0.8) return true
+  }
+  return false
+}
+
+/**
+ * 标记表格行组：连续 2+ 行匹配 isTableRowLike → 标记为表格行。
+ * 返回一个 Set，包含所有属于表格组的行索引。
+ */
+function detectTableGroups(lines: TextLine[]): Set<number> {
+  const tableIndices = new Set<number>()
+  let i = 0
+  while (i < lines.length) {
+    if (isTableRowLike(lines[i].text)) {
+      const start = i
+      while (i < lines.length && isTableRowLike(lines[i].text)) i++
+      if (i - start >= 2) {
+        for (let j = start; j < i; j++) tableIndices.add(j)
+      }
+    } else {
+      i++
+    }
+  }
+  return tableIndices
+}
+
+/**
  * 将行合并为段落。
  *
  * 规则：
+ *   - 表格行：强制独立成段（不参与软折行合并，保留原始行结构供 layout.ts 识别）
  *   - 行间距 > 1.8 * avgFontSize → 新段落
  *   - 当前行是列表/标题起始 → 新段落
  *   - 上一行以标点结尾 → 新段落（不合并）
@@ -88,18 +136,26 @@ function mostFrequent<T>(arr: T[]): T {
 export function mergeIntoParagraphs(lines: TextLine[]): string[] {
   if (!lines.length) return []
   const avgFontSize = lines.reduce((s, l) => s + l.fontSize, 0) / lines.length
+  const tableIndices = detectTableGroups(lines)
   const paragraphs: string[] = []
   let cur = ''
   let prevY = lines[0].y
-  let prevFontSize = lines[0].fontSize
 
-  for (const line of lines) {
-    const gap = prevY - line.y // 正值 = 下一行在下方
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx]
+    // 表格行：强制独立成段
+    if (tableIndices.has(idx)) {
+      if (cur) { paragraphs.push(cur); cur = '' }
+      paragraphs.push(line.text)
+      prevY = line.y
+      continue
+    }
+    const gap = prevY - line.y
     const isListOrHeading = LIST_START.test(line.text) || NUM_HEADING.test(line.text) || ALL_UPPER.test(line.text)
     const endsWithPunct = END_PUNCT.test(cur)
     const startsUpper = START_UPPER.test(line.text)
     const newParagraph = cur === ''
-      || gap > 1.8 * avgFontSize // 行间距大 → 新段落
+      || gap > 1.8 * avgFontSize
       || isListOrHeading
       || endsWithPunct
       || startsUpper
@@ -108,11 +164,9 @@ export function mergeIntoParagraphs(lines: TextLine[]): string[] {
       if (cur) paragraphs.push(cur)
       cur = line.text
     } else {
-      // 软折行合并
       cur = cur + joinerBetween(cur, line.text) + line.text
     }
     prevY = line.y
-    prevFontSize = line.fontSize
   }
   if (cur) paragraphs.push(cur)
   return paragraphs

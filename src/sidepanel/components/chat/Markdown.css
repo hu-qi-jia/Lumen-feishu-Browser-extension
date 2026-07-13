@@ -34,6 +34,13 @@
   cursor: pointer;
 }
 .md-link:hover { text-decoration: none; }
+.md-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 4px 0;
+  display: block;
+}
 .md-code {
   background: rgba(0,0,0,.06);
   padding: 1px 4px;

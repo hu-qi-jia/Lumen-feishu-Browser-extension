@@ -91,7 +91,8 @@ function linkInCode(inner: string, key: Key): ReactNode | null {
   return href ? linkEl(href, inner.trim(), key) : null
 }
 function inlineFormat(text: string): ReactNode {
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g)
+  // 图片语法 ![alt](src) 优先于链接语法 [text](url)
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+)/g)
   return parts.map((part, i) => {
     if (!part) return null
     if (part.startsWith('`') && part.endsWith('`')) {
@@ -99,6 +100,11 @@ function inlineFormat(text: string): ReactNode {
       return linkInCode(inner, i) ?? <code key={i} className="md-code">{inner}</code>
     }
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>
+    // 图片：![alt](src)
+    if (part.startsWith('![') && part.includes('](')) {
+      const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+      if (imgMatch) return <img key={i} className="md-img" src={imgMatch[2]} alt={imgMatch[1]} />
+    }
     const mdLink = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
     if (mdLink) {
       const href = safeHref(mdLink[2])

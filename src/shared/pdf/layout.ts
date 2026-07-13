@@ -40,15 +40,21 @@ function splitIntoColumns(text: string): string[] {
   return text.split(/\s{2,}/).map((s) => s.trim()).filter((s) => s.length > 0)
 }
 
+/** 表格标题行：表 X-Y 后跟标题文字。不应被误判为表格行。 */
+const TABLE_TITLE_RE = /^表\s*\d+[-－‐]\s*\d+/
+
 /**
  * 检测一行是否可能是表格行。
  *
  * 两种模式：
  *   1. 2+ 空格分隔的多列（原始检测）
  *   2. 单空格分隔的短词序列（>= 4 个短词，每个 <= 12 字符）——覆盖表3-1/表6-1 等列间单空格表格
+ *
+ * 排除：列表行、数字编号标题行、表格标题行（表 X-Y ...）
  */
 function isTableRow(text: string): boolean {
   if (LIST_RE.test(text) || NUM_HEADING_RE.test(text)) return false
+  if (TABLE_TITLE_RE.test(text)) return false
   const trimmed = text.trim()
   if (!trimmed) return false
 
