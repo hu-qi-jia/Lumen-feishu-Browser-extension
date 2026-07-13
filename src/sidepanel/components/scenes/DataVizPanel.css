@@ -140,23 +140,3 @@
 .dv-cancel { color: var(--color-primary); cursor: pointer; }
 .dv-cancel:hover { text-decoration: underline; }
 
-/* ── Saved viz list ── */
-.dv-section { font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin: 0; }
-.dv-list { display: flex; flex-direction: column; gap: 6px; }
-.dv-item { display: flex; align-items: center; gap: 6px; }
-.dv-item-open {
-  flex: 1; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;
-  text-align: left; font-size: 13px; color: var(--color-text);
-  border: 1px solid var(--color-border); border-radius: 8px;
-  background: var(--color-bg); cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  transition: border-color .15s, background .15s; font-family: inherit;
-}
-.dv-item-open:hover:not(:disabled) { border-color: var(--color-primary); background: var(--color-primary-soft); }
-.dv-item-open:disabled { opacity: .45; cursor: not-allowed; }
-.dv-item-del {
-  flex-shrink: 0; height: 36px; width: 36px;
-  font-size: 12px;
-  border: 1px solid var(--color-border);
-}
-.dv-item-del:hover { color: #d33; border-color: #d33; }

@@ -19,10 +19,14 @@ import TopBar from '../shell/TopBar'
 import Button from '../ui/Button'
 import IconButton from '../ui/IconButton'
 import Tooltip from '../ui/Tooltip'
+import SideDrawer from '../ui/SideDrawer'
+import HistoryRow from '../session/HistoryRow'
 import DocLinkField from '../session/DocLinkField'
-import { KindIcon } from '../ui/icons'
+import { KindIcon, IconHistory } from '../ui/icons'
 import '../session/DocCombobox.css'
+import '../session/HistoryRow.css'
 import './DataVizPanel.css'
+import './SlidesPanel.css'
 
 const errText = (e: unknown) => isTokenExpiredError(e)
   ? '飞书登录已失效，请在「设置」重新登录后再试' : e instanceof Error ? e.message : String(e)
@@ -52,6 +56,18 @@ async function sendToOverlay(artifact: { code?: string; spec?: VizSpec }, data: 
 type LastViz = { name: string; code?: string; spec?: VizSpec; request?: string; source: VizSource }
 const genCache = new Map<string, LastViz>()
 
+function vizSourceLabel(v: SavedViz): string {
+  return v.source.kind === 'base' ? '多维表格' : '电子表格'
+}
+
+function timeAgo(ts: number): string {
+  const s = Math.floor((Date.now() - ts) / 1000)
+  if (s < 60) return '刚刚'
+  if (s < 3600) return `${Math.floor(s / 60)} 分钟前`
+  if (s < 86400) return `${Math.floor(s / 3600)} 小时前`
+  return `${Math.floor(s / 86400)} 天前`
+}
+
 export default function DataVizPanel({ settings, disabled, onBack, recentFiles, onRemoveRecent, resolveWikiKind, resolveWikiNode }: Props) {
   const [linkInput, setLinkInput] = useState('')
   const [sourceData, setSourceData] = useState<DocRefAttachmentData | null>(null)
@@ -72,6 +88,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   const [hasGen, setHasGen] = useState(false)
   const subDropdownRef = useRef<HTMLDivElement>(null)
   const prefetchRef = useRef(new Set<string>())
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => { loadVizList().then((all) => setList(all)) }, [])
 
@@ -155,7 +172,6 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     tableId: sourceData.kind === 'base' ? sourceData.tableId : undefined,
   } : null
   const curKey = sourceCtx ? ctxScopeKey(sourceCtx) : null
-  const visible = sourceCtx ? list.filter((v) => savedVizMatchesCtx(v, sourceCtx)) : list
 
   // Restore the last generation for this source (survives tab-switch unmount).
   useEffect(() => {
@@ -374,6 +390,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   }
 
   async function open(v: SavedViz) {
+    setDrawerOpen(false)
     setBusy(true); setErrMsg(''); setStatus(`打开「${v.name}」…`)
     try {
       if (NO_REMOTE_CODE && !v.spec && v.code) {
@@ -397,7 +414,17 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
 
   return (
     <div className="scenario-panel view-enter" key="dataviz">
-      <TopBar title="AI 看板" onBack={onBack} />
+      <TopBar
+        title="AI 看板"
+        onBack={onBack}
+        rightAction={
+          <Tooltip content="历史记录" position="bottom">
+            <IconButton onClick={() => setDrawerOpen(true)} aria-label="历史记录" disabled={busy}>
+              <IconHistory />
+            </IconButton>
+          </Tooltip>
+        }
+      />
       <div className="dv-body">
         <p className="dv-sub">选择一个多维表格或电子表格，用一句话生成图表 / 看板。</p>
 
@@ -513,32 +540,38 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         )}
         {errMsg && <p className="dv-hint dv-hint--err">{errMsg}</p>}
         {disabled && <p className="dv-hint">请先在「设置」里完成 API Key / 飞书授权。</p>}
-
-        {visible.length > 0 && (
-          <>
-            <div className="dv-section">
-              {sourceData ? '我的小程序（当前表格 · 点击用最新数据打开）' : '我的小程序'}
-            </div>
-            <div className="dv-list">
-              {visible.map((v) => (
-                <div key={v.id} className="dv-item">
-                  <Tooltip content="用最新数据重新渲染" position="top">
-                    <button className="dv-item-open" onClick={() => open(v)} disabled={busy}>
-                      {v.name}
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="删除" position="top">
-                    <IconButton variant="danger" className="dv-item-del" onClick={() => remove(v)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></IconButton>
-                  </Tooltip>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-        {visible.length === 0 && list.length > 0 && sourceData && (
-          <p className="dv-hint">你在其它表格保存过 {list.length} 个小程序——切换到对应表格即可打开。</p>
-        )}
       </div>
+
+      {drawerOpen && (
+        <SideDrawer title="历史记录" onClose={() => setDrawerOpen(false)}>
+          <div className="sl-decks">
+            {list.length === 0 && <p className="sl-decks-empty">还没有保存过的小程序</p>}
+            {[...list]
+              .sort((a, b) => {
+                // 当前表格的小程序置顶，再按创建时间倒序。
+                const aInScope = sourceCtx ? (savedVizMatchesCtx(a, sourceCtx) ? 0 : 1) : 1
+                const bInScope = sourceCtx ? (savedVizMatchesCtx(b, sourceCtx) ? 0 : 1) : 1
+                if (aInScope !== bInScope) return aInScope - bInScope
+                return b.createdAt - a.createdAt
+              })
+              .map((v) => {
+                const inScope = !sourceCtx || savedVizMatchesCtx(v, sourceCtx)
+                return (
+                  <HistoryRow
+                    key={v.id}
+                    name={v.name}
+                    meta={`${vizSourceLabel(v)} · ${timeAgo(v.createdAt)}${inScope && sourceCtx ? ' · 当前表格' : ''}`}
+                    onOpen={() => open(v)}
+                    onDelete={() => remove(v)}
+                    deleteDisabled={busy}
+                    openDisabled={busy}
+                    openTitle="用最新数据重新渲染"
+                  />
+                )
+              })}
+          </div>
+        </SideDrawer>
+      )}
     </div>
   )
 }
