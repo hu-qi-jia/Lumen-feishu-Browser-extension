@@ -53,7 +53,7 @@ export interface Block {
   /** 块的起始 X 坐标。 */
   x: number
   /** 块的类型。 */
-  kind: 'heading' | 'paragraph' | 'list' | 'image' | 'empty'
+  kind: 'heading' | 'paragraph' | 'list' | 'image' | 'empty' | 'table'
   /** 标题级别（1-6），仅 kind === 'heading' 时有效。 */
   level?: number
   /** 所属页码。 */

@@ -35,8 +35,36 @@ function detectHeadingLevel(line: TextLine, avgFontSize: number, maxFontSize: nu
   return 0
 }
 
+/** 按连续 2+ 空格分割为列。用于表格检测。 */
+function splitIntoColumns(text: string): string[] {
+  return text.split(/\s{2,}/).map((s) => s.trim()).filter((s) => s.length > 0)
+}
+
+/** 检测一行是否可能是表格行（有 2+ 列由多空格分隔）。 */
+function isTableRow(text: string): boolean {
+  // 必须有 2+ 列，且不是列表行
+  if (LIST_RE.test(text) || NUM_HEADING_RE.test(text)) return false
+  const cols = splitIntoColumns(text)
+  return cols.length >= 2
+}
+
+/** 将表格行组转为 Markdown pipe 表格。 */
+function rowsToTable(rows: TextLine[]): string {
+  const colRows = rows.map((r) => splitIntoColumns(r.text))
+  const maxCols = Math.max(...colRows.map((r) => r.length))
+  const aligned = colRows.map((r) => {
+    while (r.length < maxCols) r.push('')
+    return r
+  })
+  const header = `| ${aligned[0].join(' | ')} |`
+  const separator = `| ${aligned[0].map(() => '---').join(' | ')} |`
+  const body = aligned.slice(1).map((r) => `| ${r.join(' | ')} |`)
+  return [header, separator, ...body].join('\n')
+}
+
 /**
  * 将行 + 图片组装为 Block 列表（按 Y 坐标从上到下排序）。
+ * 包含表格检测：连续 2+ 行有 2+ 列（多空格分隔）→ pipe 表格。
  */
 export function buildBlocks(lines: TextLine[], images: ExtractedImage[]): Block[] {
   if (!lines.length && !images.length) return []
@@ -46,20 +74,55 @@ export function buildBlocks(lines: TextLine[], images: ExtractedImage[]): Block[
     : 10
   const maxFontSize = lines.length ? Math.max(...lines.map((l) => l.fontSize)) : 10
 
+  // 先过滤空行，保留索引映射
+  const nonEmpty = lines.filter((l) => l.text.trim() !== '')
+
+  // 检测表格组：连续的 isTableRow 行
+  const tableGroups: { start: number; end: number }[] = []
+  let i = 0
+  while (i < nonEmpty.length) {
+    if (isTableRow(nonEmpty[i].text)) {
+      const start = i
+      while (i < nonEmpty.length && isTableRow(nonEmpty[i].text)) i++
+      if (i - start >= 2) tableGroups.push({ start, end: i - 1 })
+    } else {
+      i++
+    }
+  }
+
+  // 标记哪些行属于表格
+  const inTable = new Set<number>()
+  for (const g of tableGroups) {
+    for (let j = g.start; j <= g.end; j++) inTable.add(j)
+  }
+
   // 将行转为 Block
-  const lineBlocks: Block[] = lines
-    .filter((l) => l.text.trim() !== '')
-    .map((line) => {
-      const level = detectHeadingLevel(line, avgFontSize, maxFontSize)
-      const isList = LIST_RE.test(line.text)
-      if (level > 0) {
-        return { text: `${'#'.repeat(level)} ${line.text}`, y: line.y, x: line.x, kind: 'heading' as const, level, page: line.page }
+  const lineBlocks: Block[] = []
+  for (let j = 0; j < nonEmpty.length; j++) {
+    const line = nonEmpty[j]
+    if (inTable.has(j)) {
+      // 表格行：找到所属组，整组转为一个 table Block
+      const group = tableGroups.find((g) => j >= g.start && j <= g.end)
+      if (group && j === group.start) {
+        const rows = nonEmpty.slice(group.start, group.end + 1)
+        lineBlocks.push({
+          text: rowsToTable(rows), y: line.y, x: line.x,
+          kind: 'table' as const, page: line.page,
+        })
       }
-      if (isList) {
-        return { text: line.text, y: line.y, x: line.x, kind: 'list' as const, page: line.page }
-      }
-      return { text: line.text, y: line.y, x: line.x, kind: 'paragraph' as const, page: line.page }
-    })
+      // 非 start 行跳过（已合并到 table Block）
+      continue
+    }
+    const level = detectHeadingLevel(line, avgFontSize, maxFontSize)
+    const isList = LIST_RE.test(line.text)
+    if (level > 0) {
+      lineBlocks.push({ text: `${'#'.repeat(level)} ${line.text}`, y: line.y, x: line.x, kind: 'heading' as const, level, page: line.page })
+    } else if (isList) {
+      lineBlocks.push({ text: line.text, y: line.y, x: line.x, kind: 'list' as const, page: line.page })
+    } else {
+      lineBlocks.push({ text: line.text, y: line.y, x: line.x, kind: 'paragraph' as const, page: line.page })
+    }
+  }
 
   // 将图片转为 Block
   const imageBlocks: Block[] = images.map((img) => ({
@@ -71,10 +134,9 @@ export function buildBlocks(lines: TextLine[], images: ExtractedImage[]): Block[
   }))
 
   // 合并并按 (page, y 降序, x 升序) 排序
-  // Y 降序 = 页面上方在前（PDF 坐标系 Y 向上）
   const all = [...lineBlocks, ...imageBlocks].sort((a, b) => {
     if (a.page !== b.page) return a.page - b.page
-    if (Math.abs(a.y - b.y) > 5) return b.y - a.y // Y 大的在前
+    if (Math.abs(a.y - b.y) > 5) return b.y - a.y
     return a.x - b.x
   })
 
@@ -123,13 +185,10 @@ export function blocksToMarkdown(blocks: Block[], pageBreaks = true): string {
 
     // 块间空行规则
     if (prevKind && prevKind !== 'list') {
-      // 非 list 之后都加空行
       parts.push('\n\n')
     } else if (prevKind === 'list' && block.kind !== 'list') {
-      // list → 非 list 加空行
       parts.push('\n\n')
     } else if (prevKind === 'list' && block.kind === 'list') {
-      // list → list 不加空行（连续列表项）
       parts.push('\n')
     }
 
