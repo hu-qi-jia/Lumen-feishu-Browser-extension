@@ -7,13 +7,22 @@ const RETRYABLE = new Set([429, 500, 502, 503, 504])
 /** Download a Feishu drive media (e.g. docx image-block token) as a Blob.
  *  Uses feishuFetch so the outbound guard + feishu host allowlist still apply.
  *
+ *  `extra` is REQUIRED for medias embedded in cloud docs — a docx image-block token is NOT a
+ *  drive-space file token, so the bare endpoint returns 400/403. Passing
+ *  `{"docType":"docx"}` tells the API the token lives inside a docx document.
+ *
  *  Retries transient failures (429/5xx) with backoff — this is a GET (idempotent), so retrying is
  *  safe under the project's "writes never retry, reads may" rule. robustFetch already retries when
  *  fetch() *throws* (network drop), but a 429 returns a Response with !ok and would otherwise be
  *  counted as a permanent failure. Up to 3 attempts. */
-export async function downloadMedia(fileToken: string, userToken: string): Promise<Blob> {
+export async function downloadMedia(
+  fileToken: string,
+  userToken: string,
+  extra?: Record<string, unknown>,
+): Promise<Blob> {
+  const params: Record<string, string> | undefined = extra ? { extra: JSON.stringify(extra) } : undefined
   for (let attempt = 0; ; attempt++) {
-    const res = await feishuFetch('GET', `/drive/v1/medias/${fileToken}/download`, userToken)
+    const res = await feishuFetch('GET', `/drive/v1/medias/${fileToken}/download`, userToken, undefined, params)
     if (res.ok) return res.blob()
     // Drain the body so the connection can be reused before we throw or back off.
     try { await res.blob() } catch { /* ignore — we only care about the status */ }

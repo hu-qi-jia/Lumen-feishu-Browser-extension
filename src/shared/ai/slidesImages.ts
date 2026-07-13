@@ -126,7 +126,7 @@ export async function harvestDocImages(args: {
       const { token, context } = list[my]
       try {
         if (args.signal?.aborted) return
-        const blob = await downloadMedia(token, args.userToken)
+        const blob = await downloadMedia(token, args.userToken, { docType: 'docx' })
         const dataUrl = await compressImageToDataUrl(blob, { longEdge: 1024, quality: 0.8 })
         results[my] = { ok: true, img: { id: `doc-${my + 1}`, source: 'doc', label: `文档图${my + 1}`, dataUrl, context } }
       } catch (e) {

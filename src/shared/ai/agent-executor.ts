@@ -418,7 +418,7 @@ async function executeDocTool(
           const idx = cursor++
           const { token: imgTok, context } = imgBlocks[idx]
           try {
-            const blob = await downloadMedia(imgTok, token)
+            const blob = await downloadMedia(imgTok, token, { docType: 'docx' })
             const dataUrl = await compressImageToDataUrl(blob)
             images[idx] = { name: `image-${idx + 1}.${blob.type.split('/')[1] || 'png'}`, context, dataUrl }
           } catch {
