@@ -440,64 +440,72 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     } finally { setBusy(false) }
   }
 
+  // 打开历史看板：参考 PPT 的 openSaved —— 不进入 busy，立即切换页面 + 打开标签页，
+  // 子表异步加载，数据拉取在后台进行，避免「AI 处理中」长等待。
   async function open(v: SavedViz) {
+    if (busy) return
     setDrawerOpen(false)
-    setBusy(true); setErrMsg(''); setStatus(`打开「${v.name}」…`)
+    setErrMsg(''); setStatus('')
     setActiveVizId(v.id)
-    try {
-      let code = v.code
-      let spec = v.spec
-      if (NO_REMOTE_CODE && !spec && code) {
-        setStatus(`「${v.name}」由旧版生成，正用当前数据重建…`)
-        const full = await fetchVizData(settings, v.source, RENDER_CAP)
-        const res = await generateViz(settings, { schema: full.schema, sampleRows: full.rows.slice(0, SAMPLE_CAP), request: v.request || v.name })
-        spec = res.spec
-        setList(await saveViz({ ...v, spec }))
-      }
 
-      // 恢复数据源 + 生成状态，跳转到生成后的页面（显示重新生成/查看/导出按钮）
-      const restored = vizSourceToDocRef(v.source, v.name)
-      const restoredKey = ctxScopeKey({
-        kind: restored.kind,
-        appToken: restored.kind === 'base' ? restored.docToken : undefined,
-        spreadsheetToken: restored.kind === 'sheet' ? restored.docToken : undefined,
-        tableId: restored.kind === 'base' ? restored.tableId : undefined,
-      })
-      const artifact: LastViz = { name: v.name, code, spec, request: v.request, source: v.source }
-      // 写入 genCache，防止 sourceData 变化触发的 curKey useEffect 覆盖 last.current
-      if (restoredKey) genCache.set(restoredKey, artifact)
-      last.current = artifact
-      setHasGen(true)
-      setSourceData(restored)
-      setLinkInput('')
-      setRequest('')
-      setSubItems([])
-      setSubLoading(true)
-      setStatus(`已恢复「${v.name}」——可重新生成或导出`)
+    let code = v.code
+    let spec = v.spec
 
-      // 异步加载子表列表（不阻塞 html 展示），并回填子表名
+    // 旧版 code-only 看板：在后台用当前数据重建 spec（不阻塞 UI）。
+    if (NO_REMOTE_CODE && !spec && code) {
       void (async () => {
         try {
-          const items = await fetchSubTables(restored)
-          setSubItems(items)
-          const selId = restored.kind === 'sheet' ? restored.sheetId : restored.tableId
-          const sel = items.find((it) => it.id === selId)
-          if (sel) {
-            setSourceData((prev) => prev ? {
-              ...prev,
-              sheetName: prev.kind === 'sheet' ? sel.name : prev.sheetName,
-              tableName: prev.kind === 'base' ? sel.name : prev.tableName,
-            } : prev)
-          }
-        } catch { /* 子表加载失败不影响展示 */ }
-        finally { setSubLoading(false) }
+          const full = await fetchVizData(settings, v.source, RENDER_CAP)
+          const res = await generateViz(settings, { schema: full.schema, sampleRows: full.rows.slice(0, SAMPLE_CAP), request: v.request || v.name })
+          setList(await saveViz({ ...v, spec: res.spec }))
+          last.current = { ...last.current!, spec: res.spec }
+        } catch { /* 重建失败不影响查看 */ }
       })()
+    }
 
-      // 在新标签页展示 html
+    // 立即恢复数据源 + 生成状态，跳转到生成后的页面（显示重新生成/查看/导出按钮）
+    const restored = vizSourceToDocRef(v.source, v.name)
+    const restoredKey = ctxScopeKey({
+      kind: restored.kind,
+      appToken: restored.kind === 'base' ? restored.docToken : undefined,
+      spreadsheetToken: restored.kind === 'sheet' ? restored.docToken : undefined,
+      tableId: restored.kind === 'base' ? restored.tableId : undefined,
+    })
+    const artifact: LastViz = { name: v.name, code, spec, request: v.request, source: v.source }
+    if (restoredKey) genCache.set(restoredKey, artifact)
+    last.current = artifact
+    setHasGen(true)
+    setSourceData(restored)
+    setLinkInput('')
+    setRequest('')
+    setSubItems([])
+    setStatus('')
+
+    // 异步加载子表列表（不阻塞），回填子表名
+    setSubLoading(true)
+    void (async () => {
+      try {
+        const items = await fetchSubTables(restored)
+        setSubItems(items)
+        const selId = restored.kind === 'sheet' ? restored.sheetId : restored.tableId
+        const sel = items.find((it) => it.id === selId)
+        if (sel) {
+          setSourceData((prev) => prev ? {
+            ...prev,
+            sheetName: prev.kind === 'sheet' ? sel.name : prev.sheetName,
+            tableName: prev.kind === 'base' ? sel.name : prev.tableName,
+          } : prev)
+        }
+      } catch { /* 子表加载失败不影响展示 */ }
+      finally { setSubLoading(false) }
+    })()
+
+    // 在新标签页展示 html（后台拉取数据，不设 busy）
+    try {
       await openInViewer({ code, spec }, v.source, v.name)
     } catch (e) {
-      setErrMsg(errText(e)); setStatus('')
-    } finally { setBusy(false) }
+      setErrMsg(errText(e))
+    }
   }
 
   async function remove(v: SavedViz) { setList(await deleteViz(v.id)) }
