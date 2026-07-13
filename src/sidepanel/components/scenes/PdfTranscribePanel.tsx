@@ -6,6 +6,7 @@ import { polishMarkdown } from '@/shared/ai/mdPolish'
 import { markdownToSegments, insertSegments, listBlocks } from '@/shared/feishu/docx'
 import { cleanMarkdown, normalizeHeadingLevels } from '@/shared/mdClean'
 import { openUrlInNewTab } from '@/shared/url'
+import { extractMarkdown, detectScan } from '@/shared/pdf/extract'
 import { loadPdfs, savePdf, deletePdf, type SavedPdf } from '../../lib/pdfHistory'
 import { createDocDirect, type CreateResult } from './createTargets'
 import TopBar from '../shell/TopBar'
@@ -87,13 +88,13 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     if (!file) return
     setPhase('converting'); setError(''); setInfo('')
     try {
-      const { extractMarkdown, detectScan } = await import('@/shared/pdfExtract')
       const buf = await file.arrayBuffer()
+      // 新方案：pdfjs-dist 直接提取文本+图片，内部已做断句修复/空白消除/图片提取
       const md = await extractMarkdown(buf)
       const scan = detectScan(md)
       if (scan.likelyScan) { setError(scan.reason); setPhase('error'); return }
-      // editMd = 默认清理（断行修复 + 压缩空行）后的干净稿。
-      setEditMd(cleanMarkdown(normalizeHeadingLevels(md))); setView('preview'); setPhase('done')
+      // normalizeHeadingLevels 仍用于修复数字编号标题层级（兼容旧历史记录）
+      setEditMd(normalizeHeadingLevels(md)); setView('preview'); setPhase('done')
       const id = crypto.randomUUID()
       setActivePdfId(id)
       setPdfs(await savePdf({ id, fileName, markdown: md, createdAt: Date.now() }))

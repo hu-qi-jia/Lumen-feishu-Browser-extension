@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 
 const mockExtract = vi.fn(); const mockDetect = vi.fn()
-vi.mock('@/shared/pdfExtract', () => ({ extractMarkdown: mockExtract, detectScan: mockDetect }))
+vi.mock('@/shared/pdf/extract', () => ({ extractMarkdown: mockExtract, detectScan: mockDetect }))
 const mockPolish = vi.fn()
 vi.mock('@/shared/ai/mdPolish', () => ({ polishMarkdown: mockPolish }))
 const mockListBlocks = vi.fn(); const mockInsertContent = vi.fn()
