@@ -263,4 +263,75 @@ export const DOC_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'insert_bitable',
+      description:
+        '在文档中插入一个【多维表格】(Bitable) 块。插入后会自动创建一张新的多维表格，返回 app_token 和 table_id，' +
+        '可继续用 Base 工具（create_field/create_record 等）操作其中的数据。',
+      parameters: {
+        type: 'object',
+        properties: {
+          document_id: { type: 'string', description: '文档 token（默认当前文档）' },
+          index: { type: 'integer', description: '插入位置，默认 0' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'insert_callout',
+      description: '在文档中插入一个【高亮块】(Callout) 并填入文本。适合突出重要提示、警告或备注。',
+      parameters: {
+        type: 'object',
+        required: ['text'],
+        properties: {
+          document_id: { type: 'string', description: '文档 token（默认当前文档）' },
+          text: { type: 'string', description: '高亮块内的文本内容' },
+          index: { type: 'integer', description: '插入位置，默认 0' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'insert_iframe',
+      description: '在文档中插入一个【内嵌网页】(Iframe) 块，可以嵌入外部网页链接。',
+      parameters: {
+        type: 'object',
+        required: ['url'],
+        properties: {
+          document_id: { type: 'string', description: '文档 token（默认当前文档）' },
+          url: { type: 'string', description: '要嵌入的网页 URL' },
+          index: { type: 'integer', description: '插入位置，默认 0' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_document_block',
+      description:
+        '修改文档中某个已有文本块的内容或样式。需要先用 list_blocks 获取 block_id。' +
+        '支持修改文本内容和样式（text/h1/h2/h3/bullet/ordered/quote/code/todo）。',
+      parameters: {
+        type: 'object',
+        required: ['block_id', 'text'],
+        properties: {
+          document_id: { type: 'string', description: '文档 token（默认当前文档）' },
+          block_id: { type: 'string', description: '要修改的块 ID（来自 list_blocks）' },
+          text: { type: 'string', description: '新的文本内容' },
+          style: {
+            type: 'string',
+            enum: ['text', 'h1', 'h2', 'h3', 'bullet', 'ordered', 'quote', 'code', 'todo'],
+            description: '块样式，默认 text',
+          },
+        },
+      },
+    },
+  },
 ]

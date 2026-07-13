@@ -2,7 +2,7 @@ import type { AppSettings, PageContext, Attachment } from '../types'
 import * as API from '../feishu/api'
 import * as Sheets from '../feishu/sheets'
 import * as Docx from '../feishu/docx'
-import type { BlockSpec } from '../feishu/docx'
+import type { BlockSpec, BlockStyle } from '../feishu/docx'
 import * as Compose from '../feishu/compose'
 import type { Metric } from '../feishu/compose'
 import { feishuReq } from '../feishu/http'
@@ -59,7 +59,7 @@ export function rewriteFeishuOrigins(text: string, tenantOrigin: string | null):
   if (!text || !tenantOrigin) return text
   const d = BUILD_CONFIG.feishuBaseDomain
   return text.replace(
-    /https?:\/\/([a-z0-9.:-]+)(\/(?:docx|docs|base|sheets|wiki)\/[A-Za-z0-9]+)/gi,
+    /https?:\/\/([a-z0-9.:-]+)(\/(?:docx|docs|base|sheets|wiki|whiteboard)\/[A-Za-z0-9]+)/gi,
     (m, host: string, rest: string) => {
       const h = host.toLowerCase().replace(/:\d+$/, '')
       return h === d || h.endsWith('.' + d) ? tenantOrigin.replace(/\/+$/, '') + rest : m
@@ -157,6 +157,8 @@ async function executeSheetTool(
       return Sheets.addSheet(token, ss!, args.title as string, args.index as number | undefined)
     case 'delete_sheet':
       return Sheets.deleteSheet(token, ss!, sanitizeToken(args.sheet_id as string | undefined)!)
+    case 'rename_sheet':
+      return Sheets.renameSheet(token, ss!, sanitizeToken(args.sheet_id as string | undefined)!, args.title as string)
     case 'read_range':
       return Sheets.readRange(token, ss!, range!)
     case 'write_range':
@@ -242,6 +244,12 @@ async function executeDocTool(
         token, doc!, (args.data as string[][]) ?? [],
         (args.index as number | undefined) ?? 0
       )
+    case 'insert_bitable':
+      return Docx.insertBitable(token, doc!, (args.index as number | undefined) ?? 0)
+    case 'insert_callout':
+      return Docx.insertCallout(token, doc!, args.text as string, (args.index as number | undefined) ?? 0)
+    case 'insert_iframe':
+      return Docx.insertIframe(token, doc!, args.url as string, (args.index as number | undefined) ?? 0)
     case 'get_document_content':
       return Docx.getDocumentContent(token, doc!)
     case 'list_blocks': {
@@ -261,6 +269,12 @@ async function executeDocTool(
         (args.blocks as BlockSpec[]) ?? [],
         (args.index as number | undefined) ?? 0
       )
+    case 'update_document_block': {
+      const blockId = sanitizeToken(args.block_id as string)!
+      const text = args.text as string
+      const style = (args.style as BlockStyle) ?? 'text'
+      return Docx.updateBlockText(token, doc!, blockId, text, style)
+    }
     case 'delete_document_blocks': {
       const parent = sanitizeToken(args.parent_block_id as string | undefined)
       const start = args.start_index as number
@@ -460,7 +474,7 @@ function parseField(f: Record<string, unknown>): API.FeishuField {
 async function maybeTransfer(
   token: string,
   objToken: string | undefined,
-  objType: 'bitable' | 'sheet' | 'docx',
+  objType: 'bitable' | 'sheet' | 'docx' | 'board',
   settings?: AppSettings
 ): Promise<void> {
   const owner = settings?.feishuOwnerOpenId?.trim()
@@ -598,6 +612,25 @@ export async function executeTool(
   // Base app_token guard below.
   if (SHEET_TOOLS.has(name)) return executeSheetTool(name, args, token, settings)
   if (DOC_TOOLS.has(name)) return executeDocTool(name, args, token, context, settings, attachments)
+
+  // 画板 Whiteboard 工具——自带 whiteboard_id（或在画板页面自动识别），需在 Base app_token 守卫之前分发。
+  if (name === 'create_whiteboard') {
+    const Board = await import('../feishu/board')
+    const r = await Board.createWhiteboard(
+      token,
+      args.title as string,
+      sanitizeToken(args.folder_token as string | undefined)
+    ) as { whiteboard?: { whiteboard_id?: string; title?: string } }
+    await maybeTransfer(token, r.whiteboard?.whiteboard_id, 'board', settings)
+    return r
+  }
+  if (name === 'get_whiteboard_info') {
+    const Board = await import('../feishu/board')
+    const id = sanitizeToken(args.whiteboard_id as string | undefined)
+      ?? (context.feishu?.kind === 'board' ? context.feishu.whiteboardId : undefined)
+    if (!id) throw new Error('未检测到画板 ID，请传入 whiteboard_id 或在画板页面使用')
+    return Board.getWhiteboard(token, id)
+  }
 
   // Data-viz
   if (name === 'render_data_app') {
@@ -763,6 +796,9 @@ export async function executeTool(
 
     case 'delete_table':
       return API.deleteTable(token, app!, tableId!)
+
+    case 'update_table':
+      return API.updateTable(token, app!, sanitizeToken(args.table_id as string)!, args.name as string)
 
     case 'search_records': {
       const data = await API.searchRecords(

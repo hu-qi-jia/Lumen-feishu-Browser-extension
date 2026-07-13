@@ -12,7 +12,7 @@ export const CREATE_ONCE_TOOLS = new Set([
   'create_bitable_app', 'create_table', 'create_field', 'create_view',
   'create_document', 'create_doc_from_markdown', 'insert_table', 'insert_sheet',
   'create_spreadsheet', 'add_sheet', 'base_table_to_sheet', 'summarize_table',
-  'generate_data_report',
+  'generate_data_report', 'create_whiteboard',
   // insert_image / replace_image: some LLMs emit the identical call twice in a turn,
   // which inserts the image twice. An exact repeat (same attachment_id + anchor) is an
   // accidental duplicate — dedupe it. Two genuinely different anchors still differ in args,
@@ -34,12 +34,14 @@ export const DOC_TOOLS = new Set([
   'create_document', 'create_doc_from_markdown', 'get_document_content', 'list_blocks',
   'add_document_content', 'insert_table', 'insert_sheet', 'delete_document_blocks',
   'insert_image', 'copy_document', 'replace_image', 'export_doc_images',
+  'insert_bitable', 'insert_callout', 'insert_iframe', 'update_document_block',
 ])
 // Pure READ tools — side-effect-free, so when the model batches several in one round they can run
 // CONCURRENTLY instead of one-after-another (cuts wall-time for "read A and B and C" patterns).
 export const READ_ONLY_TOOLS = new Set([
   'get_app_info', 'list_tables', 'list_fields', 'list_records', 'search_records', 'list_views',
   'list_dashboards', 'get_spreadsheet', 'list_sheets', 'read_range', 'get_document_content', 'list_blocks',
+  'get_whiteboard_info',
   // 知识库（Obsidian）三件套均为只读 → 可与其他只读调用同轮并行
   'search_knowledge_base', 'list_knowledge_notes', 'read_knowledge_note',
 ])
@@ -48,6 +50,7 @@ export const READ_ONLY_TOOLS = new Set([
 const CORE_TOOLS = new Set([
   'feishu_api_call', 'render_data_app',
   'create_bitable_app', 'create_spreadsheet', 'create_document', 'create_doc_from_markdown',
+  'create_whiteboard',
 ])
 
 /**
@@ -67,6 +70,7 @@ export function toolsForContext(
     if (SMART_FILL_TOOLS.has(name)) return kind === 'base' || kind === 'sheet'
     if (kind === 'sheet') return SHEET_TOOLS.has(name)
     if (kind === 'doc') return DOC_TOOLS.has(name)
+    if (kind === 'board') return name === 'get_whiteboard_info'
     if (kind === 'base') return !SHEET_TOOLS.has(name) && !DOC_TOOLS.has(name)
     return false // unknown / unresolved wiki → core + creators only
   })

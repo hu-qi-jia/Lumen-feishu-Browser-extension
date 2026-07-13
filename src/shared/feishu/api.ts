@@ -56,6 +56,13 @@ export function deleteTable(token: string, appToken: string, tableId: string) {
   return req('DELETE', `/bitable/v1/apps/${appToken}/tables/${tableId}`, token)
 }
 
+/** Rename a table (数据表) in a Base. */
+export function updateTable(token: string, appToken: string, tableId: string, name: string) {
+  return req('PATCH', `/bitable/v1/apps/${appToken}/tables/${tableId}`, token, {
+    table: { name },
+  })
+}
+
 // ─── Fields ──────────────────────────────────────────────────────────────────
 
 export function listFields(token: string, appToken: string, tableId: string) {
@@ -326,7 +333,7 @@ export function transferBaseOwner(
   memberType: MemberIdType,
   memberId: string,
   removeOldOwner = false,
-  objType: 'bitable' | 'sheet' | 'docx' = 'bitable'
+  objType: 'bitable' | 'sheet' | 'docx' | 'board' = 'bitable'
 ) {
   return req(
     'POST',

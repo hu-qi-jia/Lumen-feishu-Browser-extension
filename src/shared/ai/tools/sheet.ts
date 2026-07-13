@@ -219,4 +219,20 @@ export const SHEET_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'rename_sheet',
+      description: 'Rename a worksheet (工作表) in a spreadsheet.',
+      parameters: {
+        type: 'object',
+        required: ['sheet_id', 'title'],
+        properties: {
+          spreadsheet_token: { type: 'string', description: '电子表格 token（默认当前表格）' },
+          sheet_id: { type: 'string', description: '工作表 ID（来自 list_sheets）' },
+          title: { type: 'string', description: '新的工作表标题' },
+        },
+      },
+    },
+  },
 ]

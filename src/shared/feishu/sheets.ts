@@ -41,6 +41,13 @@ export function deleteSheet(token: string, spreadsheetToken: string, sheetId: st
   })
 }
 
+/** Rename a worksheet (工作表) in a spreadsheet (sheets/v3 PATCH). */
+export function renameSheet(token: string, spreadsheetToken: string, sheetId: string, title: string) {
+  return feishuReq('PATCH', `/sheets/v3/spreadsheets/${spreadsheetToken}/sheets/${sheetId}`, token, {
+    sheet: { title },
+  })
+}
+
 // ─── Cell values ──────────────────────────────────────────────────────────────
 
 // Feishu stores a plain "=..." string as literal TEXT — it only evaluates a

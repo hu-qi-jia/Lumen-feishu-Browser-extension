@@ -542,6 +542,106 @@ export async function insertSheet(token: string, documentId: string, data: strin
   }
 }
 
+// ─── Embedded Bitable (多维表格, block_type 18) ──────────────────────────────
+
+/** Split a docx Bitable-block token `{appToken}_{tableId}` on the LAST underscore. */
+export function splitBitableToken(token: string): { appToken: string; tableId: string } | null {
+  const i = token.lastIndexOf('_')
+  if (i <= 0 || i >= token.length - 1) return null
+  return { appToken: token.slice(0, i), tableId: token.slice(i + 1) }
+}
+
+/**
+ * Embed a NEW Bitable (多维表格) into the document. Creating a Bitable block (18)
+ * AUTO-creates a fresh Base app + table; its token comes back as `{appToken}_{tableId}`.
+ * Returns app_token + table_id so the agent can continue operating on the Base
+ * with create_field/create_record etc.
+ */
+export async function insertBitable(token: string, documentId: string, index = 0) {
+  const created = (await feishuReq(
+    'POST',
+    `/docx/v1/documents/${documentId}/blocks/${documentId}/children`,
+    token,
+    { index, children: [{ block_type: 18, bitable: { view_type: 1 } }] },
+  )) as { children?: Array<{ block_id: string; bitable?: { token?: string } }> }
+  const block = created.children?.[0]
+  const parsed = block?.bitable?.token ? splitBitableToken(block.bitable.token) : null
+  if (!parsed) {
+    throw new Error('无法解析多维表格 token（请重试或手动操作该多维表格）')
+  }
+  return {
+    bitable_block_id: block?.block_id ?? null,
+    app_token: parsed.appToken,
+    table_id: parsed.tableId,
+  }
+}
+
+// ─── Callout (高亮块, block_type 19) ─────────────────────────────────────────
+
+/**
+ * Insert a Callout (高亮块) with text content. A callout is a container that needs
+ * a text child block to carry the content — create the callout, then add a text
+ * child under it.
+ */
+export async function insertCallout(token: string, documentId: string, text: string, index = 0) {
+  const created = (await feishuReq(
+    'POST',
+    `/docx/v1/documents/${documentId}/blocks/${documentId}/children`,
+    token,
+    { index, children: [{ block_type: 19, callout: { background_color: 0, border_color: 0, text_color: 0, emoji_id: '' } }] },
+  )) as { children?: Array<{ block_id: string }> }
+  const calloutBlockId = created.children?.[0]?.block_id
+  if (!calloutBlockId) throw new Error('创建高亮块失败。')
+  // Add a text child block under the callout to carry the content.
+  await feishuReq(
+    'POST',
+    `/docx/v1/documents/${documentId}/blocks/${calloutBlockId}/children`,
+    token,
+    { index: 0, children: [{ block_type: 2, text: { elements: parseInline(text), style: {} } }] },
+  )
+  return { callout_block_id: calloutBlockId }
+}
+
+// ─── Iframe (内嵌网页, block_type 26) ────────────────────────────────────────
+
+/** Insert an Iframe (内嵌网页) block embedding an external URL. */
+export function insertIframe(token: string, documentId: string, url: string, index = 0) {
+  return feishuReq(
+    'POST',
+    `/docx/v1/documents/${documentId}/blocks/${documentId}/children`,
+    token,
+    { index, children: [{ block_type: 26, iframe: { component: { type: 1, url: encodeURIComponent(url) } } }] },
+  )
+}
+
+// ─── Block text update ───────────────────────────────────────────────────────
+
+/**
+ * Update an existing text-bearing block's content and style. PATCHes the block with
+ * new text elements (parsed for inline bold/italic/code) and a new block_type if the
+ * style changes (e.g. text → heading). Use list_blocks first to get the block_id.
+ */
+export function updateBlockText(
+  token: string,
+  documentId: string,
+  blockId: string,
+  text: string,
+  style: BlockStyle = 'text',
+) {
+  const { type, key } = BLOCK_TYPE[style] ?? BLOCK_TYPE.text
+  if (key === 'divider' || key === 'image') {
+    throw new Error(`${style} 样式不支持 updateBlockText（仅支持文本类块）`)
+  }
+  const body: Record<string, unknown> = {
+    block_type: type,
+    [key]: {
+      elements: parseInline(text),
+      style: style === 'code' ? { language: 1 } : undefined,
+    },
+  }
+  return patchBlock(token, documentId, blockId, body)
+}
+
 /** Delete a contiguous range of child blocks [startIndex, endIndex). */
 /**
  * 纯：删除范围预校验。飞书 batch_delete 的报错是模糊的 `invalid param`，模型读不懂就容易

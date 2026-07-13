@@ -9,6 +9,7 @@ export function wikiToFeishu(objType: string, objToken: string): PageContext['fe
   if (objType === 'bitable') return { isBase: true, kind: 'base', appToken: objToken }
   if (objType === 'sheet') return { isBase: false, kind: 'sheet', spreadsheetToken: objToken }
   if (objType === 'docx' || objType === 'doc') return { isBase: false, kind: 'doc', documentId: objToken }
+  if (objType === 'board') return { isBase: false, kind: 'board', whiteboardId: objToken }
   return undefined
 }
 
@@ -104,7 +105,10 @@ export function useWikiResolve(
   const resolveWikiNode = useCallback(async (wikiToken: string): Promise<{ kind: SessionKind; docToken: string } | undefined> => {
     const cached = wikiCacheRef.current.get(wikiToken)
     if (cached?.kind && cached.kind !== 'wiki') {
-      const tok = cached.kind === 'base' ? cached.appToken : cached.kind === 'sheet' ? cached.spreadsheetToken : cached.documentId
+      const tok = cached.kind === 'base' ? cached.appToken
+        : cached.kind === 'sheet' ? cached.spreadsheetToken
+        : cached.kind === 'board' ? cached.whiteboardId
+        : cached.documentId
       if (tok) return { kind: cached.kind, docToken: tok }
     }
     try {
@@ -116,7 +120,10 @@ export function useWikiResolve(
       const f = wikiToFeishu(n.obj_type, n.obj_token)
       if (!f?.kind) return undefined
       wikiCacheRef.current.set(wikiToken, { ...f, wikiToken })
-      const tok = f.kind === 'base' ? f.appToken : f.kind === 'sheet' ? f.spreadsheetToken : f.documentId
+      const tok = f.kind === 'base' ? f.appToken
+        : f.kind === 'sheet' ? f.spreadsheetToken
+        : f.kind === 'board' ? f.whiteboardId
+        : f.documentId
       return tok ? { kind: f.kind, docToken: tok } : undefined
     } catch { return undefined }
   }, [settings, wikiCacheRef])

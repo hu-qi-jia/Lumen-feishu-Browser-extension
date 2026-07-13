@@ -36,7 +36,7 @@ describe('toolsForContext — exposes only the current resource\'s tools (+ core
     expect(n).toEqual(expect.arrayContaining(['feishu_api_call', 'create_spreadsheet', 'create_document']))
     expect(n).not.toContain('read_range')
     expect(n).not.toContain('batch_delete_records')
-    expect(n.length).toBeLessThan(10)
+    expect(n.length).toBeLessThan(12)
   })
 })
 

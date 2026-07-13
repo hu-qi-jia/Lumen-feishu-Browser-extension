@@ -463,4 +463,20 @@ export const BASE_TOOLS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'update_table',
+      description: 'Rename a table (数据表) in a Feishu Base.',
+      parameters: {
+        type: 'object',
+        required: ['table_id', 'name'],
+        properties: {
+          app_token: { type: 'string', description: 'App token (optional if on Base page)' },
+          table_id: { type: 'string' },
+          name: { type: 'string', description: 'New table name' },
+        },
+      },
+    },
+  },
 ]

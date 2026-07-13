@@ -86,7 +86,7 @@ export interface PageContext {
     viewId?: string
     /** Detected Feishu resource kind. 'wiki' is unresolved until the wiki node is
      *  looked up (it wraps a doc / sheet / base). */
-    kind?: 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt'
+    kind?: 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt' | 'board'
     /** Spreadsheet token when kind === 'sheet'. */
     spreadsheetToken?: string
     /** Document id when kind === 'doc'. */
@@ -95,6 +95,8 @@ export interface PageContext {
     wikiToken?: string
     /** Slide token when kind === 'ppt' (Feishu 演示文稿). */
     slideToken?: string
+    /** Whiteboard id when kind === 'board' (Feishu 画板). */
+    whiteboardId?: string
   }
 }
 
@@ -136,7 +138,7 @@ import { DEFAULT_PROVIDER } from './providers'
 
 // ─── Sessions (persisted conversations) ───────────────────────────────────────
 
-export type SessionKind = 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt'
+export type SessionKind = 'base' | 'sheet' | 'doc' | 'wiki' | 'ppt' | 'board'
 
 export interface SessionMeta {
   id: string

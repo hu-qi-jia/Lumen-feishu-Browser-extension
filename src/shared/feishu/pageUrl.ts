@@ -2,12 +2,13 @@ import type { PageContext, SessionKind } from '../types'
 
 /**
  * Parse a Feishu resource context out of a page URL — Base (多维表格), Spreadsheet
- * (电子表格), Doc (文档) or Slides (演示文稿). Used by both the content script
- * (location.href) and the side panel as a fallback when the content script isn't injected.
+ * (电子表格), Doc (文档), Slides (演示文稿) or Whiteboard (画板). Used by both the content
+ * script (location.href) and the side panel as a fallback when the content script isn't injected.
  *   /base/{appToken}?table=&view=   → Base
  *   /sheets/{spreadsheetToken}      → Spreadsheet
  *   /docx|docs/{documentId}         → Doc
  *   /slides/{slideToken}            → Slides (PPT)
+ *   /whiteboard/{whiteboardId}      → Whiteboard (画板)
  * (/wiki/ wraps another type and needs an API lookup to resolve — not handled here.)
  */
 export function parseFeishuContext(url: string): PageContext['feishu'] | undefined {
@@ -32,6 +33,9 @@ export function parseFeishuContext(url: string): PageContext['feishu'] | undefin
   const slides = url.match(/\/slides\/([A-Za-z0-9]+)/)
   if (slides) return { isBase: false, kind: 'ppt', slideToken: slides[1] }
 
+  const board = url.match(/\/whiteboard\/([A-Za-z0-9]+)/)
+  if (board) return { isBase: false, kind: 'board', whiteboardId: board[1] }
+
   // Wiki node wraps a doc/sheet/base — needs an API lookup to resolve the real type.
   const wiki = url.match(/\/wiki\/([A-Za-z0-9]+)/)
   if (wiki) return { isBase: false, kind: 'wiki', wikiToken: wiki[1] }
@@ -53,6 +57,7 @@ export function buildFeishuUrl(kind: SessionKind, token: string): string {
     case 'sheet': return `${FEISHU_URL_BASE}/sheets/${token}`
     case 'base': return `${FEISHU_URL_BASE}/base/${token}`
     case 'wiki': return `${FEISHU_URL_BASE}/wiki/${token}`
+    case 'board': return `${FEISHU_URL_BASE}/whiteboard/${token}`
     default: return '' // 'ppt' — not valid source material for the doc/table → PPT flow
   }
 }
