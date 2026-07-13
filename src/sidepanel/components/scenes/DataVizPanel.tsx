@@ -412,19 +412,18 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   /** Open the current generation in the viewer tab. */
   async function openViewer() {
     if (!last.current || busy) return
-    setBusy(true); setErrMsg(''); setStatus('打开预览…')
+    setErrMsg('')
     try {
       await openInViewer({ code: last.current.code, spec: last.current.spec }, last.current.source, last.current.name)
-      setStatus(`已在新标签页打开「${last.current.name}」`)
     } catch (e) {
-      setErrMsg(errText(e)); setStatus('')
-    } finally { setBusy(false) }
+      setErrMsg(errText(e))
+    }
   }
 
   /** Export the current generation as a standalone HTML file (via the viewer's export path). */
   async function exportHtml() {
     if (!last.current || busy) return
-    setBusy(true); setErrMsg(''); setStatus('正在导出 HTML…')
+    setErrMsg('')
     try {
       const full = await fetchVizData(settings, last.current.source, RENDER_CAP)
       await chrome.storage.session.set({
@@ -434,10 +433,9 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         },
       })
       await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/vizViewer.html?export=1') })
-      setStatus('已在新标签页导出 HTML 文件')
     } catch (e) {
-      setErrMsg(errText(e)); setStatus('')
-    } finally { setBusy(false) }
+      setErrMsg(errText(e))
+    }
   }
 
   // 打开历史看板：参考 PPT 的 openSaved —— 不进入 busy，立即切换页面 + 打开标签页，
