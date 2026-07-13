@@ -85,7 +85,7 @@ export default defineConfig(({ command, mode }) => {
         // The deck viewer is a standalone extension page (opened in its own tab so viewing a
         // generated PPT doesn't depend on staying on a Feishu page). It isn't referenced by any
         // standard manifest "page" field, so declare it here for the plugin to build as HTML input.
-        additionalInputs: ['src/viewer/deckViewer.html'],
+        additionalInputs: ['src/viewer/deckViewer.html', 'src/viewer/vizViewer.html'],
         // The plugin validates the generated manifest against a JSON schema it FETCHES from
         // raw.githubusercontent.com. In networks where that host's TLS is reset mid-handshake
         // (common in mainland China), the plugin's DNS-only "isOffline?" check passes (DNS

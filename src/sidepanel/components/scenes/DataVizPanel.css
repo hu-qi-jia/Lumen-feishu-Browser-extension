@@ -132,6 +132,13 @@
   flex-direction: column;
   gap: 8px;
 }
+.dv-actions--row {
+  flex-direction: row;
+}
+.dv-actions--row > .btn {
+  flex: 1;
+  min-width: 0;
+}
 
 /* ── Hints & status ── */
 .dv-hint { font-size: 11px; color: var(--color-text-secondary); margin: 0; line-height: 1.5; }

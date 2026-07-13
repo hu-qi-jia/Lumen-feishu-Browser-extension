@@ -22,7 +22,7 @@ import Tooltip from '../ui/Tooltip'
 import SideDrawer from '../ui/SideDrawer'
 import HistoryRow from '../session/HistoryRow'
 import DocLinkField from '../session/DocLinkField'
-import { KindIcon, IconHistory } from '../ui/icons'
+import { KindIcon, IconHistory, IconPlus, IconEye, IconUpload } from '../ui/icons'
 import '../session/DocCombobox.css'
 import '../session/HistoryRow.css'
 import './DataVizPanel.css'
@@ -84,8 +84,8 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   const abortRef = useRef<AbortController | null>(null)
   const [list, setList] = useState<SavedViz[]>([])
   const last = useRef<LastViz | null>(null)
-  const [canSave, setCanSave] = useState(false)
   const [hasGen, setHasGen] = useState(false)
+  const [activeVizId, setActiveVizId] = useState('')
   const subDropdownRef = useRef<HTMLDivElement>(null)
   const prefetchRef = useRef(new Set<string>())
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -178,8 +178,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     const cached = curKey ? genCache.get(curKey) : null
     last.current = cached ?? null
     setHasGen(!!cached)
-    setCanSave(!!cached)
-    setStatus(cached ? `已恢复上次生成的「${cached.name}」——可保存或重新调整` : '')
+    setStatus(cached ? `已恢复上次生成的「${cached.name}」——可重新调整或导出` : '')
   }, [curKey])
 
   // Close sub-table dropdown on outside click.
@@ -227,7 +226,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     setErrMsg('')
     last.current = null
     setHasGen(false)
-    setCanSave(false)
+    setActiveVizId('')
     setStatus('')
     try {
       const items = await fetchSubTables(data)
@@ -316,7 +315,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     setSubDropdownOpen(false)
     last.current = null
     setHasGen(false)
-    setCanSave(false)
+    setActiveVizId('')
     setStatus('')
   }
 
@@ -326,7 +325,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     setSubDropdownOpen(false)
     last.current = null
     setHasGen(false)
-    setCanSave(false)
+    setActiveVizId('')
     setRequest('')
     setStatus('')
     setErrMsg('')
@@ -336,7 +335,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     if (!request.trim() || busy) return
     if (refine && !last.current) return
     if (!sourceData) return
-    setBusy(true); setErrMsg(''); setCanSave(false); setGenChars(0)
+    setBusy(true); setErrMsg(''); setGenChars(0)
     const ac = new AbortController(); abortRef.current = ac
     try {
       setStatus('读取表结构…')
@@ -360,7 +359,19 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
 
       last.current = { name: finalName, code, spec, request: refine && last.current ? last.current.request : request.trim(), source }
       if (curKey) genCache.set(curKey, last.current)
-      setHasGen(true); setCanSave(true)
+
+      // Auto-save to history (like PPT does) so generations never get lost.
+      const id = refine && activeVizId ? activeVizId : crypto.randomUUID()
+      const existing = refine && activeVizId ? list.find((x) => x.id === activeVizId) : null
+      const v: SavedViz = {
+        id, name: finalName, source, code, spec,
+        request: refine && last.current ? last.current.request : request.trim(),
+        createdAt: existing?.createdAt ?? Date.now(), kind: 'viz',
+      }
+      setList(await saveViz(v))
+      if (!refine) setActiveVizId(id)
+
+      setHasGen(true)
       if (refine) setRequest('')
       setStatus(`已${refine ? '调整' : '生成'}「${finalName}」并展示在页面上${warning ? `　${warning}` : ''}`)
     } catch (e) {
@@ -376,35 +387,65 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
   function newDraft() {
     last.current = null
     if (curKey) genCache.delete(curKey)
-    setHasGen(false); setCanSave(false); setRequest(''); setStatus(''); setErrMsg(''); setGenChars(0)
+    setHasGen(false); setActiveVizId(''); setRequest(''); setStatus(''); setErrMsg(''); setGenChars(0)
   }
 
-  async function save() {
-    if (!last.current) return
-    const v: SavedViz = {
-      id: crypto.randomUUID(), name: last.current.name, source: last.current.source,
-      code: last.current.code, spec: last.current.spec, request: last.current.request,
-      createdAt: Date.now(), kind: 'viz',
-    }
-    setList(await saveViz(v)); setCanSave(false); setStatus(`已保存「${v.name}」到「我的看板」`)
+  /** Open a viz in the standalone viewer tab (page-independent, like PPT's deckViewer). */
+  async function openInViewer(artifact: { code?: string; spec?: VizSpec }, source: VizSource, name: string) {
+    const full = await fetchVizData(settings, source, RENDER_CAP)
+    await chrome.storage.session.set({
+      vizView: { code: artifact.code, spec: artifact.spec, data: full.rows, name, theme: theme() },
+    })
+    await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/vizViewer.html') })
+  }
+
+  /** Open the current generation in the viewer tab. */
+  async function openViewer() {
+    if (!last.current || busy) return
+    setBusy(true); setErrMsg(''); setStatus('打开预览…')
+    try {
+      await openInViewer({ code: last.current.code, spec: last.current.spec }, last.current.source, last.current.name)
+      setStatus(`已在新标签页打开「${last.current.name}」`)
+    } catch (e) {
+      setErrMsg(errText(e)); setStatus('')
+    } finally { setBusy(false) }
+  }
+
+  /** Export the current generation as a standalone HTML file (via the viewer's export path). */
+  async function exportHtml() {
+    if (!last.current || busy) return
+    setBusy(true); setErrMsg(''); setStatus('正在导出 HTML…')
+    try {
+      const full = await fetchVizData(settings, last.current.source, RENDER_CAP)
+      await chrome.storage.session.set({
+        vizView: {
+          code: last.current.code, spec: last.current.spec, data: full.rows,
+          name: last.current.name, theme: theme(), export: true,
+        },
+      })
+      await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/vizViewer.html?export=1') })
+      setStatus('已在新标签页导出 HTML 文件')
+    } catch (e) {
+      setErrMsg(errText(e)); setStatus('')
+    } finally { setBusy(false) }
   }
 
   async function open(v: SavedViz) {
     setDrawerOpen(false)
     setBusy(true); setErrMsg(''); setStatus(`打开「${v.name}」…`)
+    setActiveVizId(v.id)
     try {
-      if (NO_REMOTE_CODE && !v.spec && v.code) {
+      let code = v.code
+      let spec = v.spec
+      if (NO_REMOTE_CODE && !spec && code) {
         setStatus(`「${v.name}」由旧版生成，正用当前数据重建…`)
         const full = await fetchVizData(settings, v.source, RENDER_CAP)
-        const { spec, warning } = await generateViz(settings, { schema: full.schema, sampleRows: full.rows.slice(0, SAMPLE_CAP), request: v.request || v.name })
-        await sendToOverlay({ spec }, full.rows, v.name)
+        const res = await generateViz(settings, { schema: full.schema, sampleRows: full.rows.slice(0, SAMPLE_CAP), request: v.request || v.name })
+        spec = res.spec
         setList(await saveViz({ ...v, spec }))
-        setStatus(`已重建并渲染「${v.name}」（已保存，下次秒开）${warning ? `　${warning}` : ''}`)
-        return
       }
-      const full = await fetchVizData(settings, v.source, RENDER_CAP)
-      await sendToOverlay({ code: v.code, spec: v.spec }, full.rows, v.name)
-      setStatus(`已用最新数据渲染「${v.name}」`)
+      await openInViewer({ code, spec }, v.source, v.name)
+      setStatus(`已在新标签页打开「${v.name}」`)
     } catch (e) {
       setErrMsg(errText(e)); setStatus('')
     } finally { setBusy(false) }
@@ -418,11 +459,20 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         title="AI 看板"
         onBack={onBack}
         rightAction={
-          <Tooltip content="历史记录" position="bottom">
-            <IconButton onClick={() => setDrawerOpen(true)} aria-label="历史记录" disabled={busy}>
-              <IconHistory />
-            </IconButton>
-          </Tooltip>
+          <>
+            {hasGen && (
+              <Tooltip content="新建" position="bottom">
+                <IconButton onClick={newDraft} aria-label="新建看板" disabled={busy}>
+                  <IconPlus />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip content="历史记录" position="bottom">
+              <IconButton onClick={() => setDrawerOpen(true)} aria-label="历史记录" disabled={busy}>
+                <IconHistory />
+              </IconButton>
+            </Tooltip>
+          </>
         }
       />
       <div className="dv-body">
@@ -513,19 +563,14 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
               disabled={disabled || busy}
             />
             <div className="dv-actions">
-              <Button variant="primary" block onClick={() => generate(false)} disabled={disabled || busy || !request.trim()}>
+              <Button variant="primary" block onClick={() => generate(hasGen)} disabled={disabled || busy || !request.trim()}>
                 {busy ? '处理中…' : hasGen ? '重新生成' : '生成并展示'}
               </Button>
               {hasGen && (
-                <Button block onClick={() => generate(true)} disabled={disabled || busy || !request.trim()}>
-                  按上面文字微调（只改你说的那处）
-                </Button>
-              )}
-              {canSave && (
-                <Button block onClick={save} disabled={busy}>保存为「我的看板」</Button>
-              )}
-              {hasGen && (
-                <Button block onClick={newDraft} disabled={busy}>新建一个</Button>
+                <div className="dv-actions dv-actions--row">
+                  <Button variant="secondary" icon={<IconEye />} onClick={openViewer} disabled={busy}>查看看板</Button>
+                  <Button variant="secondary" icon={<IconUpload />} onClick={exportHtml} disabled={busy}>导出 HTML</Button>
+                </div>
               )}
             </div>
           </>
@@ -561,11 +606,12 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
                     key={v.id}
                     name={v.name}
                     meta={`${vizSourceLabel(v)} · ${timeAgo(v.createdAt)}${inScope && sourceCtx ? ' · 当前表格' : ''}`}
+                    active={activeVizId === v.id}
                     onOpen={() => open(v)}
                     onDelete={() => remove(v)}
                     deleteDisabled={busy}
                     openDisabled={busy}
-                    openTitle="用最新数据重新渲染"
+                    openTitle="在新标签页预览"
                   />
                 )
               })}

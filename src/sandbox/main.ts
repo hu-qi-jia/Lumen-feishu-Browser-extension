@@ -696,6 +696,28 @@ window.addEventListener('message', (event) => {
     if ((event.data as { nonce?: string }).nonce === lastNonce) { drafts.clear(); notifyDirty() }
     return
   }
+  // Export: the viewer asks for the rendered HTML + design-system CSS + all chart options so it
+  // can build a standalone .html file. We mark each chart container with data-viz-chart so the
+  // exported file can find and re-init them via ECharts CDN.
+  if ((event.data as { type?: string })?.type === 'DATAVIZ_EXPORT') {
+    const dsStyle = document.getElementById('ds')?.textContent ?? ''
+    const charts: unknown[] = []
+    let idx = 0
+    eachChart((c) => {
+      const dom = c.getDom()
+      if (dom) { dom.setAttribute('data-viz-chart', String(idx)); idx++ }
+      try { charts.push(c.getOption()) } catch { charts.push({}) }
+    })
+    window.parent.postMessage({
+      type: 'VIZ_EXPORT_DATA',
+      nonce: (event.data as { nonce?: string }).nonce,
+      html: root.innerHTML,
+      css: dsStyle,
+      theme: document.documentElement.dataset.theme || 'light',
+      charts,
+    }, '*')
+    return
+  }
   const msg = event.data as RenderMsg
   if (msg?.type === 'DATAVIZ_RENDER' && (typeof msg.code === 'string' || (msg.spec != null && typeof msg.spec === 'object'))) { render(msg); return }
 })
