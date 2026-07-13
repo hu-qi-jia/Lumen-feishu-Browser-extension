@@ -11,10 +11,10 @@ const POLISH_PROMPT =
   '- 直接输出清理后的 Markdown，不要加任何解释、前言或代码围栏。'
 
 /**
- * 按二级标题（`## `）/ 分页符（`---`）边界把长文档切成 ≤ maxChars 的块；无标题则按长度切。纯函数。
+ * 按二级标题（`## `）/ 分页符（`<!-- page break -->`）边界把长文档切成 ≤ maxChars 的块；无标题则按长度切。纯函数。
  *
  * 实现要点：
- * - 用前瞻 `(?=^## |^---$)` 在每个标题/分页符 *之前* 切开，标题随其正文进入同一块——
+ * - 用前瞻 `(?=^## |^<!-- page break)` 在每个标题/分页符 *之前* 切开，标题随其正文进入同一块——
  *   这样每个非空块都以 `## ` 开头（满足"保留章节边界"的语义），且标题不会与正文分离。
  * - `flush` 内做长度兜底：仍超 maxChars 的单段（如无标题的连续长文本）按 maxChars 硬切，
  *   保证返回的每个块都 ≤ maxChars。
@@ -22,7 +22,7 @@ const POLISH_PROMPT =
 export function chunkMarkdown(md: string, maxChars = POLISH_MAX_CHARS): string[] {
   if (!(md ?? '').length) return []
   if (md.length <= maxChars) return [md]
-  const parts = md.split(/(?=^## |^---$)/m)
+  const parts = md.split(/(?=^## |^<!-- page break)/m)
   const chunks: string[] = []
   let buf = ''
   const flush = () => {
@@ -38,19 +38,35 @@ export function chunkMarkdown(md: string, maxChars = POLISH_MAX_CHARS): string[]
   return chunks
 }
 
+/** 并发限制器：最多 concurrency 个 Promise 同时执行。 */
+async function pMap<T, R>(items: T[], fn: (item: T, index: number) => Promise<R>, concurrency = 3): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const idx = cursor++
+      results[idx] = await fn(items[idx], idx)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
 /**
  * 纯文本润色：复用 chatComplete（自动适配 OpenAI / Anthropic 格式）。
- * 文本进、文本出，无需视觉模型。长文档自动分块、逐块润色后用空行拼接。失败由上层降级到 rawMd。
+ * 文本进、文本出，无需视觉模型。长文档自动分块、并发润色（最多 3 个并发）后按原顺序拼接。失败由上层降级到 rawMd。
  */
-export async function polishMarkdown(settings: AppSettings, rawMd: string): Promise<string> {
+export async function polishMarkdown(settings: AppSettings, rawMd: string, onProgress?: (done: number, total: number) => void): Promise<string> {
   const chunks = chunkMarkdown(rawMd)
-  const out: string[] = []
-  for (const chunk of chunks) {
+  let done = 0
+  const results = await pMap(chunks, async (chunk) => {
     const text = await chatComplete(settings, chunk, POLISH_PROMPT)
     if (!text) throw new Error('模型未返回内容。')
-    out.push(text)
-  }
-  return out.join('\n\n')
+    done++
+    onProgress?.(done, chunks.length)
+    return text
+  }, 3)
+  return results.join('\n\n')
 }
 
 const FORMAT_PROMPT =

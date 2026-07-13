@@ -107,7 +107,9 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
     setPolishing(true); setError(''); setInfo('')
     try {
       // 基于当前编辑内容润色（editMd）——润色你"看到的"，不再丢手改。
-      const polished = await polishMarkdown(settings, editMd)
+      const polished = await polishMarkdown(settings, editMd, (done, total) => {
+        setInfo(total > 1 ? `AI 润色中… ${done}/${total}` : '')
+      })
       setEditMd(polished); setInfo('已 AI 润色。')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
