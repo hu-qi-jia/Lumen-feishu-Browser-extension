@@ -121,22 +121,18 @@
   gap: 12px;
   width: calc(100% - 24px);
   margin: 12px auto 0;
-  padding: 12px 14px;
+  padding: 8px 12px;
+  min-height: 36px;
   background: #ffffff;
   border: 1px solid var(--color-border-strong);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--color-text);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.45;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(20, 23, 40, .12);
-  transition: transform .15s ease, box-shadow .15s ease;
   flex-shrink: 0;
 }
-.setup-banner:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(20, 23, 40, .16);
-}
+.setup-banner:hover { background: var(--color-surface); }
 .setup-banner__text {
   text-align: left;
   flex: 1;
@@ -277,9 +273,9 @@
 [data-theme="dark"] .setup-banner {
   background: #1f1f1f;
   border-color: #3a3f4a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
   color: #ffffff;
 }
+[data-theme="dark"] .setup-banner:hover { background: #2a2a2a; }
 [data-theme="dark"] .setup-banner__action { color: #93b8ff; }
 /* dark fixes for hardcoded light fills across components */
 [data-theme="dark"] .md-code { background: rgba(255, 255, 255, .12); }
