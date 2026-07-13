@@ -75,7 +75,9 @@ function splitCells(row: string): string[] {
 }
 function isTableHeader(lines: string[], i: number): boolean {
   const sep = lines[i + 1]
-  return lines[i].trim().startsWith('|') && !!sep && sep.includes('-') && /^\s*\|?[\s:|-]+\|?\s*$/.test(sep)
+  // 表格分隔线必须包含 |（区分页分隔符 ---）；
+  // 且当前行必须以 | 开头（pipe 表格头）。
+  return lines[i].trim().startsWith('|') && !!sep && sep.includes('|') && sep.includes('-') && /^\s*\|[\s:|-]+\|\s*$/.test(sep)
 }
 function openExternal(e: MouseEvent<HTMLAnchorElement>, href: string) {
   e.preventDefault()

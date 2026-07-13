@@ -47,14 +47,15 @@ export function dropPageNumbers(md: string): string {
 }
 
 /**
- * 删除在分页符（---）附近重复出现的短行（页眉/页脚）。
+ * 删除在分页符附近重复出现的短行（页眉/页脚）。
  *
- * 启发式：按 --- 分割为"页"，检查每页第一行/最后行是否在多页中重复出现。
+ * 启发式：按 HTML 注释页分隔符分割为"页"，检查每页第一行/最后行是否在多页中重复出现。
  * 若某行出现 >= 2 次（长度 <= 30），删除所有页中的该行。
  */
 export function dropRepeatingHeaders(md: string): string {
   if (!md) return ''
-  const pages = md.split(/\n*---\n*/)
+  // 按 HTML 注释页分隔符分页（与 layout.ts 的 blocksToMarkdown 一致）
+  const pages = md.split(/\n*<!--\s*page break\s*-->\n*/)
   if (pages.length < 3) return md
 
   const firstLines = pages.map((p) => p.trim().split('\n')[0]?.trim() ?? '')
@@ -86,7 +87,7 @@ export function dropRepeatingHeaders(md: string): string {
     return lines.join('\n')
   })
 
-  return cleanedPages.join('\n---\n')
+  return cleanedPages.join('\n\n<!-- page break -->\n\n')
 }
 
 /**

@@ -207,9 +207,10 @@ export function blocksToMarkdown(blocks: Block[], pageBreaks = true): string {
   let prevKind = ''
 
   for (const block of blocks) {
-    // 页间分隔
+    // 页间分隔：用 HTML 注释标记（Markdown 渲染器会 strip 掉，不显示）
+    // 不用 --- 因为会与表格分隔线 | --- | 和水平线冲突
     if (pageBreaks && block.page !== prevPage) {
-      parts.push('\n---\n')
+      parts.push('\n\n<!-- page break -->\n\n')
       prevKind = ''
     }
 
