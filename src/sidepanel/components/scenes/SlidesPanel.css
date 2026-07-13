@@ -33,6 +33,11 @@
 .sl-actions { display: flex; gap: 8px; }
 .sl-actions > .btn { flex: 1; min-width: 0; }
 
+/* View + Export on the same row */
+.sl-view-export { display: flex; gap: 8px; }
+.sl-view-export > .btn { flex: 1; min-width: 0; }
+.sl-view-export > .sl-export-wrap { flex: 1; min-width: 0; }
+
 /* Export dropdown (single button + popup menu) */
 .sl-export-wrap { position: relative; }
 .sl-export-menu {
@@ -47,7 +52,7 @@
   font-size: 13px; color: var(--color-text); text-align: left;
 }
 .sl-export-item:hover { background: var(--color-fill); }
-.sl-export-item svg { flex-shrink: 0; opacity: .7; }
+.sl-export-item svg { width: 14px; height: 14px; flex-shrink: 0; opacity: .7; }
 
 .sl-hint { font-size: 11px; color: var(--color-text-secondary); line-height: 1.5; }
 .sl-hint--warn { color: #b8860b; }

@@ -390,34 +390,35 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
           <>
             {/* Theme is locked to what was chosen before generation — no post-gen switching
                 (the deck already carries its themeId; to change look, regenerate). */}
-            <Button variant="primary" block icon={<IconEye />} onClick={() => last.current && openDeck(last.current, themeId, false, images)}>查看 PPT</Button>
+            <div className="sl-view-export">
+              <Button variant="primary" icon={<IconEye />} onClick={() => last.current && openDeck(last.current, themeId, false, images)}>查看 PPT</Button>
 
-            <div className="sl-export-wrap" ref={exportRef}>
-              <Button
-                variant="secondary"
-                block
-                icon={<IconDownload />}
-                onClick={() => setExportOpen((v) => !v)}
-                disabled={busy}
-              >
-                导出
-              </Button>
-              {exportOpen && (
-                <div className="sl-export-menu">
-                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
-                    <IconDownload />
-                    <span>PowerPoint (.pptx)</span>
-                  </button>
-                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
-                    <IconFileText />
-                    <span>PDF 文档</span>
-                  </button>
-                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportHtml() }}>
-                    <IconCode />
-                    <span>HTML 网页</span>
-                  </button>
-                </div>
-              )}
+              <div className="sl-export-wrap" ref={exportRef}>
+                <Button
+                  variant="secondary"
+                  icon={<IconDownload />}
+                  onClick={() => setExportOpen((v) => !v)}
+                  disabled={busy}
+                >
+                  导出
+                </Button>
+                {exportOpen && (
+                  <div className="sl-export-menu">
+                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
+                      <IconDownload />
+                      <span>PowerPoint (.pptx)</span>
+                    </button>
+                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
+                      <IconFileText />
+                      <span>PDF 文档</span>
+                    </button>
+                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportHtml() }}>
+                      <IconCode />
+                      <span>HTML 网页</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Image-pool visibility post-generation: shows which page each image landed on via
