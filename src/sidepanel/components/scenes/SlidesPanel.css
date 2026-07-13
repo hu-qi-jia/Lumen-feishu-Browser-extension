@@ -33,19 +33,13 @@
 .sl-actions { display: flex; gap: 8px; }
 .sl-actions > .btn { flex: 1; min-width: 0; }
 
-/* View + Export on the same row */
-.sl-view-export { display: flex; gap: 8px; }
+/* View + Export on the same row — both equal width, total matches full container width */
+.sl-view-export { display: flex; gap: 8px; width: 100%; }
 .sl-view-export > .btn { flex: 1; min-width: 0; }
-.sl-view-export > .sl-export-wrap { flex: 1; min-width: 0; }
+.sl-view-export > .dropdown { flex: 1; min-width: 0; }
+.sl-view-export > .dropdown > .btn { width: 100%; }
 
-/* Export dropdown (single button + popup menu) */
-.sl-export-wrap { position: relative; }
-.sl-export-menu {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  overflow: hidden; padding: 4px 0;
-}
+/* Export dropdown menu items */
 .sl-export-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 8px 12px; border: none; background: none; cursor: pointer;

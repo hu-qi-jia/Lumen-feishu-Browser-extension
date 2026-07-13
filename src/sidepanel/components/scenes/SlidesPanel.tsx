@@ -11,10 +11,11 @@ import type { RecentFile } from '../../services/recentFiles'
 import TopBar from '../shell/TopBar'
 import SideDrawer from '../ui/SideDrawer'
 import Button from '../ui/Button'
+import Dropdown from '../ui/Dropdown'
 import DocLinkField from '../session/DocLinkField'
 import Tooltip from '../ui/Tooltip'
 import IconButton from '../ui/IconButton'
-import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory, IconDownload } from '../ui/icons'
+import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory, IconUpload } from '../ui/icons'
 import { downloadSlidesHtml } from '@/shared/ai/slidesExport'
 import { downloadSlidesPptx } from '@/shared/ai/slidesExportPptx'
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getTheme } from '@/shared/ai/slidesThemes'
@@ -73,7 +74,6 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const [imgFailed, setImgFailed] = useState(0)
   const [imgFailedDetail, setImgFailedDetail] = useState('')
   const [exportOpen, setExportOpen] = useState(false)
-  const exportRef = useRef<HTMLDivElement>(null)
   const last = useRef<Deck | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const reqRef = useRef<HTMLTextAreaElement>(null)
@@ -86,16 +86,6 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const sourceRecentFiles = useMemo(() => recentFiles.filter((f) => f.kind !== 'ppt'), [recentFiles])
 
   useEffect(() => { loadDecks().then(setDecks) }, [])
-
-  // Close export dropdown on outside click
-  useEffect(() => {
-    if (!exportOpen) return
-    function onClick(e: MouseEvent) {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [exportOpen])
 
   // Live elapsed ticker so the user sees it's still working.
   useEffect(() => {
@@ -393,32 +383,36 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
             <div className="sl-view-export">
               <Button variant="primary" icon={<IconEye />} onClick={() => last.current && openDeck(last.current, themeId, false, images)}>查看 PPT</Button>
 
-              <div className="sl-export-wrap" ref={exportRef}>
-                <Button
-                  variant="secondary"
-                  icon={<IconDownload />}
-                  onClick={() => setExportOpen((v) => !v)}
-                  disabled={busy}
-                >
-                  导出
-                </Button>
-                {exportOpen && (
-                  <div className="sl-export-menu">
-                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
-                      <IconDownload />
-                      <span>PowerPoint (.pptx)</span>
-                    </button>
-                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
-                      <IconFileText />
-                      <span>PDF 文档</span>
-                    </button>
-                    <button className="sl-export-item" onClick={() => { setExportOpen(false); exportHtml() }}>
-                      <IconCode />
-                      <span>HTML 网页</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              <Dropdown
+                className="sl-export-dd"
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                align="left"
+                role="menu"
+                trigger={
+                  <Button
+                    variant="secondary"
+                    icon={<IconUpload />}
+                    onClick={() => setExportOpen((v) => !v)}
+                    disabled={busy}
+                  >
+                    导出
+                  </Button>
+                }
+              >
+                <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
+                  <IconUpload />
+                  <span>PowerPoint (.pptx)</span>
+                </button>
+                <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
+                  <IconFileText />
+                  <span>PDF 文档</span>
+                </button>
+                <button className="sl-export-item" onClick={() => { setExportOpen(false); exportHtml() }}>
+                  <IconCode />
+                  <span>HTML 网页</span>
+                </button>
+              </Dropdown>
             </div>
 
             {/* Image-pool visibility post-generation: shows which page each image landed on via
