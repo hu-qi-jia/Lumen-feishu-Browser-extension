@@ -72,6 +72,8 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const [imgProg, setImgProg] = useState<{ done: number; total: number } | null>(null)
   const [imgFailed, setImgFailed] = useState(0)
   const [imgFailedDetail, setImgFailedDetail] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
   const last = useRef<Deck | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const reqRef = useRef<HTMLTextAreaElement>(null)
@@ -84,6 +86,16 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const sourceRecentFiles = useMemo(() => recentFiles.filter((f) => f.kind !== 'ppt'), [recentFiles])
 
   useEffect(() => { loadDecks().then(setDecks) }, [])
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!exportOpen) return
+    function onClick(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [exportOpen])
 
   // Live elapsed ticker so the user sees it's still working.
   useEffect(() => {
@@ -380,10 +392,32 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
                 (the deck already carries its themeId; to change look, regenerate). */}
             <Button variant="primary" block icon={<IconEye />} onClick={() => last.current && openDeck(last.current, themeId, false, images)}>查看 PPT</Button>
 
-            <div className="sl-export-row">
-              <Button icon={<IconCode />} onClick={exportHtml}>导出 HTML</Button>
-              <Button icon={<IconFileText />} onClick={exportPdf}>导出 PDF</Button>
-              <Button icon={<IconDownload />} onClick={exportPptx} disabled={busy}>导出 PPTX</Button>
+            <div className="sl-export-wrap" ref={exportRef}>
+              <Button
+                variant="secondary"
+                block
+                icon={<IconDownload />}
+                onClick={() => setExportOpen((v) => !v)}
+                disabled={busy}
+              >
+                导出
+              </Button>
+              {exportOpen && (
+                <div className="sl-export-menu">
+                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
+                    <IconDownload />
+                    <span>PowerPoint (.pptx)</span>
+                  </button>
+                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
+                    <IconFileText />
+                    <span>PDF 文档</span>
+                  </button>
+                  <button className="sl-export-item" onClick={() => { setExportOpen(false); exportHtml() }}>
+                    <IconCode />
+                    <span>HTML 网页</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Image-pool visibility post-generation: shows which page each image landed on via
