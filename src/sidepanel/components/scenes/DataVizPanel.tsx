@@ -60,6 +60,16 @@ function vizSourceLabel(v: SavedViz): string {
   return v.source.kind === 'base' ? '多维表格' : '电子表格'
 }
 
+/** 将保存的 VizSource 转换回 DocRefAttachmentData，用于点击历史记录时恢复数据源 UI。 */
+function vizSourceToDocRef(source: VizSource, name: string): DocRefAttachmentData {
+  if (source.kind === 'base') {
+    return { kind: 'base', docToken: source.appToken, tableId: source.tableId, docTitle: name, url: '' }
+  }
+  // range 格式为 "SheetId!A1:Z2000"，提取 sheetId
+  const sheetId = source.range.split('!')[0] || ''
+  return { kind: 'sheet', docToken: source.spreadsheetToken, sheetId, docTitle: name, url: '' }
+}
+
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000)
   if (s < 60) return '刚刚'
@@ -444,8 +454,47 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         spec = res.spec
         setList(await saveViz({ ...v, spec }))
       }
+
+      // 恢复数据源 + 生成状态，跳转到生成后的页面（显示重新生成/查看/导出按钮）
+      const restored = vizSourceToDocRef(v.source, v.name)
+      const restoredKey = ctxScopeKey({
+        kind: restored.kind,
+        appToken: restored.kind === 'base' ? restored.docToken : undefined,
+        spreadsheetToken: restored.kind === 'sheet' ? restored.docToken : undefined,
+        tableId: restored.kind === 'base' ? restored.tableId : undefined,
+      })
+      const artifact: LastViz = { name: v.name, code, spec, request: v.request, source: v.source }
+      // 写入 genCache，防止 sourceData 变化触发的 curKey useEffect 覆盖 last.current
+      if (restoredKey) genCache.set(restoredKey, artifact)
+      last.current = artifact
+      setHasGen(true)
+      setSourceData(restored)
+      setLinkInput('')
+      setRequest('')
+      setSubItems([])
+      setSubLoading(true)
+      setStatus(`已恢复「${v.name}」——可重新生成或导出`)
+
+      // 异步加载子表列表（不阻塞 html 展示），并回填子表名
+      void (async () => {
+        try {
+          const items = await fetchSubTables(restored)
+          setSubItems(items)
+          const selId = restored.kind === 'sheet' ? restored.sheetId : restored.tableId
+          const sel = items.find((it) => it.id === selId)
+          if (sel) {
+            setSourceData((prev) => prev ? {
+              ...prev,
+              sheetName: prev.kind === 'sheet' ? sel.name : prev.sheetName,
+              tableName: prev.kind === 'base' ? sel.name : prev.tableName,
+            } : prev)
+          }
+        } catch { /* 子表加载失败不影响展示 */ }
+        finally { setSubLoading(false) }
+      })()
+
+      // 在新标签页展示 html
       await openInViewer({ code, spec }, v.source, v.name)
-      setStatus(`已在新标签页打开「${v.name}」`)
     } catch (e) {
       setErrMsg(errText(e)); setStatus('')
     } finally { setBusy(false) }
