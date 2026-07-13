@@ -140,6 +140,14 @@ export const IconUpload = (p: P) => (
   </svg>
 )
 
+/** Presentation / slide deck affordance — a screen with a small chart. */
+export const IconPresentation = (p: P) => (
+  <svg {...common} {...p}>
+    <rect x="2" y="4" width="20" height="14" rx="2" />
+    <path d="M6 16V9l4 3 3-6 5 6" />
+  </svg>
+)
+
 /** Knowledge base / library affordance — a simple book. */
 export const IconBook = (p: P) => (
   <svg {...common} {...p}>

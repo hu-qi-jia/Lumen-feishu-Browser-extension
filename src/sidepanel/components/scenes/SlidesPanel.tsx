@@ -15,7 +15,7 @@ import Dropdown from '../ui/Dropdown'
 import DocLinkField from '../session/DocLinkField'
 import Tooltip from '../ui/Tooltip'
 import IconButton from '../ui/IconButton'
-import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory, IconUpload } from '../ui/icons'
+import { IconPlus, IconX, IconEye, IconCode, IconFileText, IconHistory, IconUpload, IconPresentation } from '../ui/icons'
 import { downloadSlidesHtml } from '@/shared/ai/slidesExport'
 import { downloadSlidesPptx } from '@/shared/ai/slidesExportPptx'
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID, getTheme } from '@/shared/ai/slidesThemes'
@@ -401,8 +401,8 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
                 }
               >
                 <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPptx() }}>
-                  <IconUpload />
-                  <span>PowerPoint (.pptx)</span>
+                  <IconPresentation />
+                  <span>PPTX 文件</span>
                 </button>
                 <button className="sl-export-item" onClick={() => { setExportOpen(false); exportPdf() }}>
                   <IconFileText />

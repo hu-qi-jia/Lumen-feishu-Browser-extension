@@ -34,9 +34,14 @@
 .sl-actions > .btn { flex: 1; min-width: 0; }
 
 /* View + Export on the same row — both equal width, total matches full container width */
-.sl-view-export { display: flex; gap: 8px; width: 100%; }
-.sl-view-export > .btn { flex: 1; min-width: 0; }
-.sl-view-export > .dropdown { flex: 1; min-width: 0; }
+.sl-view-export { display: flex; gap: 8px; width: 100%; box-sizing: border-box; }
+.sl-view-export > .btn,
+.sl-view-export > .dropdown {
+  flex: 0 0 calc(50% - 4px); /* 50% minus half gap */
+  min-width: 0;
+  width: calc(50% - 4px);
+  box-sizing: border-box;
+}
 .sl-view-export > .dropdown > .btn { width: 100%; }
 
 /* Export dropdown menu items */
