@@ -1,16 +1,18 @@
 /**
- * Floating "添加到会话" button shown next to a text selection in Feishu DOC/WIKI pages.
- * Shadow-DOM isolated (mirrors viz-launcher) so Feishu's page CSS can't reach in. On click,
- * asks the background to open the side panel + stage the selection as a chat chip.
+ * "添加到会话" button injected INTO Feishu's native selection toolbar
+ * (.docx-menu-container) as its last child. By living inside the toolbar's flex layout,
+ * the button auto-aligns with the other menu items — no coordinate math, no animation drift.
+ *
+ * Shadow-DOM isolated so Feishu's page CSS can't reach in. On click, asks the background
+ * to open the side panel + stage the selection as a chat chip.
  *
  * v1: docs only (docx / wiki). Sheets/base are out of scope (different selection semantics).
  */
 import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 
-let host: HTMLDivElement | null = null   // shadow host (page-fixed)
+let host: HTMLDivElement | null = null   // shadow host (injected into toolbar)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
-let repositionTimer: ReturnType<typeof setTimeout> | undefined
 let isDragging = false
 
 /** 'doc' | 'wiki' on a doc/wiki page, else null. */
@@ -20,46 +22,60 @@ function docKind(): 'doc' | 'wiki' | null {
   return f.kind === 'doc' || f.kind === 'wiki' ? f.kind : null
 }
 
-function currentSelection(): { text: string; rect: DOMRect } | null {
+function currentSelection(): { text: string } | null {
   const sel = window.getSelection()
   const text = sel?.toString().trim() ?? ''
   if (!text || !sel || sel.rangeCount === 0) return null
-  const rect = sel.getRangeAt(0).getBoundingClientRect()
-  if (rect.width <= 0 && rect.height <= 0) return null // collapsed / hidden
-  return { text, rect }
+  return { text }
 }
 
-function ensureButton(): HTMLButtonElement {
-  // Rebuild if the host was orphaned — Feishu's SPA can replace document.body (mirrors viz-launcher).
-  if (btn && host?.isConnected) return btn
+/**
+ * Inject the button into Feishu's native toolbar (.docx-menu-container) as its last child.
+ * The toolbar is a flex row, so the button auto-aligns with the other menu items.
+ * Returns the button, or null if the toolbar isn't available / visible yet.
+ */
+function ensureButton(): HTMLButtonElement | null {
+  const container = document.querySelector('.docx-menu-container') as HTMLElement | null
+  if (!container) return null
+  // Skip containers that are present in the DOM but not actually shown.
+  const cs = getComputedStyle(container)
+  if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return null
+
+  // Already injected and still in place — reuse.
+  if (btn && host && host.isConnected && container.contains(host)) return btn
+
+  // Clean up orphaned previous instance.
   if (host) { try { host.remove() } catch { /* detached */ } }
+  host = null
+  btn = null
+
   host = document.createElement('div')
-  // display:flex prevents the host from gaining extra inline-baseline descender space,
-  // so the host height exactly matches the button height and aligns with the toolbar.
-  // A short position transition smooths out the toolbar's entrance animation.
-  host.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483600;display:none;align-items:flex-start;transition:top .1s ease-out,left .1s ease-out;'
+  // flex-shrink:0 prevents the toolbar from compressing our button;
+  // margin-left:8px matches the gap between the last native menu item and its predecessor.
+  host.style.cssText = 'display:flex;align-items:center;margin-left:8px;flex-shrink:0;'
   const shadow = host.attachShadow({ mode: 'open' })
+
   btn = document.createElement('button')
   btn.type = 'button'
   btn.textContent = '添加到会话'
-  // Blue CTA button that matches the native toolbar height (40px), font size (14px)
-  // and uses the same shadow as .docx-menu-wrapper: 0 4px 8px rgba(31,35,41,.1).
+  // Blue CTA that matches the native menu item dimensions (24px high, 4px radius, 12px font)
+  // so it sits naturally alongside the other .panel-menu-item children.
   btn.style.cssText =
-    'display:inline-flex;align-items:center;justify-content:center;gap:5px;' +
-    'padding:0 12px;border:none;border-radius:6px;' +
+    'display:inline-flex;align-items:center;justify-content:center;gap:4px;' +
+    'padding:0 8px;border:none;border-radius:4px;' +
     'cursor:pointer;background:#4f6bff;color:#fff;' +
-    'box-shadow:0 4px 8px rgba(31,35,41,.1);' +
-    "font:14px/1 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
-    'height:40px;box-sizing:border-box;transition:background .15s ease,box-shadow .15s ease;'
+    "font:12px/1 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
+    'height:24px;box-sizing:border-box;transition:background .15s ease;'
   const icon = document.createElement('span')
-  icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
+  icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
   btn.prepend(icon.firstChild as Node)
   btn.onclick = onClick
+
   const style = document.createElement('style')
-  style.textContent = 'button:hover{background:#3f57e6;box-shadow:0 6px 12px rgba(31,35,41,.12)}button:active{background:#3246c2}'
+  style.textContent = 'button:hover{background:#3f57e6}button:active{background:#3246c2}'
   shadow.appendChild(style)
   shadow.appendChild(btn)
-  document.body.appendChild(host)
+  container.appendChild(host)
   return btn
 }
 
@@ -83,74 +99,12 @@ function onClick() {
   hide()
 }
 
-/**
- * Locate Feishu's native selection toolbar (`.docx-menu-container`) — the floating bar with
- * Copy/Bold/etc. buttons that appears above a text selection. Direct class lookup is reliable
- * here: the class name is stable across Feishu builds, and the element is rendered as
- * `position: static` (NOT fixed/absolute), so the previous `elementsFromPoint` heuristic that
- * filtered by computed position would never match it. Returns the toolbar's rect, or null when
- * absent / hidden (fallback to geometric positioning).
- */
-function findNativeToolbar(): DOMRect | null {
-  // The visual toolbar card is .docx-menu-wrapper (white bg, border, shadow, height 42px);
-  // .docx-menu-container is the inner flex row (height 40px, transparent). Anchor to the
-  // wrapper so the button aligns with the actual visible card.
-  const wrapper = document.querySelector('.docx-menu-wrapper')
-  const el = wrapper || document.querySelector('.docx-menu-container')
-  if (!el) return null
-  // Skip containers that are present in the DOM but not actually shown (e.g. between selections).
-  const cs = getComputedStyle(el)
-  if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return null
-  const r = el.getBoundingClientRect()
-  if (r.width <= 0 || r.height <= 0) return null
-  return r
+function show() { ensureButton() }
+function hide() {
+  if (host) { try { host.remove() } catch { /* detached */ } }
+  host = null
+  btn = null
 }
-
-function placeNextToToolbar(): boolean {
-  if (!host) return false
-  const toolbar = findNativeToolbar()
-  if (!toolbar) return false
-  // Match both the host and the button to the actual visible toolbar card height
-  // and align top-edge to top-edge for a seamless look.
-  const h = `${toolbar.height}px`
-  if (btn) btn.style.height = h
-  host.style.height = h
-  const gap = 6
-  const minBtnWidth = 100
-  const roomRight = window.innerWidth - toolbar.right
-  let left: number
-  if (roomRight >= minBtnWidth + gap) {
-    left = toolbar.right + gap
-  } else if (toolbar.left >= minBtnWidth + gap) {
-    left = toolbar.left - minBtnWidth - gap
-  } else {
-    // No room on either side: center above the toolbar as last resort.
-    left = Math.max(6, (window.innerWidth - minBtnWidth) / 2)
-  }
-  host.style.left = `${left}px`
-  host.style.top = `${Math.max(toolbar.top, 6)}px`
-  return true
-}
-
-function position(rect: DOMRect) {
-  if (!host) return
-  if (placeNextToToolbar()) {
-    // The toolbar has an entrance animation (docx-menu-wrapper-animation). Its rect can
-    // move during the first ~100ms, so we remeasure once and smoothly glide to the final
-    // position via the host's CSS transition.
-    clearTimeout(repositionTimer)
-    repositionTimer = setTimeout(placeNextToToolbar, 90)
-    return
-  }
-  // Fallback: top-right of the selection rect, clamped into the viewport.
-  const left = Math.min(Math.max(rect.right - 60, 6), window.innerWidth - 140)
-  const top = Math.max(rect.top - 40, 6)
-  host.style.left = `${left}px`
-  host.style.top = `${top}px`
-}
-
-function show(rect: DOMRect) { ensureButton(); position(rect); if (host) host.style.display = 'flex' }
-function hide() { if (host) host.style.display = 'none' }
 
 function refresh() {
   const kind = docKind()
@@ -162,7 +116,7 @@ function refresh() {
   if (!docToken) { snapshot = null; hide(); return }
   // Snapshot NOW — the selection may be gone by the time the user clicks the button.
   snapshot = { kind, docToken, docTitle: document.title || '', url: location.href, selectedText: sel.text }
-  show(sel.rect)
+  show()
 }
 
 function scheduleRefresh(delay = 50) {
