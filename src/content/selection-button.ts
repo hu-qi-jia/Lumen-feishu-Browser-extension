@@ -37,15 +37,22 @@ function ensureButton(): HTMLButtonElement {
   btn = document.createElement('button')
   btn.type = 'button'
   btn.textContent = '添加到会话'
+  // Style the button to look like a native Feishu toolbar menu item:
+  // 24px content height, 4px radius, transparent background, dark icon/text.
+  // This visually merges with .docx-menu-container instead of looking like a foreign CTA.
   btn.style.cssText =
-    'display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:8px;' +
-    'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 2px 8px rgba(79,107,255,.35);' +
-    "font:12px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
-    'height:40px;box-sizing:border-box;'
+    'display:inline-flex;align-items:center;justify-content:center;gap:4px;' +
+    'padding:0 6px;border:none;border-radius:4px;' +
+    'cursor:pointer;background:transparent;color:#2b2f36;' +
+    "font:12px/1 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
+    'height:24px;box-sizing:border-box;transition:background .15s ease;'
   const icon = document.createElement('span')
-  icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
+  icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
   btn.prepend(icon.firstChild as Node)
   btn.onclick = onClick
+  const style = document.createElement('style')
+  style.textContent = 'button:hover{background:rgba(0,0,0,.06)}button:active{background:rgba(0,0,0,.1)}'
+  shadow.appendChild(style)
   shadow.appendChild(btn)
   document.body.appendChild(host)
   return btn
@@ -94,11 +101,27 @@ function position(rect: DOMRect) {
   if (!host) return
   const toolbar = findNativeToolbar()
   if (toolbar) {
-    // Tightly attach to the right edge of the native toolbar, matching its height (40px) and
-    // top-aligned so the button visually continues the toolbar on its right side.
-    const left = Math.min(toolbar.right + 4, window.innerWidth - 150)
-    host.style.left = `${Math.max(left, 6)}px`
-    host.style.top = `${Math.max(toolbar.top, 6)}px`
+    // Button is 24px high and visually sits inside the toolbar's 40px padded row.
+    // Vertically center it within the toolbar content area.
+    const btnHeight = 24
+    const top = toolbar.top + (toolbar.height - btnHeight) / 2
+    const gap = 6
+    // The toolbar's own visual background likely extends beyond .docx-menu-container
+    // (its parent has the white card). We attach to the container rect; if the right side
+    // has no room, snap to the left side so the button never get squeezed/overlap.
+    const minBtnWidth = 90
+    const roomRight = window.innerWidth - toolbar.right
+    let left: number
+    if (roomRight >= minBtnWidth + gap) {
+      left = toolbar.right + gap
+    } else if (toolbar.left >= minBtnWidth + gap) {
+      left = toolbar.left - minBtnWidth - gap
+    } else {
+      // No room on either side: center above the toolbar as last resort.
+      left = Math.max(6, (window.innerWidth - minBtnWidth) / 2)
+    }
+    host.style.left = `${left}px`
+    host.style.top = `${Math.max(top, 6)}px`
     return
   }
   // Fallback: top-right of the selection rect, clamped into the viewport.
