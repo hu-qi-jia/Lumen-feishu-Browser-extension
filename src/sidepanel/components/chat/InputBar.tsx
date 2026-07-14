@@ -7,6 +7,7 @@ import { buildFeishuUrl } from '@/shared/feishu/pageUrl'
 import { listSheets } from '@/shared/feishu/sheets'
 import { listTables } from '@/shared/feishu/api'
 import { resolveToken } from '@/shared/feishu/auth'
+import { fetchSelectionContext } from '@/shared/feishu/docx'
 import type { RecentFile } from '../../services/recentFiles'
 import { displayName } from '../../services/recentFiles'
 import Tooltip from '../ui/Tooltip'
@@ -170,8 +171,24 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
   function addSelection(payload: DocSelectionPayload): boolean {
     const r = tryAddSelectionAttachment(attachments, payload)
     if (!r.added) return false
-    setAttachments(r.attachments)
+    const newAttachments = r.attachments
+    setAttachments(newAttachments)
     textareaRef.current?.focus()
+    // Async backfill: fetch list_blocks once, match selectedText → block_id + paragraph + heading.
+    // Agent then gets block_id in the chip metadata and can call update_document_block directly,
+    // skipping a redundant list_blocks round-trip. Fire-and-forget; failures are silent.
+    const chipId = newAttachments[newAttachments.length - 1].id
+    void (async () => {
+      try {
+        const token = await resolveToken(settings).catch(() => undefined)
+        if (!token) return
+        const ctx = await fetchSelectionContext(token, payload.docToken, payload.selectedText)
+        if (!ctx.blockId && !ctx.paragraphText && !ctx.headingText) return
+        setAttachments((prev) => prev.map((a) => a.id === chipId && a.type === 'selection' && a.selection
+          ? { ...a, selection: { ...a.selection!, ...ctx } }
+          : a))
+      } catch { /* silent — agent will fall back to list_blocks */ }
+    })()
     return true
   }
 

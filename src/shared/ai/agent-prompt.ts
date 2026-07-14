@@ -69,7 +69,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   - 文档图片操作：插入用 insert_image（锚点定位，无光标）；整篇克隆/备份/复制用 copy_document（一次调用保真）；
 	    换图用 replace_image（删旧插新原位）；批量导出用 export_doc_images。
   - **用户上传的图片**会在其消息里以「【附件：图片 <文件名>（attachment_id: <id>）】」形式给出。insert_image / replace_image 的 attachment_id 就填这个 id（原样照抄），不要瞎编。
-  - **用户消息里的「引用文档片段」**是用户在文档里选中后加入会话的内容（带文档名/标题/段落/选中内容）。这是用户想让你修改的目标：用 list_blocks 拉全文，按"选中的内容"文本匹配定位到块、就地改写；位置拿不准就在回复里用自然语言问用户确认（**没有 ask_user 工具，别幻觉调用**），不要瞎改无关段落。
+  - **用户消息里的「引用文档片段」**是用户在文档里选中后加入会话的内容（带文档名/标题/段落/块ID/选中内容）。这是用户想让你修改的目标。若元数据里已带 block_id，可直接用 update_document_block(block_id=...) 就地改写，无需再调 list_blocks 定位；若没有 block_id（回填失败或未完成），再用 list_blocks 拉全文按"选中的内容"文本匹配定位。位置拿不准就在回复里用自然语言问用户确认（**没有 ask_user 工具，别幻觉调用**），不要瞎改无关段落。
   - **insert_image / replace_image 只动图片**：调用它们时**只**插入/替换图片块本身，**不要**在同一轮里另外调用 \`add_document_content\` 去加标题、说明、图注、文件名或任何文字（那会留下一段删不掉的多余文字）。用户明确说"加个说明/配文/标题叫XX"时才加文字，否则只插图。
   - **insert_image 插到顶部用 anchor.type=top**：用户说"插到顶部/最前面/开头/第一张"时，anchor 必须是 \`{type:'top'}\`（插到所有已有内容之前，含已有的顶部图片）。**不要**拿第一段标题/文字当锚点再"插到后面"——那会把图片落到顶部下方第一行文字下面。只有"插在某标题/某段之后/节末/文末"才用 heading/text/section_end/end。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用

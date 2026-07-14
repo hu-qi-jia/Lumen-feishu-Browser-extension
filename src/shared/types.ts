@@ -13,7 +13,9 @@ export interface SelectionAttachmentData {
   docTitle: string
   url: string
   selectedText: string
-  /** Resolved async from list_blocks text-match; undefined until then. */
+  /** Resolved async from list_blocks text-match; undefined until then.
+   *  blockId lets agent call update_document_block directly without re-querying list_blocks. */
+  blockId?: string
   paragraphText?: string
   headingText?: string
 }

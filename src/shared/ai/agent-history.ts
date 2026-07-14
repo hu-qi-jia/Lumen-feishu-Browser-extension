@@ -132,7 +132,8 @@ export function attachmentToMetaData(a: Attachment): string | null {
     const s = a.selection
     const head = s.headingText ? `｜标题：${s.headingText}` : ''
     const para = s.paragraphText ? `\n所在段落：${s.paragraphText}` : ''
-    return `【引用文档片段｜文档：${s.docTitle || '当前文档'}${head}】${para}\n选中的内容：\n${s.selectedText}`
+    const bid = s.blockId ? `\n块ID(block_id)：${s.blockId}（可直接用于 update_document_block）` : ''
+    return `【引用文档片段｜文档：${s.docTitle || '当前文档'}${head}】${para}${bid}\n选中的内容：\n${s.selectedText}`
   }
   if (a.type === 'docref' && a.docref) {
     const d = a.docref

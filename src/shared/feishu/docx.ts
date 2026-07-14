@@ -306,12 +306,13 @@ export function summarizeDocument(
   }
 }
 
-/** 纯：在扁平块列表里，按 selectedText 文本匹配定位「所在完整段落 + 最近上方标题」。
- *  无 DOM 依赖（block_id 始终走 API 的既定原则）；list_blocks 已是扁平有序列表。 */
+/** 纯：在扁平块列表里，按 selectedText 文本匹配定位「所在完整段落 + 最近上方标题 + block_id」。
+ *  无 DOM 依赖（block_id 始终走 API 的既定原则）；list_blocks 已是扁平有序列表。
+ *  返回 block_id 让 agent 可直接调 update_document_block / delete_document_blocks，省一次 list_blocks。 */
 export function resolveSelectionContext(
   blocks: unknown[],
   selectedText: string,
-): { paragraphText?: string; headingText?: string } {
+): { paragraphText?: string; headingText?: string; blockId?: string } {
   const needle = (selectedText ?? '').trim()
   if (!needle) return {}
   const list = blocks as Record<string, unknown>[]
@@ -322,21 +323,25 @@ export function resolveSelectionContext(
     const text = readBlockText(b)
     if (isHeading && text) lastHeading = text
     if (text && text.includes(needle)) {
-      return { paragraphText: text, headingText: isHeading ? text : lastHeading }
+      return {
+        paragraphText: text,
+        headingText: isHeading ? text : lastHeading,
+        blockId: typeof b.block_id === 'string' ? b.block_id : undefined,
+      }
     }
   }
   return {}
 }
 
 /**
- * 异步包装：拉取文档块后跑 resolveSelectionContext。paragraphText/headingText 回填到 chip。
- * （v1：未在主链路调用——agent 用自己的 list_blocks 按需定位；保留作后续 chip 上下文回填入口。）
+ * 异步包装：拉取文档块后跑 resolveSelectionContext。blockId/paragraphText/headingText 回填到 chip。
+ * chip 落地时调用，让 agent 拿到 block_id 可直接改写，省一次 list_blocks 调用。
  */
 export async function fetchSelectionContext(
   token: string,
   documentId: string,
   selectedText: string,
-): Promise<{ paragraphText?: string; headingText?: string }> {
+): Promise<{ paragraphText?: string; headingText?: string; blockId?: string }> {
   const { items } = await listBlocks(token, documentId)
   return resolveSelectionContext(items, selectedText)
 }

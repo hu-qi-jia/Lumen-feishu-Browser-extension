@@ -260,7 +260,7 @@ export function previewSelectionText(text: string): string {
 /** Build a selection Attachment from a wire payload (+optional resolved context). */
 export function selectionToAttachment(
   payload: DocSelectionPayload,
-  ctx?: { paragraphText?: string; headingText?: string },
+  ctx?: { blockId?: string; paragraphText?: string; headingText?: string },
 ): Attachment {
   return {
     id: crypto.randomUUID(),
@@ -274,8 +274,9 @@ export function selectionToAttachment(
       docTitle: payload.docTitle,
       url: payload.url,
       selectedText: payload.selectedText,
-      paragraphText: ctx?.paragraphText,
-      headingText: ctx?.headingText,
+      ...(ctx?.blockId ? { blockId: ctx.blockId } : {}),
+      ...(ctx?.paragraphText ? { paragraphText: ctx.paragraphText } : {}),
+      ...(ctx?.headingText ? { headingText: ctx.headingText } : {}),
     },
   }
 }
