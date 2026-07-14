@@ -768,11 +768,11 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                 ) : (
                   <span className="attachment-name">{a.name}</span>
                 )}
-                <Tooltip content="移除附件">
+                <Tooltip content={a.type === 'selection' ? '移除引用' : '移除附件'}>
                   <button
                     className="attachment-remove"
                     onClick={() => removeAttachment(a.id)}
-                    aria-label="移除附件"
+                    aria-label={a.type === 'selection' ? '移除引用' : '移除附件'}
                     type="button"
                   >
                     ×
