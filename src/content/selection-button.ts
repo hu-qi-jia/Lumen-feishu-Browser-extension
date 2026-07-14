@@ -38,9 +38,10 @@ function ensureButton(): HTMLButtonElement {
   btn.type = 'button'
   btn.textContent = '添加到会话'
   btn.style.cssText =
-    'display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border:none;border-radius:9px;' +
-    'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 4px 14px rgba(79,107,255,.4);' +
-    "font:13px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;"
+    'display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:8px;' +
+    'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 2px 8px rgba(79,107,255,.35);' +
+    "font:12px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
+    'height:30px;'
   const icon = document.createElement('span')
   icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
   btn.prepend(icon.firstChild as Node)
@@ -70,10 +71,49 @@ function onClick() {
   hide()
 }
 
+/**
+ * Detect Feishu's native selection toolbar (the floating bar with Copy/Bold/etc. buttons).
+ * Probes upward from the selection rect using elementsFromPoint — the toolbar is an HTML
+ * overlay rendered above the canvas editor, so it surfaces in the hit-test stack.
+ * Returns the toolbar's rect, or null if not found (fallback to geometric positioning).
+ */
+function findNativeToolbar(selRect: DOMRect): DOMRect | null {
+  const cx = (selRect.left + selRect.right) / 2
+  // Scan upward from the selection top edge in 6px steps (toolbar usually sits 8-50px above).
+  for (let dy = 6; dy <= 64; dy += 6) {
+    const cy = selRect.top - dy
+    if (cy < 0) break
+    const els = document.elementsFromPoint(cx, cy)
+    for (const el of els) {
+      if (el === host || (host && host.contains(el))) continue
+      if (el.tagName === 'CANVAS') continue
+      const cs = getComputedStyle(el)
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') continue
+      if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue
+      const r = el.getBoundingClientRect()
+      if (r.width <= 0 || r.height <= 0) continue
+      if (r.height > 50) continue // toolbars are slim
+      // Must contain interactive elements (buttons / icons) to qualify as a toolbar
+      const interactive = el.querySelectorAll('button, [role="button"], svg, [class*="tool"], [class*="icon"], [class*="btn"]')
+      if (interactive.length === 0) continue
+      return r
+    }
+  }
+  return null
+}
+
 function position(rect: DOMRect) {
   if (!host) return
-  // Top-right of the selection rect, clamped into the viewport (avoid the native toolbar's
-  // usual top/left spot). A 40px offset puts it just above the selection.
+  const toolbar = findNativeToolbar(rect)
+  if (toolbar) {
+    // Snap to the right edge of the native toolbar, vertically centered.
+    const left = Math.min(toolbar.right + 6, window.innerWidth - 150)
+    const top = toolbar.top + (toolbar.height - 36) / 2 // 36 ≈ button height
+    host.style.left = `${Math.max(left, 6)}px`
+    host.style.top = `${Math.max(top, 6)}px`
+    return
+  }
+  // Fallback: top-right of the selection rect, clamped into the viewport.
   const left = Math.min(Math.max(rect.right - 60, 6), window.innerWidth - 140)
   const top = Math.max(rect.top - 40, 6)
   host.style.left = `${left}px`
@@ -99,7 +139,8 @@ function refresh() {
 // selectionchange covers both mouse-drag and keyboard selection; debounce (fires often mid-drag).
 document.addEventListener('selectionchange', () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 150) })
 // Some selections finalize on mouseup without a trailing selectionchange beat.
-document.addEventListener('mouseup', () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 150) })
+// Use 250ms delay so Feishu's native toolbar has time to render before we probe for it.
+document.addEventListener('mouseup', () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 250) })
 // Hide on scroll / resize so the button never drifts off the selection.
 window.addEventListener('scroll', hide, { passive: true, capture: true })
 window.addEventListener('resize', hide, { passive: true })
