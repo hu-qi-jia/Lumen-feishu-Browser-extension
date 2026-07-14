@@ -10,6 +10,7 @@ import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 let host: HTMLDivElement | null = null   // shadow host (page-fixed)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
+let isDragging = false
 
 /** 'doc' | 'wiki' on a doc/wiki page, else null. */
 function docKind(): 'doc' | 'wiki' | null {
@@ -32,7 +33,9 @@ function ensureButton(): HTMLButtonElement {
   if (btn && host?.isConnected) return btn
   if (host) { try { host.remove() } catch { /* detached */ } }
   host = document.createElement('div')
-  host.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483600;display:none;'
+  // display:flex prevents the host from gaining extra inline-baseline descender space,
+  // so the host height exactly matches the button height and aligns with the toolbar.
+  host.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483600;display:none;align-items:flex-start;'
   const shadow = host.attachShadow({ mode: 'open' })
   btn = document.createElement('button')
   btn.type = 'button'
@@ -131,7 +134,7 @@ function position(rect: DOMRect) {
   host.style.top = `${top}px`
 }
 
-function show(rect: DOMRect) { ensureButton(); position(rect); if (host) host.style.display = '' }
+function show(rect: DOMRect) { ensureButton(); position(rect); if (host) host.style.display = 'flex' }
 function hide() { if (host) host.style.display = 'none' }
 
 function refresh() {
@@ -147,11 +150,19 @@ function refresh() {
   show(sel.rect)
 }
 
-// selectionchange covers both mouse-drag and keyboard selection; debounce (fires often mid-drag).
-document.addEventListener('selectionchange', () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 150) })
-// Some selections finalize on mouseup without a trailing selectionchange beat.
-// Use 250ms delay so Feishu's native toolbar has time to render before we probe for it.
-document.addEventListener('mouseup', () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, 250) })
+function scheduleRefresh(delay = 50) {
+  clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(refresh, delay)
+}
+
+// Mouse drag: suppress intermediate selectionchange refreshes to avoid stutter/flicker.
+// The final selection is handled by mouseup. Keyboard selection still refreshes via selectionchange.
+document.addEventListener('mousedown', () => { isDragging = true })
+document.addEventListener('mouseup', () => { isDragging = false; scheduleRefresh(60) })
+document.addEventListener('selectionchange', () => {
+  if (isDragging) return
+  scheduleRefresh(50)
+})
 // Hide on scroll / resize so the button never drifts off the selection.
 window.addEventListener('scroll', hide, { passive: true, capture: true })
 window.addEventListener('resize', hide, { passive: true })
