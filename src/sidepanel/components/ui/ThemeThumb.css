@@ -11,10 +11,9 @@
 .sl-theme:disabled{opacity:.5;cursor:not-allowed}
 
 /* Swatch — the mock canvas. All mock parts are absolutely positioned; each theme enables +
-   arranges its own subset via [data-theme]. 4:3 (not 16:9) + a min-height floor so the tile has
-   real vertical presence even in a narrow side panel — 16:9 read as a thin strip = "cards tiny". */
+   arranges its own subset via [data-theme]. 16:9 与真实幻灯片比例一致，卡片呈矩形而非正方形。 */
 .sl-theme-preview{
-  position:relative;aspect-ratio:4/3;min-height:96px;overflow:hidden;
+  position:relative;aspect-ratio:16/9;min-height:64px;overflow:hidden;
   background:var(--bg);border-bottom:1px solid var(--color-border);
 }
 /* Mock parts — hidden by default; per-theme rules switch them on. */
