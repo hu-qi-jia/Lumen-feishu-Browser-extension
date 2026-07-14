@@ -52,20 +52,7 @@ export const BASE_TOOLS: ChatCompletionTool[] = [
       description:
         'Create a new table (数据表) in a Feishu Base. ' +
         'Optionally pass initial fields to avoid separate create_field calls. ' +
-        'IMPORTANT: Choose field types based on the actual data content — do NOT default everything to Text(1). ' +
-        'See field-type guide below.\n' +
-        'Type selection guide:\n' +
-        '- Text(1): names, descriptions, free-form notes, sentences\n' +
-        '- Number(2): quantities, amounts, prices, scores, ages, counts\n' +
-        '- SingleSelect(3): status, priority, category, type — any single-choice enum. Pass `options` with all possible values.\n' +
-        '- MultiSelect(4): tags, labels, skills — any multi-choice enum. Pass `options`.\n' +
-        '- DateTime(5): dates, deadlines, timestamps (e.g. "2024-01-15", "3月5号")\n' +
-        '- Checkbox(7): yes/no, done/pending, boolean flags\n' +
-        '- Person(11): owner, assignee, reviewer — who is responsible\n' +
-        '- Phone(13): phone numbers\n' +
-        '- URL(15): links, websites\n' +
-        '- Attachment(17): files, images\n' +
-        '- Formula(20): computed from other fields. Pass `formula_expression`.',
+        'Choose field types per the guide in system prompt section 5.5 — do NOT default everything to Text(1).',
       parameters: {
         type: 'object',
         required: ['app_token', 'table_name'],
@@ -145,7 +132,7 @@ export const BASE_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'create_field',
-      description: 'Add a single field (column) to a table. Choose the field type based on the actual data content — do NOT default to Text(1). See create_table for the type selection guide.',
+      description: 'Add a single field (column) to a table. Choose field type per system prompt section 5.5 — do NOT default to Text(1).',
       parameters: {
         type: 'object',
         required: ['app_token', 'table_id', 'field_name', 'type'],

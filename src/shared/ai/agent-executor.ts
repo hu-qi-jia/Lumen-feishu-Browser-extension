@@ -207,7 +207,11 @@ async function executeDocTool(
   token: string,
   context: PageContext,
   settings?: AppSettings,
-  attachments?: Attachment[]
+  attachments?: Attachment[],
+  /** Per-turn cache; blocks:${docId} caches listBlocks to avoid repeat full-fetches
+   *  within a turn (agent list_blocks → insert_image would otherwise fetch twice).
+   *  Invalidated on add_document_content / delete_document_blocks for that doc. */
+  turnCache?: Map<string, unknown>,
 ): Promise<unknown> {
   void attachments // consumed by image-tool dispatch cases
   // Most doc tools expose `document_id` in their schema and the agent fills it. But insert_image /
@@ -253,9 +257,11 @@ async function executeDocTool(
     case 'get_document_content':
       return Docx.getDocumentContent(token, doc!)
     case 'list_blocks': {
-      const lb = (await Docx.listBlocks(token, doc!)) as {
+      const cacheKey = `blocks:${doc}`
+      const lb = (turnCache?.get(cacheKey) ?? (await Docx.listBlocks(token, doc!))) as {
         items?: Array<Record<string, unknown>>; has_more?: boolean
       }
+      turnCache?.set(cacheKey, lb)
       const summary = Docx.summarizeDocument(lb.items ?? [], doc!, {
         start: args.start_index as number | undefined,
         limit: args.limit as number | undefined,
@@ -264,6 +270,7 @@ async function executeDocTool(
       return { ...summary, fetch_truncated: !!lb.has_more }
     }
     case 'add_document_content':
+      turnCache?.delete(`blocks:${doc}`)
       return Docx.insertContentBlocks(
         token, doc!,
         (args.blocks as BlockSpec[]) ?? [],
@@ -279,10 +286,15 @@ async function executeDocTool(
       const parent = sanitizeToken(args.parent_block_id as string | undefined)
       const start = args.start_index as number
       const end = args.end_index as number
-      const { items } = (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      const lbKey = `blocks:${doc}`
+      const cached = turnCache?.get(lbKey) as { items?: Array<Record<string, unknown>> } | undefined
+      const { items } = cached ?? (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      turnCache?.set(lbKey, { items })
       const childCount = (items ?? []).filter((b) => b.parent_id === parent).length
       Docx.assertValidDeleteRange(parent, start, end, childCount)
-      return Docx.deleteBlocks(token, doc!, parent!, start, end)
+      const r = await Docx.deleteBlocks(token, doc!, parent!, start, end)
+      turnCache?.delete(lbKey) // structure changed — invalidate
+      return r
     }
     case 'insert_image': {
       const attachmentId = args.attachment_id as string
@@ -294,7 +306,11 @@ async function executeDocTool(
       const blob = dataUrlToBlob(att.dataUrl)
       if (blob.size === 0) throw new Error('无法读取图片数据。')
 
-      const { items } = (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      const lbKey = `blocks:${doc}`
+      const cached = turnCache?.get(lbKey) as { items?: Array<Record<string, unknown>> } | undefined
+      const lb = cached ?? (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      turnCache?.set(lbKey, lb)
+      const { items } = lb
       if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构。')
       const rootChildren = items
         .filter((b) => b.parent_id === doc)
@@ -357,7 +373,11 @@ async function executeDocTool(
       const att = attachments.find((a) => a.id === src.attachment_id && a.type === 'image')
       if (!att || !att.dataUrl) throw new Error(`附件 ${src.attachment_id} 不存在或不是图片。`)
 
-      const { items } = (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      const riKey = `blocks:${doc}`
+      const riCached = turnCache?.get(riKey) as { items?: Array<Record<string, unknown>> } | undefined
+      const riLb = riCached ?? (await Docx.listBlocks(token, doc!)) as { items?: Array<Record<string, unknown>> }
+      turnCache?.set(riKey, riLb)
+      const { items } = riLb
       if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构。')
       const imgBlocks: Array<{ id: string; parent_id: string; idx: number; heading?: string }> = []
       let lastHeading = ''
@@ -403,7 +423,11 @@ async function executeDocTool(
     }
     case 'export_doc_images': {
       const exportDocToken = sanitizeToken(args.doc_token as string | undefined) ?? doc!
-      const { items } = (await Docx.listBlocks(token, exportDocToken)) as { items?: Record<string, unknown>[] }
+      const exKey = `blocks:${exportDocToken}`
+      const exCached = turnCache?.get(exKey) as { items?: Record<string, unknown>[] } | undefined
+      const exLb = exCached ?? (await Docx.listBlocks(token, exportDocToken)) as { items?: Record<string, unknown>[] }
+      turnCache?.set(exKey, exLb)
+      const { items } = exLb
       if (!items || !Array.isArray(items)) throw new Error('无法读取文档结构')
 
       const imgBlocks: Array<{ token: string; context: string }> = []
@@ -611,7 +635,7 @@ export async function executeTool(
   // Spreadsheet / Doc tools carry their own resource token — dispatch before the
   // Base app_token guard below.
   if (SHEET_TOOLS.has(name)) return executeSheetTool(name, args, token, settings)
-  if (DOC_TOOLS.has(name)) return executeDocTool(name, args, token, context, settings, attachments)
+  if (DOC_TOOLS.has(name)) return executeDocTool(name, args, token, context, settings, attachments, turnCache)
 
   // 画板 Whiteboard 工具——自带 whiteboard_id（或在画板页面自动识别），需在 Base app_token 守卫之前分发。
   if (name === 'create_whiteboard') {

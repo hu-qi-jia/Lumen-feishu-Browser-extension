@@ -181,13 +181,9 @@ export const DOC_TOOLS: ChatCompletionTool[] = [
     function: {
       name: 'insert_image',
       description:
-        '把对话框里上传的一张图片插入到当前文档的指定位置（锚点定位，非光标）。' +
-        'attachment_id 是当前消息里图片附件的 id；anchor.type 用 top/heading/text/section_end/end 指定插入点：' +
-        'top=文档最顶部（在所有已有内容之前，含已有顶部图片）；' +
-        'heading/text=匹配到对应标题/段落后插到其后面（value 为匹配文字）；' +
-        'section_end=某标题所在节的末尾；end=文档末尾。' +
-        '用户说"插到顶部/最前面/开头"时一律用 top，不要拿第一段文字凑。' +
-        '只插入图片块本身，不要附带任何文字（标题/说明/图注/文件名都不要）。',
+        '把对话框里上传的一张图片插入到当前文档的指定位置（锚点定位）。' +
+        'attachment_id 是图片附件 id；anchor.type: top/heading/text/section_end/end（详见系统提示词）。' +
+        '只插图片块，不附带文字。',
       parameters: {
         type: 'object',
         required: ['attachment_id', 'anchor'],

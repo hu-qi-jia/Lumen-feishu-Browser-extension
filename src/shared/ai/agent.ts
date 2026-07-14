@@ -100,7 +100,9 @@ export async function runAgent(
   // Validate the endpoint before sending any conversation/table content to it — a
   // tampered or mistyped base URL must fail loudly here, never silently exfiltrate.
   // "越用越聪明": feed back the most relevant locally-learned recipes (if enabled).
-  const learn = settings.learnFromHistory !== false
+  // learnFromHistory defaults OFF — each successful turn triggers an extra short LLM call
+  // (summarizeLesson) to distill a recipe. Users who didn't opt in shouldn't pay that cost.
+  const learn = settings.learnFromHistory === true
   const resourceKind = context.feishu?.kind ?? 'general'
   const lastUserText = [...history].reverse().find((m) => m.role === 'user')?.content ?? ''
 
@@ -163,6 +165,10 @@ export async function runAgent(
   // Tool names that succeeded this turn (in order) — captured as a recipe on success.
   const succeededTools: string[] = []
 
+  // No-progress detection: track the last few READ-ONLY tool results' lengths. If 3 consecutive
+  // read-only calls returned near-identical payload sizes, the model is likely stuck in a
+  // read-loop (re-querying the same data). Inject a hint instead of burning another full round.
+  const recentReadSizes: number[] = []
   // Latest user-message attachments for image tools to consume
   const latestAttachments = (() => {
     for (let i = history.length - 1; i >= 0; i--) {
@@ -172,6 +178,12 @@ export async function runAgent(
     }
     return []
   })()
+
+  // Precompute per-turn invariants ONCE outside the loop — inputs don't change between iterations,
+  // so recomputing each round wastes CPU (toolsForContext does filter+spread; resolveTenantOrigin
+  // may hit storage I/O). The tool list is byte-stable so prefix-cache still hits.
+  const turnTools = toolsForContext(context.feishu?.kind, { kbEnabled, userSkills: loadedUserSkills })
+  const turnTenantOrigin = await resolveTenantOrigin(context)
 
   // Agentic loop — runs until no more tool calls or hard limit reached
   for (;;) {
@@ -198,7 +210,7 @@ export async function runAgent(
       stream = await client.chat.completions.create({
         model: llmCfg.model,
         messages: msgs,
-        tools: toolsForContext(context.feishu?.kind, { kbEnabled, userSkills: loadedUserSkills }), // only the current resource's tools (+ core)
+        tools: turnTools, // only the current resource's tools (+ core)
         tool_choice: 'auto',
         temperature: AGENT_TEMPERATURE,
         stream: true,
@@ -260,7 +272,7 @@ export async function runAgent(
       id: crypto.randomUUID(),
       // Normalize any hand-written Feishu link to the tenant origin (else clip/report links drop
       // the tenant subdomain and won't open). Single output-boundary guard → no recurrence.
-      content: textAccum ? rewriteFeishuOrigins(textAccum, await resolveTenantOrigin(context)) : null,
+      content: textAccum ? rewriteFeishuOrigins(textAccum, turnTenantOrigin) : null,
       role: 'assistant',
       tool_calls: toolCallDefs.length > 0 ? toolCallDefs : undefined,
       createdAt: Date.now(),
@@ -432,6 +444,31 @@ export async function runAgent(
       callbacks.onToolMessage(toolMsg)
 
       msgs.push({ role: 'tool', content: result, tool_call_id: tc.id })
+
+      // No-progress tracking: record result length for read-only tools. Writes always reset
+      // the window (a write is progress by definition).
+      if (READ_ONLY_TOOLS.has(tc.function.name) && !isError) {
+        recentReadSizes.push(result.length)
+        if (recentReadSizes.length > 3) recentReadSizes.shift()
+      } else {
+        recentReadSizes.length = 0
+      }
+    }
+
+    // No-progress early termination: 3 consecutive read-only calls with near-identical result
+    // sizes (±5%) means the model is re-reading the same data without acting on it. Inject a
+    // nudge instead of letting it burn another full LLM round-trip.
+    if (recentReadSizes.length >= 3) {
+      const [a, b, c] = recentReadSizes
+      const avg = (a + b + c) / 3
+      const within = (n: number) => Math.abs(n - avg) / avg < 0.05
+      if (within(a) && within(b) && within(c)) {
+        msgs.push({
+          role: 'system',
+          content: '检测到连续多次只读查询返回了几乎相同的结果。请基于已有信息继续操作或向用户确认，不要重复读取相同数据。',
+        } as ChatCompletionMessageParam)
+        recentReadSizes.length = 0
+      }
     }
   }
 

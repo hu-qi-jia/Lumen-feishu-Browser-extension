@@ -32,6 +32,20 @@ export function buildApiHistory(history: ChatMessage[], visionEnabled = true): C
     if (nonSystem[i].role === 'user') { lastUserIdx = i; break }
   }
 
+  // Token 优化：识别最近 2 个「带工具调用的 assistant 轮次」，它们的 tool 结果完整保留；
+  // 更早的 tool 结果压缩为一行摘要，避免多轮对话历史线性膨胀。
+  // 摘要保留工具名 + 截断长度提示，让模型知道"曾经查过什么"而不重复拉取。
+  const assistantToolTurnIdxs: number[] = []
+  for (let i = 0; i < nonSystem.length; i++) {
+    if (nonSystem[i].role === 'assistant' && nonSystem[i].tool_calls?.length) {
+      assistantToolTurnIdxs.push(i)
+    }
+  }
+  const recentTurnCount = 2
+  const recentTurnStartIdx = assistantToolTurnIdxs.length > recentTurnCount
+    ? assistantToolTurnIdxs[assistantToolTurnIdxs.length - recentTurnCount]
+    : -1
+
   const out: ChatCompletionMessageParam[] = []
   for (let idx = 0; idx < nonSystem.length; idx++) {
     const m = nonSystem[idx]
@@ -54,7 +68,13 @@ export function buildApiHistory(history: ChatMessage[], visionEnabled = true): C
         })),
       })
       for (const tc of paired) {
-        out.push({ role: 'tool', content: responses.get(tc.id) ?? '', tool_call_id: tc.id })
+        const raw = responses.get(tc.id) ?? ''
+        // Summarize tool results from turns older than the recent 2 — keeps tool_call structure
+        // valid (OpenAI requires a tool message per tool_call_id) while slashing token cost.
+        // The model retains "I queried X earlier" without re-reading the full payload.
+        const isOldTurn = recentTurnStartIdx >= 0 && idx < recentTurnStartIdx
+        const content = isOldTurn ? summarizeOldToolResult(tc.function.name, raw) : raw
+        out.push({ role: 'tool', content, tool_call_id: tc.id })
       }
       continue
     }
@@ -80,7 +100,7 @@ export function buildApiHistory(history: ChatMessage[], visionEnabled = true): C
         const bits: string[] = []
         if (m.content?.trim()) bits.push(m.content.trim())
         for (const a of attachments) {
-          const meta = attachmentToMetaData(a)
+          const meta = attachmentToMetaData(a, true)
           if (meta) bits.push(meta)
         }
         out.push({ role: 'user', content: bits.join('\n\n') })
@@ -90,6 +110,17 @@ export function buildApiHistory(history: ChatMessage[], visionEnabled = true): C
     }
   }
   return out
+}
+
+/** Compress an old tool result into a one-line summary so history doesn't bloat token cost
+ *  in multi-turn conversations. Preserves tool name + a length hint so the model knows it
+ *  already queried this and can re-call if it needs fresh details. */
+function summarizeOldToolResult(toolName: string, raw: string): string {
+  const len = raw.length
+  // Keep very short results as-is (error messages, simple confirmations) — summarizing a
+  // 50-char "已插入到文档顶部" into another sentence wastes MORE tokens than it saves.
+  if (len <= 120) return raw
+  return `[早期工具结果已省略｜工具：${toolName}｜原长度：${len}字符｜如需详情请重新调用]`
 }
 
 /** 把最新一条 user 消息的附件编码成 OpenAI 多模态 content parts。
@@ -125,7 +156,7 @@ function attachmentToContentParts(
  *  selection 是新增：把用户选中的文档片段（带定位上下文）作为可编辑目标交给 agent。
  *  docref 是引用整篇文档：告诉 agent 这是一个可参考的文档及其 token，agent 可按需读取。
  *  返回 null 表示该附件无可渲染元数据（调用方跳过）。 */
-export function attachmentToMetaData(a: Attachment): string | null {
+export function attachmentToMetaData(a: Attachment, compact = false): string | null {
   if (a.type === 'image' && a.dataUrl) return `【附件：图片 ${a.name}（attachment_id: ${a.id}）】`
   if (a.type === 'file' && a.content) return `\n\n【附件：${a.name}】\n${a.content}`
   if (a.type === 'selection' && a.selection) {
@@ -141,10 +172,14 @@ export function attachmentToMetaData(a: Attachment): string | null {
       d.kind === 'base' ? '多维表格' :
       d.kind === 'sheet' ? '电子表格' :
       d.kind === 'wiki' ? '知识库节点' : '文档'
-    // 用户已指定子表时，把 id 直接喂给 agent，省去 list_sheets / list_tables 枚举步骤。
     const subLabel =
       d.kind === 'sheet' && d.sheetId ? `｜子表：${d.sheetName || d.sheetId}` :
       d.kind === 'base' && d.tableId ? `｜数据表：${d.tableName || d.tableId}` : ''
+    // Compact mode (history replay): drop the verbose subHint + toolHint — the model already
+    // learned the tool hint on the first turn; replaying it every round wastes tokens.
+    if (compact) {
+      return `【引用${kindLabel}｜标题：${d.docTitle || '未命名'}${subLabel}｜token：${d.docToken}】`
+    }
     const subHint =
       d.kind === 'sheet' && d.sheetId
         ? `\n用户已指定工作表（sheet_id=${d.sheetId}），请直接用 read_range（spreadsheetToken=${d.docToken}，range 以 "${d.sheetId}!" 开头）读取该子表，无需再调 list_sheets 枚举。`
