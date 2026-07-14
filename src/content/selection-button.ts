@@ -87,7 +87,11 @@ function onClick() {
  * absent / hidden (fallback to geometric positioning).
  */
 function findNativeToolbar(): DOMRect | null {
-  const el = document.querySelector('.docx-menu-container')
+  // The visual toolbar card is .docx-menu-wrapper (white bg, border, shadow, height 42px);
+  // .docx-menu-container is the inner flex row (height 40px, transparent). Anchor to the
+  // wrapper so the button aligns with the actual visible card.
+  const wrapper = document.querySelector('.docx-menu-wrapper')
+  const el = wrapper || document.querySelector('.docx-menu-container')
   if (!el) return null
   // Skip containers that are present in the DOM but not actually shown (e.g. between selections).
   const cs = getComputedStyle(el)
@@ -101,11 +105,10 @@ function position(rect: DOMRect) {
   if (!host) return
   const toolbar = findNativeToolbar()
   if (toolbar) {
-    // Button height now matches the toolbar container (40px) and aligns top-edge to top-edge.
+    // Match the button height to the actual visible toolbar card (.docx-menu-wrapper, 42px)
+    // and align top-edge to top-edge for a seamless look.
+    if (btn) btn.style.height = `${toolbar.height}px`
     const gap = 6
-    // The toolbar's own visual background extends beyond .docx-menu-container
-    // (its parent .docx-menu-wrapper has the white card). We attach to the container rect;
-    // if the right side has no room, snap to the left side so the button never gets squeezed.
     const minBtnWidth = 100
     const roomRight = window.innerWidth - toolbar.right
     let left: number
