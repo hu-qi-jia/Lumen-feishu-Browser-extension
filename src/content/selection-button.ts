@@ -14,6 +14,7 @@ let host: HTMLDivElement | null = null   // shadow host (injected into toolbar)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 let isDragging = false
+let suppressUntil = 0  // timestamp until which refresh() should bail (post-click suppression)
 
 /** 'doc' | 'wiki' on a doc/wiki page, else null. */
 function docKind(): 'doc' | 'wiki' | null {
@@ -96,6 +97,10 @@ function onClick() {
   const payload = { type: 'OPEN_SIDE_PANEL_WITH_SELECTION', payload: snapshot }
   snapshot = null
   chrome.runtime.sendMessage(payload).catch(() => { /* receiving end unavailable */ })
+  // Suppress refresh for 500ms: clicking clears our snapshot, but the document selection
+  // (and Feishu's toolbar) may persist briefly, which would re-trigger refresh() and
+  // re-inject the button before the toolbar fully dismisses — causing a flicker.
+  suppressUntil = Date.now() + 500
   hide()
 }
 
@@ -107,6 +112,9 @@ function hide() {
 }
 
 function refresh() {
+  // Post-click suppression window — avoid re-injecting the button while the toolbar
+  // is in the process of dismissing after a click.
+  if (Date.now() < suppressUntil) return
   const kind = docKind()
   if (!kind) { snapshot = null; hide(); return }
   const sel = currentSelection()
