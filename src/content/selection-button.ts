@@ -108,9 +108,11 @@ function position(rect: DOMRect) {
   if (!host) return
   const toolbar = findNativeToolbar()
   if (toolbar) {
-    // Match the button height to the actual visible toolbar card (.docx-menu-wrapper, 42px)
+    // Match both the host and the button to the actual visible toolbar card height
     // and align top-edge to top-edge for a seamless look.
-    if (btn) btn.style.height = `${toolbar.height}px`
+    const h = `${toolbar.height}px`
+    if (btn) btn.style.height = h
+    if (host) host.style.height = h
     const gap = 6
     const minBtnWidth = 100
     const roomRight = window.innerWidth - toolbar.right
