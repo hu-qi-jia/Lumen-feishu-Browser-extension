@@ -10,6 +10,7 @@ import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 let host: HTMLDivElement | null = null   // shadow host (page-fixed)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
+let repositionTimer: ReturnType<typeof setTimeout> | undefined
 let isDragging = false
 
 /** 'doc' | 'wiki' on a doc/wiki page, else null. */
@@ -35,7 +36,8 @@ function ensureButton(): HTMLButtonElement {
   host = document.createElement('div')
   // display:flex prevents the host from gaining extra inline-baseline descender space,
   // so the host height exactly matches the button height and aligns with the toolbar.
-  host.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483600;display:none;align-items:flex-start;'
+  // A short position transition smooths out the toolbar's entrance animation.
+  host.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483600;display:none;align-items:flex-start;transition:top .1s ease-out,left .1s ease-out;'
   const shadow = host.attachShadow({ mode: 'open' })
   btn = document.createElement('button')
   btn.type = 'button'
@@ -104,29 +106,40 @@ function findNativeToolbar(): DOMRect | null {
   return r
 }
 
+function placeNextToToolbar(): boolean {
+  if (!host) return false
+  const toolbar = findNativeToolbar()
+  if (!toolbar) return false
+  // Match both the host and the button to the actual visible toolbar card height
+  // and align top-edge to top-edge for a seamless look.
+  const h = `${toolbar.height}px`
+  if (btn) btn.style.height = h
+  host.style.height = h
+  const gap = 6
+  const minBtnWidth = 100
+  const roomRight = window.innerWidth - toolbar.right
+  let left: number
+  if (roomRight >= minBtnWidth + gap) {
+    left = toolbar.right + gap
+  } else if (toolbar.left >= minBtnWidth + gap) {
+    left = toolbar.left - minBtnWidth - gap
+  } else {
+    // No room on either side: center above the toolbar as last resort.
+    left = Math.max(6, (window.innerWidth - minBtnWidth) / 2)
+  }
+  host.style.left = `${left}px`
+  host.style.top = `${Math.max(toolbar.top, 6)}px`
+  return true
+}
+
 function position(rect: DOMRect) {
   if (!host) return
-  const toolbar = findNativeToolbar()
-  if (toolbar) {
-    // Match both the host and the button to the actual visible toolbar card height
-    // and align top-edge to top-edge for a seamless look.
-    const h = `${toolbar.height}px`
-    if (btn) btn.style.height = h
-    if (host) host.style.height = h
-    const gap = 6
-    const minBtnWidth = 100
-    const roomRight = window.innerWidth - toolbar.right
-    let left: number
-    if (roomRight >= minBtnWidth + gap) {
-      left = toolbar.right + gap
-    } else if (toolbar.left >= minBtnWidth + gap) {
-      left = toolbar.left - minBtnWidth - gap
-    } else {
-      // No room on either side: center above the toolbar as last resort.
-      left = Math.max(6, (window.innerWidth - minBtnWidth) / 2)
-    }
-    host.style.left = `${left}px`
-    host.style.top = `${Math.max(toolbar.top, 6)}px`
+  if (placeNextToToolbar()) {
+    // The toolbar has an entrance animation (docx-menu-wrapper-animation). Its rect can
+    // move during the first ~100ms, so we remeasure once and smoothly glide to the final
+    // position via the host's CSS transition.
+    clearTimeout(repositionTimer)
+    repositionTimer = setTimeout(placeNextToToolbar, 90)
     return
   }
   // Fallback: top-right of the selection rect, clamped into the viewport.
