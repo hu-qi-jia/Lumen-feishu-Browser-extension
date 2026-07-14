@@ -41,7 +41,7 @@ function ensureButton(): HTMLButtonElement {
     'display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:8px;' +
     'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 2px 8px rgba(79,107,255,.35);' +
     "font:12px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
-    'height:30px;'
+    'height:40px;box-sizing:border-box;'
   const icon = document.createElement('span')
   icon.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>'
   btn.prepend(icon.firstChild as Node)
@@ -72,45 +72,33 @@ function onClick() {
 }
 
 /**
- * Detect Feishu's native selection toolbar (the floating bar with Copy/Bold/etc. buttons).
- * Probes upward from the selection rect using elementsFromPoint — the toolbar is an HTML
- * overlay rendered above the canvas editor, so it surfaces in the hit-test stack.
- * Returns the toolbar's rect, or null if not found (fallback to geometric positioning).
+ * Locate Feishu's native selection toolbar (`.docx-menu-container`) — the floating bar with
+ * Copy/Bold/etc. buttons that appears above a text selection. Direct class lookup is reliable
+ * here: the class name is stable across Feishu builds, and the element is rendered as
+ * `position: static` (NOT fixed/absolute), so the previous `elementsFromPoint` heuristic that
+ * filtered by computed position would never match it. Returns the toolbar's rect, or null when
+ * absent / hidden (fallback to geometric positioning).
  */
-function findNativeToolbar(selRect: DOMRect): DOMRect | null {
-  const cx = (selRect.left + selRect.right) / 2
-  // Scan upward from the selection top edge in 6px steps (toolbar usually sits 8-50px above).
-  for (let dy = 6; dy <= 64; dy += 6) {
-    const cy = selRect.top - dy
-    if (cy < 0) break
-    const els = document.elementsFromPoint(cx, cy)
-    for (const el of els) {
-      if (el === host || (host && host.contains(el))) continue
-      if (el.tagName === 'CANVAS') continue
-      const cs = getComputedStyle(el)
-      if (cs.position !== 'fixed' && cs.position !== 'absolute') continue
-      if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue
-      const r = el.getBoundingClientRect()
-      if (r.width <= 0 || r.height <= 0) continue
-      if (r.height > 50) continue // toolbars are slim
-      // Must contain interactive elements (buttons / icons) to qualify as a toolbar
-      const interactive = el.querySelectorAll('button, [role="button"], svg, [class*="tool"], [class*="icon"], [class*="btn"]')
-      if (interactive.length === 0) continue
-      return r
-    }
-  }
-  return null
+function findNativeToolbar(): DOMRect | null {
+  const el = document.querySelector('.docx-menu-container')
+  if (!el) return null
+  // Skip containers that are present in the DOM but not actually shown (e.g. between selections).
+  const cs = getComputedStyle(el)
+  if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return null
+  const r = el.getBoundingClientRect()
+  if (r.width <= 0 || r.height <= 0) return null
+  return r
 }
 
 function position(rect: DOMRect) {
   if (!host) return
-  const toolbar = findNativeToolbar(rect)
+  const toolbar = findNativeToolbar()
   if (toolbar) {
-    // Snap to the right edge of the native toolbar, vertically centered.
-    const left = Math.min(toolbar.right + 6, window.innerWidth - 150)
-    const top = toolbar.top + (toolbar.height - 36) / 2 // 36 ≈ button height
+    // Tightly attach to the right edge of the native toolbar, matching its height (40px) and
+    // top-aligned so the button visually continues the toolbar on its right side.
+    const left = Math.min(toolbar.right + 4, window.innerWidth - 150)
     host.style.left = `${Math.max(left, 6)}px`
-    host.style.top = `${Math.max(top, 6)}px`
+    host.style.top = `${Math.max(toolbar.top, 6)}px`
     return
   }
   // Fallback: top-right of the selection rect, clamped into the viewport.
