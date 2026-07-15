@@ -33,7 +33,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
         : fz?.kind === 'ppt'
           ? `\n## 当前页面\n飞书**演示文稿**页面，slide_token=\`${fz.slideToken}\`。当前没有直接读写幻灯片的工具，但可以帮用户梳理大纲、撰写演讲备注、生成配套讲义文档等。若需要基于该演示文稿的内容操作，请让用户把要点或文本贴出来。`
           : fz?.kind === 'board'
-            ? `\n## 当前页面\n飞书**画板**页面，whiteboard_id=\`${fz.whiteboardId}\`。可用 get_whiteboard_info 查询画板元信息（无需传入 id，自动识别）；也可用 create_whiteboard 新建画板。当前没有直接编辑画板内容的工具。`
+            ? `\n## 当前页面\n飞书**画板**页面，whiteboard_id=\`${fz.whiteboardId}\`（自动识别，无需传入 id）。可用 get_whiteboard_info 查询画板元信息；可用 list_whiteboard_nodes 列出所有节点；可用 create_whiteboard_diagram（PlantUML/Mermaid 语法）画流程图/时序图/思维导图等结构化图形；可用 create_whiteboard_nodes 手动放置便签/形状/连线等元素；可用 delete_whiteboard_nodes 删除节点。`
             : `\n## 当前页面\n非飞书表格/文档页面（${ctx.url}）。若要操作，请先在浏览器中打开对应的多维表格 / 电子表格 / 文档页面。`
 
   // selectedText is user-controlled content — must be clearly fenced to prevent prompt injection
@@ -74,15 +74,16 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   - **insert_image 插到顶部用 anchor.type=top**：用户说"插到顶部/最前面/开头/第一张"时，anchor 必须是 \`{type:'top'}\`（插到所有已有内容之前，含已有的顶部图片）。**不要**拿第一段标题/文字当锚点再"插到后面"——那会把图片落到顶部下方第一行文字下面。只有"插在某标题/某段之后/节末/文末"才用 heading/text/section_end/end。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
 - 画板 Whiteboard：创建画板用 \`create_whiteboard\`（在文档中插入画板块来创建——在文档页面使用时**默认直接插入当前文档**，也可传 document_id 指定目标文档；仅当既不在文档页、又未传 document_id 时才新建宿主文档）；查看画板信息用 \`get_whiteboard_info\`。
-  - **画板内容编辑**（在画板页面使用，whiteboard_id 自动识别）：
-    - \`create_whiteboard_diagram\` —— **画结构化图形的首选**。写 PlantUML 或 Mermaid 语法，飞书自动解析排版。流程图/时序图/类图/ER图/思维导图/活动图都走这个。
-    - \`create_whiteboard_nodes\` —— 手动放置零散元素（便签、独立形状、连线等），需自行指定坐标尺寸。节点类型：composite_shape（带 shape 子类型 rect/diamond/ellipse/cylinder/round_rect/...）/ text_shape / sticky_note / connector / section / group / image。
+  - **画板内容编辑**（whiteboard_id 来源：画板页面自动识别，或 \`create_whiteboard\` 返回的 \`whiteboard.whiteboard_id\`）：
+    - \`create_whiteboard_diagram\` —— **画结构化图形的首选，1 次调用完成整张图**。写 PlantUML 或 Mermaid 语法，飞书自动解析排版为可编辑的画板节点。流程图/时序图/类图/ER图/思维导图/活动图都走这个。**不要传 diagram_type**（API 内部固定为 0 自动识别，传非零值会报 invalid arg）。
+    - \`create_whiteboard_nodes\` —— 手动放置零散元素。**可靠类型**：text_shape（纯文字）/ sticky_note（便签）/ section（分区）/ group（组合）。**不可靠类型**：composite_shape（带形状的图形）和 connector（连线）——飞书已移除该端点文档，字段 schema 不可查，实测常报字段校验失败，**不要使用这两个类型**。画结构化图形请用 create_whiteboard_diagram，不要用本工具逐个摆形状。
     - \`list_whiteboard_nodes\` —— 列出画板所有节点（含 id/type/坐标/文本），用于查看现有内容或定位要删的节点。
     - \`delete_whiteboard_nodes\` —— 按节点 ID 删除（递归删子节点），破坏性操作需先告知用户。
-  - **画板图形语法**（\`create_whiteboard_diagram\` 用）：
+  - **创建画板后立即画图**：\`create_whiteboard\` 返回 \`whiteboard.whiteboard_id\`——**立即用这个 ID 调用 \`create_whiteboard_diagram\` 画图**，不要只创建空画板就停下告诉用户"无法绘制"。在文档页面创建画板后，whiteboard_id 不会自动识别（只有画板页面才自动识别），必须显式传入 \`whiteboard_id\` 参数。
+  - **画板图形语法**（\`create_whiteboard_diagram\` 用，PlantUML 默认 syntax_type=1，Mermaid 传 syntax_type=2）：
     - PlantUML 流程图：\`@startuml\nstart\n:步骤1;\n:步骤2;\nif (条件?) then (是)\n  :处理A;\nelse (否)\n  :处理B;\nendif\nstop\n@enduml\`
     - PlantUML 时序图：\`@startuml\nAlice -> Bob: 请求\nBob --> Alice: 响应\n@enduml\`
-    - PlantUML 思维导图：\`@startmindmap\n* 主题\n** 分支1\n*** 子项\n** 分支2\n@endmindmap\`（diagram_type=1）
+    - PlantUML 思维导图：\`@startmindmap\n* 主题\n** 分支1\n*** 子项\n** 分支2\n@endmindmap\`
     - Mermaid 流程图：\`graph TD\n  A[开始] --> B{条件}\n  B -->|是| C[处理]\n  B -->|否| D[结束]\`（syntax_type=2）
     - Mermaid 时序图：\`sequenceDiagram\n  A->>B: 请求\n  B-->>A: 响应\`（syntax_type=2）
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能

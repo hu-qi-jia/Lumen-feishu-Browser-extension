@@ -51,10 +51,16 @@ export const READ_ONLY_TOOLS = new Set([
 ])
 // Cross-cutting tools exposed on EVERY page (incl. the "create a new X" entry points) so the user
 // can always ask a question, escape-hatch a raw API call, render a viz, or create a fresh resource.
+// Board content-editing tools are included here (not just on board pages) because create_whiteboard
+// can be called on ANY page and returns a whiteboard_id — the agent must be able to immediately
+// draw on that new board in the same turn (otherwise it creates an empty board and tells the user
+// "can't draw", which is the exact bug this fixes).
 const CORE_TOOLS = new Set([
   'feishu_api_call', 'render_data_app',
   'create_bitable_app', 'create_spreadsheet', 'create_document', 'create_doc_from_markdown',
   'create_whiteboard',
+  // Board content tools — needed right after create_whiteboard (which can run on any page)
+  'create_whiteboard_diagram', 'create_whiteboard_nodes', 'list_whiteboard_nodes', 'delete_whiteboard_nodes',
 ])
 
 /**

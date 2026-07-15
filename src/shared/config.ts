@@ -22,7 +22,7 @@ export const BUILD_CONFIG = {
    *  Default 60; set VITE_MAX_TOOL_CALLS to tune (clamped 1–100). */
   maxToolCalls: (() => {
     const n = parseInt((import.meta.env.VITE_MAX_TOOL_CALLS ?? '') as string, 10)
-    return Number.isFinite(n) && n > 0 ? Math.min(n, 100) : 30
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 100) : 60
   })(),
   /** Space-separated OAuth scopes (must be enabled on the app). Empty = identity only. */
   feishuOauthScope: (import.meta.env.VITE_FEISHU_OAUTH_SCOPE ?? '') as string,

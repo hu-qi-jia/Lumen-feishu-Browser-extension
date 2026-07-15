@@ -132,49 +132,79 @@ export async function listNodes(token: string, whiteboardId: string) {
   )
 }
 
-/** Create one or more nodes on a whiteboard (batch). Returns the created node IDs. */
+/** Create one or more nodes on a whiteboard (batch). Returns the created node IDs.
+ *  NOTE: Feishu has REMOVED the doc page for this endpoint. Empirically, text_shape and
+ *  sticky_note create reliably; composite_shape and connector often fail with field
+ *  validation errors (the exact field schema is undocumented). Prefer createDiagram
+ *  (PlantUML/Mermaid) for structured graphics — it has full doc support. */
 export async function createNodes(
   token: string,
   whiteboardId: string,
   nodes: BoardNode[],
 ) {
-  return feishuReq<{ ids?: string[]; client_token?: string }>(
-    'POST',
-    `/board/v1/whiteboards/${whiteboardId}/nodes`,
-    token,
-    { nodes },
-  )
+  try {
+    return await feishuReq<{ ids?: string[]; client_token?: string }>(
+      'POST',
+      `/board/v1/whiteboards/${whiteboardId}/nodes`,
+      token,
+      { nodes },
+    )
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const types = nodes.map((n) => n.type).join(',')
+    throw new Error(
+      `createNodes 失败（whiteboard_id=${whiteboardId}, 节点类型=[${types}], 数量=${nodes.length}）：${msg}`,
+    )
+  }
 }
 
 /**
  * Parse PlantUML/Mermaid syntax into board nodes. Great for flowcharts, mind maps,
  * sequence diagrams, class diagrams, ER diagrams — the agent just writes the syntax
  * and Feishu lays it out automatically.
+ *
+ * Key API constraints (learned the hard way — 2890002 invalid arg):
+ * - style_type=2 (classic/single-image) is PlantUML-ONLY. Mermaid MUST use style_type=1.
+ * - diagram_type should ALWAYS be 0 (auto-detect). Passing a mismatched type (e.g. 1=mindmap
+ *   for a flowchart @startuml) causes 2890002. The agent has no reason to override auto-detect.
  */
 export async function createDiagram(
   token: string,
   whiteboardId: string,
   code: string,
   opts?: {
-    /** 1=PlantUML, 2=Mermaid */
+    /** 1=PlantUML (default), 2=Mermaid */
     syntax_type?: 1 | 2
-    /** 1=画板样式(多节点可编辑), 2=经典样式(单图可编辑语法). Only PlantUML supports 2. */
+    /** 1=画板样式(多节点可编辑, 默认), 2=经典样式(单图, PlantUML only) */
     style_type?: 1 | 2
-    /** 0=auto-detect, 1=mindmap, 2=sequence, 3=activity, 4=class, ... */
-    diagram_type?: number
   },
 ) {
-  return feishuReq<{ node_id?: string }>(
-    'POST',
-    `/board/v1/whiteboards/${whiteboardId}/nodes/plantuml`,
-    token,
-    {
-      plant_uml_code: code,
-      syntax_type: opts?.syntax_type ?? 1,
-      style_type: opts?.style_type ?? 2,
-      diagram_type: opts?.diagram_type ?? 0,
-    },
-  )
+  const syntaxType = opts?.syntax_type ?? 1
+  // style_type=1 = artboard style (parsed into editable board nodes, visible on canvas)
+  // style_type=2 = classic style (single image, PlantUML-only) — renders as ONE flat image
+  //   that's easy to miss on a large canvas. Default to 1 so the diagram shows up as real nodes.
+  //   Mermaid MUST use 1 (2 is PlantUML-only → 2890002).
+  const styleType = opts?.style_type ?? 1
+  try {
+    return await feishuReq<{ node_id?: string }>(
+      'POST',
+      `/board/v1/whiteboards/${whiteboardId}/nodes/plantuml`,
+      token,
+      {
+        plant_uml_code: code,
+        syntax_type: syntaxType,
+        style_type: styleType,
+        diagram_type: 0, // always auto-detect — non-zero causes 2890002 when it mismatches the syntax
+      },
+    )
+  } catch (e) {
+    // 2890002 is ambiguous — could be bad whiteboard_id OR bad params. Augment with the actual
+    // request payload + id so the agent/user can see exactly what was sent and diagnose.
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(
+      `createDiagram 失败（whiteboard_id=${whiteboardId}, syntax_type=${syntaxType}, style_type=${styleType}, code 长度=${code.length}）：${msg}`,
+    )
+  }
 }
 
 /** Delete nodes by ID (recursive — descendants are removed too). */

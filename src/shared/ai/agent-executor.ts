@@ -690,7 +690,6 @@ export async function executeTool(
     if (name === 'create_whiteboard_diagram') {
       return Board.createDiagram(token, wbId, String(args.code), {
         syntax_type: args.syntax_type as 1 | 2 | undefined,
-        diagram_type: args.diagram_type as number | undefined,
       })
     }
     if (name === 'create_whiteboard_nodes') {
