@@ -159,6 +159,21 @@ export function useDocBinding(a: Args): DocBindingApi {
   //  examples from jittering between the old doc and the general session.
   const seenDocCtxRef = useRef<Map<string, PageContext>>(new Map())
   if (rawResource) seenDocCtxRef.current.set(rawResource, ctx)
+  // Stable fallback for the "no effective resource" branch. During a tab switch, ctx thrashes
+  // (onActivated → onUpdated loading → complete → async title API), and using ctx directly
+  // here made the topbar title/identity flicker. Keep the LAST effectiveResource's context
+  // until liveResource (debounced) confirms the tab really left Feishu — only then fall back
+  // to the general-session context. This breaks the ctx→chatContext jitter path.
+  const lastStableCtxRef = useRef<PageContext | null>(null)
+  if (effectiveResource) {
+    const stable = seenDocCtxRef.current.get(effectiveResource)
+    if (stable) lastStableCtxRef.current = stable
+  }
+  // When the debounced liveResource confirms the tab really left Feishu (stayed null),
+  // drop the stale stable ctx so the topbar falls through to the general-session context.
+  useEffect(() => {
+    if (liveResource === null) lastStableCtxRef.current = null
+  }, [liveResource])
   const chatContext: PageContext =
     docMode === 'pin' && pinned
       ? pinned.kind === 'wiki'
@@ -169,7 +184,9 @@ export function useDocBinding(a: Args): DocBindingApi {
             url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
             feishu: sessionFeishu(effectiveResource, sessions.activeSession?.kind, wikiCacheRef.current),
           })
-        : ctx
+        : (liveResource === null && lastStableCtxRef.current === null)
+          ? ctx
+          : (lastStableCtxRef.current ?? ctx)
 
   // follow mode: HOLD the session on its current doc when the live tab differs, so the
   // auto-switch can't yank it back. `justFollowedRef` suppresses the hold for one cycle after
