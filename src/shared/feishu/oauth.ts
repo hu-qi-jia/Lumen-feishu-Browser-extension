@@ -15,6 +15,27 @@ const AUTHORIZE = FEISHU_AUTHORIZE_URL
 const TOKEN = `${FEISHU_API_BASE}/authen/v2/oauth/token`
 const USER_INFO = `${FEISHU_API_BASE}/authen/v1/user_info`
 
+/**
+ * Default OAuth scopes requested during「用飞书账号授权」when the operator hasn't set
+ * VITE_FEISHU_OAUTH_SCOPE. These cover every user_access_token-gated API the extension
+ * calls; the corresponding scopes must ALSO be enabled on the app in the Feishu console.
+ * If a scope here isn't enabled on the app, Feishu will error at authorize time — remove
+ * it from VITE_FEISHU_OAUTH_SCOPE or enable it in the console.
+ */
+const DEFAULT_OAUTH_SCOPES = [
+  'offline_access',
+  'bitable:app',
+  'docx:document',
+  'sheets:spreadsheet',
+  'drive:drive',
+  'wiki:wiki',
+  'contact:user.base:readonly',
+  'board:whiteboard:node:create',
+  'board:whiteboard:node:read',
+  'board:whiteboard:node:delete',
+  'board:whiteboard:node:update',
+]
+
 interface TokenResp { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string; scope?: string }
 
 /**
@@ -143,10 +164,14 @@ export async function authorizeFeishuUser(): Promise<OAuthResult> {
   // user_access_token dies at ~2h with no way to renew (code 99991677). It's a DEFAULT here, not
   // a hard requirement: an operator whose auth server lacks it can opt out by putting the token
   // `-offline_access` in VITE_FEISHU_OAUTH_SCOPE. prompt=consent ensures the consent screen shows.
+  // When VITE_FEISHU_OAUTH_SCOPE is empty, fall back to DEFAULT_OAUTH_SCOPES so that a fresh
+  // install requests every scope the extension needs — otherwise the user_access_token has
+  // identity-only permissions and every API call 403s even after enabling scopes in the console.
   const configured = BUILD_CONFIG.feishuOauthScope.trim().split(/\s+/).filter(Boolean)
   const optOut = configured.includes('-offline_access')
   const wanted = configured.filter((s) => s !== '-offline_access')
-  const scope = Array.from(new Set(optOut ? wanted : ['offline_access', ...wanted])).join(' ')
+  const base = configured.length ? wanted : DEFAULT_OAUTH_SCOPES.filter((s) => s !== 'offline_access')
+  const scope = Array.from(new Set(optOut ? base : ['offline_access', ...base])).join(' ')
   const authUrl =
     `${AUTHORIZE}?client_id=${encodeURIComponent(appId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +

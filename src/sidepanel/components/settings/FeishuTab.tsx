@@ -38,6 +38,10 @@ const PERMISSION_SCOPES = `{
       "base:workspace:list",
       "bitable:app",
       "bitable:app:readonly",
+      "board:whiteboard:node:create",
+      "board:whiteboard:node:delete",
+      "board:whiteboard:node:read",
+      "board:whiteboard:node:update",
       "contact:contact.base:readonly",
       "contact:department.base:readonly",
       "contact:user.assign_info:read",
@@ -82,6 +86,10 @@ const PERMISSION_SCOPES = `{
       "wiki:wiki:readonly"
     ],
     "user": [
+      "board:whiteboard:node:create",
+      "board:whiteboard:node:delete",
+      "board:whiteboard:node:read",
+      "board:whiteboard:node:update",
       "docx:document",
       "docx:document.block:convert",
       "docx:document:create",
