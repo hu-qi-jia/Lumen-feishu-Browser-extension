@@ -36,12 +36,16 @@ export const DOC_TOOLS = new Set([
   'insert_image', 'copy_document', 'replace_image', 'export_doc_images',
   'insert_bitable', 'insert_callout', 'insert_iframe', 'update_document_block',
 ])
+export const BOARD_TOOLS = new Set([
+  'create_whiteboard', 'get_whiteboard_info', 'list_whiteboard_nodes',
+  'create_whiteboard_diagram', 'create_whiteboard_nodes', 'delete_whiteboard_nodes',
+])
 // Pure READ tools — side-effect-free, so when the model batches several in one round they can run
 // CONCURRENTLY instead of one-after-another (cuts wall-time for "read A and B and C" patterns).
 export const READ_ONLY_TOOLS = new Set([
   'get_app_info', 'list_tables', 'list_fields', 'list_records', 'search_records', 'list_views',
   'list_dashboards', 'get_spreadsheet', 'list_sheets', 'read_range', 'get_document_content', 'list_blocks',
-  'get_whiteboard_info',
+  'get_whiteboard_info', 'list_whiteboard_nodes',
   // 知识库（Obsidian）三件套均为只读 → 可与其他只读调用同轮并行
   'search_knowledge_base', 'list_knowledge_notes', 'read_knowledge_note',
 ])
@@ -70,7 +74,7 @@ export function toolsForContext(
     if (SMART_FILL_TOOLS.has(name)) return kind === 'base' || kind === 'sheet'
     if (kind === 'sheet') return SHEET_TOOLS.has(name)
     if (kind === 'doc') return DOC_TOOLS.has(name)
-    if (kind === 'board') return name === 'get_whiteboard_info'
+    if (kind === 'board') return BOARD_TOOLS.has(name)
     if (kind === 'base') return !SHEET_TOOLS.has(name) && !DOC_TOOLS.has(name)
     return false // unknown / unresolved wiki → core + creators only
   })

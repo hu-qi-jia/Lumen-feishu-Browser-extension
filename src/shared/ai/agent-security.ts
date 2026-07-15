@@ -102,6 +102,10 @@ export function describeDestructiveOp(name: string, args: Record<string, unknown
     }
     case 'dedupe_records':
       return '删除重复记录（去重）'
+    case 'delete_whiteboard_nodes': {
+      const ids = Array.isArray(args.node_ids) ? (args.node_ids as unknown[]).length : 0
+      return `删除画板中的 ${ids || '若干'} 个节点（含子节点）`
+    }
     case 'update_where': {
       // Bulk-writes `set` to every record matching `filter` — confirm before touching many rows.
       const set = (args.set ?? {}) as Record<string, unknown>
@@ -134,6 +138,7 @@ export const DESTRUCTIVE_TOOLS = new Set([
   'delete_dimension',
   'delete_document_blocks',
   'dedupe_records',
+  'delete_whiteboard_nodes',
 ])
 
 // Non-delete BULK WRITE tools that also need a confirmation gate: they modify many records at

@@ -664,6 +664,41 @@ export async function executeTool(
     if (!id) throw new Error('未检测到画板 ID，请传入 whiteboard_id 或在画板页面使用')
     return Board.getWhiteboard(token, id)
   }
+  // Board node-level tools — all need a whiteboard_id (from args or current board page).
+  if (name === 'list_whiteboard_nodes' || name === 'create_whiteboard_diagram'
+      || name === 'create_whiteboard_nodes' || name === 'delete_whiteboard_nodes') {
+    const Board = await import('../feishu/board')
+    const wbId = sanitizeToken(args.whiteboard_id as string | undefined)
+      ?? (context.feishu?.kind === 'board' ? context.feishu.whiteboardId : undefined)
+    if (!wbId) throw new Error('未检测到画板 ID，请传入 whiteboard_id 或在画板页面使用')
+    if (name === 'list_whiteboard_nodes') {
+      const r = await Board.listNodes(token, wbId)
+      // Summarize: full node dump can be huge; return a compact overview + IDs for delete.
+      const nodes = r.nodes ?? []
+      return {
+        whiteboard_id: wbId,
+        node_count: nodes.length,
+        nodes: nodes.map((n) => ({
+          id: n.id, type: n.type, parent_id: n.parent_id,
+          children: n.children?.length ?? 0,
+          x: n.x, y: n.y, width: n.width, height: n.height,
+          text: n.text?.text?.slice(0, 80),
+          shape: n.shape,
+        })),
+      }
+    }
+    if (name === 'create_whiteboard_diagram') {
+      return Board.createDiagram(token, wbId, String(args.code), {
+        syntax_type: args.syntax_type as 1 | 2 | undefined,
+        diagram_type: args.diagram_type as number | undefined,
+      })
+    }
+    if (name === 'create_whiteboard_nodes') {
+      return Board.createNodes(token, wbId, args.nodes as import('../feishu/board').BoardNode[])
+    }
+    // delete_whiteboard_nodes
+    return Board.deleteNodes(token, wbId, args.node_ids as string[])
+  }
 
   // Data-viz
   if (name === 'render_data_app') {
