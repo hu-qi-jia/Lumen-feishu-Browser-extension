@@ -644,8 +644,9 @@ export async function executeTool(
       token,
       args.title as string,
       sanitizeToken(args.folder_token as string | undefined)
-    ) as { whiteboard?: { whiteboard_id?: string; title?: string } }
-    await maybeTransfer(token, r.whiteboard?.whiteboard_id, 'board', settings)
+    ) as { whiteboard?: { whiteboard_id?: string; title?: string }; document_id?: string }
+    // The ownable resource is the host document (the whiteboard itself has no standalone file).
+    await maybeTransfer(token, r.document_id, 'docx', settings)
     return r
   }
   if (name === 'get_whiteboard_info') {

@@ -6,7 +6,7 @@ export const BOARD_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'create_whiteboard',
-      description: '创建一个新的飞书画板（Whiteboard）。返回 whiteboard_id + title。',
+      description: '创建一个新的飞书画板（Whiteboard）。飞书 API 不支持独立创建画板，实际做法是新建一篇文档并在其中插入画板块。返回 whiteboard_id + title + document_id，用户可通过文档打开画板。',
       parameters: {
         type: 'object',
         required: ['title'],

@@ -60,7 +60,16 @@ export async function feishuReq<T = unknown>(
 ): Promise<T> {
   const res = await feishuFetch(method, path, token, body, params)
 
-  const json = (await res.json()) as { code: number; msg: string; data: T }
+  // Read the body as text first, then parse — so a non-JSON response (e.g. a 404
+  // plain-text "404 page not found" from a wrong endpoint) gives a clear error
+  // instead of a cryptic "Unexpected non-whitespace character after JSON at position 4".
+  const raw = await res.text()
+  let json: { code: number; msg: string; data: T }
+  try {
+    json = JSON.parse(raw) as { code: number; msg: string; data: T }
+  } catch {
+    throw new Error(`飞书 API 返回非 JSON 响应（HTTP ${res.status}）：${raw.slice(0, 200) || '(空)'}`)
+  }
   if (!res.ok || json.code !== 0) {
     const isForbidden = /unauthorized|forbidden|permission|denied|1310213|1770032|91403/i.test(json.msg) || res.status === 403
     const hint = isForbidden

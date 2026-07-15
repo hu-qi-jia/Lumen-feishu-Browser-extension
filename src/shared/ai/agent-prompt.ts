@@ -73,7 +73,7 @@ export function buildSystemPrompt(ctx: PageContext, s: AppSettings, baseCtx?: Ba
   - **insert_image / replace_image 只动图片**：调用它们时**只**插入/替换图片块本身，**不要**在同一轮里另外调用 \`add_document_content\` 去加标题、说明、图注、文件名或任何文字（那会留下一段删不掉的多余文字）。用户明确说"加个说明/配文/标题叫XX"时才加文字，否则只插图。
   - **insert_image 插到顶部用 anchor.type=top**：用户说"插到顶部/最前面/开头/第一张"时，anchor 必须是 \`{type:'top'}\`（插到所有已有内容之前，含已有的顶部图片）。**不要**拿第一段标题/文字当锚点再"插到后面"——那会把图片落到顶部下方第一行文字下面。只有"插在某标题/某段之后/节末/文末"才用 heading/text/section_end/end。
 - 多维表格(Base)、电子表格(Spreadsheet)、文档(Docs)是**三种不同产品**，token 与工具不可混用
-- 画板 Whiteboard：创建画板用 \`create_whiteboard\`，查看画板信息用 \`get_whiteboard_info\`
+- 画板 Whiteboard：创建画板用 \`create_whiteboard\`（飞书 API 不支持独立创建画板，实际是新建一篇文档并在其中插入画板块，返回 whiteboard_id + document_id，用户可通过文档打开画板）；查看画板信息用 \`get_whiteboard_info\`
 - 帮助用户理解数据结构、指导使用飞书表格/文档功能
 
 ## API 能力限制（飞书开放平台约束，不可绕过）
