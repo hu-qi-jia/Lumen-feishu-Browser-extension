@@ -5,24 +5,43 @@ import { createDocument } from './docx'
  * Create a new whiteboard (画板). Feishu's Board API has NO standalone create endpoint
  * (POST /board/v1/whiteboards returns 404), but a Board block (block_type 43) CAN be
  * created inside a document — and doing so auto-provisions a fresh whiteboard whose
- * token IS the whiteboard_id. So we: create a host document → insert a board block →
- * return { whiteboard_id, title, document_id, url }.
+ * token IS the whiteboard_id.
+ *
+ * Behavior:
+ * - If `documentId` is provided → insert the Board block directly into THAT document
+ *   (no new host document is created).
+ * - If `documentId` is undefined → create a new host document first, then insert the
+ *   Board block into it (standalone whiteboard use case).
+ *
+ * Returns { whiteboard_id, title, document_id, block_id }.
  */
-export async function createWhiteboard(token: string, title: string, folderToken?: string) {
+export async function createWhiteboard(
+  token: string,
+  title: string,
+  folderToken?: string,
+  documentId?: string,
+  index = 0,
+) {
   const safeTitle = title || '未命名画板'
-  // 1. Create a host document
-  const doc = (await createDocument(token, safeTitle, folderToken)) as {
-    document?: { document_id?: string }
-  }
-  const docId = doc.document?.document_id
-  if (!docId) throw new Error('创建画板失败：无法创建宿主文档。')
 
-  // 2. Insert a Board block (block_type 43) — auto-provisions a fresh whiteboard
+  // Resolve the target document: use the provided one, or create a new host doc.
+  let docId = documentId
+  let createdHost = false
+  if (!docId) {
+    const doc = (await createDocument(token, safeTitle, folderToken)) as {
+      document?: { document_id?: string }
+    }
+    docId = doc.document?.document_id
+    if (!docId) throw new Error('创建画板失败：无法创建宿主文档。')
+    createdHost = true
+  }
+
+  // Insert a Board block (block_type 43) — auto-provisions a fresh whiteboard.
   const created = (await feishuReq(
     'POST',
     `/docx/v1/documents/${docId}/blocks/${docId}/children`,
     token,
-    { index: 0, children: [{ block_type: 43, board: {} }] },
+    { index, children: [{ block_type: 43, board: {} }] },
   )) as { children?: Array<{ block_id?: string; board?: { token?: string } }> }
 
   const block = created.children?.[0]
@@ -36,6 +55,7 @@ export async function createWhiteboard(token: string, title: string, folderToken
     },
     document_id: docId,
     block_id: block?.block_id ?? null,
+    inserted_into_existing_doc: !createdHost,
   }
 }
 

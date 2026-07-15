@@ -6,13 +6,18 @@ export const BOARD_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'create_whiteboard',
-      description: '创建一个新的飞书画板（Whiteboard）。飞书 API 不支持独立创建画板，实际做法是新建一篇文档并在其中插入画板块。返回 whiteboard_id + title + document_id，用户可通过文档打开画板。',
+      description:
+        '创建一个新的飞书画板（Whiteboard）并插入到文档中。飞书 API 不支持独立创建画板，实际是通过在文档中插入画板块（block_type 43）来创建。' +
+        '若在文档页面使用且未传 document_id，会直接插入到当前文档；传了 document_id 则插入到指定文档；两者都没有时才新建一篇宿主文档。' +
+        '返回 whiteboard_id + title + document_id + block_id。',
       parameters: {
         type: 'object',
         required: ['title'],
         properties: {
           title: { type: 'string', description: '画板标题' },
-          folder_token: { type: 'string', description: '可选：目标文件夹 token' },
+          document_id: { type: 'string', description: '目标文档 token（默认当前文档；无目标文档时才新建宿主文档）' },
+          index: { type: 'integer', description: '插入位置（0=文档开头，默认 0）' },
+          folder_token: { type: 'string', description: '可选：仅当需要新建宿主文档时指定目标文件夹 token' },
         },
       },
     },

@@ -640,13 +640,21 @@ export async function executeTool(
   // 画板 Whiteboard 工具——自带 whiteboard_id（或在画板页面自动识别），需在 Base app_token 守卫之前分发。
   if (name === 'create_whiteboard') {
     const Board = await import('../feishu/board')
+    // Resolve target document: explicit arg → current doc page → none (create new host doc).
+    const targetDoc = sanitizeToken(args.document_id as string | undefined)
+      ?? (context.feishu?.kind === 'doc' ? context.feishu.documentId : undefined)
     const r = await Board.createWhiteboard(
       token,
       args.title as string,
-      sanitizeToken(args.folder_token as string | undefined)
+      sanitizeToken(args.folder_token as string | undefined),
+      targetDoc,
+      (args.index as number | undefined) ?? 0,
     ) as { whiteboard?: { whiteboard_id?: string; title?: string }; document_id?: string }
-    // The ownable resource is the host document (the whiteboard itself has no standalone file).
-    await maybeTransfer(token, r.document_id, 'docx', settings)
+    // Only transfer ownership when a new host document was created (standalone case).
+    // Inserting into an existing doc doesn't change its owner.
+    if (!targetDoc) {
+      await maybeTransfer(token, r.document_id, 'docx', settings)
+    }
     return r
   }
   if (name === 'get_whiteboard_info') {
