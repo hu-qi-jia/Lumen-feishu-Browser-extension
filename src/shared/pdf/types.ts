@@ -29,6 +29,16 @@ export interface ExtractedImage {
   page: number
 }
 
+/** 行内文本片段（对应 pdfjs 的一个 TextItem），用于基于 X 坐标的表格列检测。 */
+export interface TextSegment {
+  /** 片段文本（已压缩内部空白）。 */
+  text: string
+  /** 片段起始 X 坐标（PDF 坐标系）。 */
+  x: number
+  /** 片段渲染宽度。 */
+  width: number
+}
+
 /** 一行文本（由同 Y 容差内的 TextItem 合并而成）。 */
 export interface TextLine {
   text: string
@@ -42,6 +52,8 @@ export interface TextLine {
   fontName?: string
   /** 所属页码。 */
   page: number
+  /** 行内文本片段（按 item 分割），用于基于 X 坐标的表格列检测。 */
+  segments?: TextSegment[]
 }
 
 /** 段落 / 块级元素。 */

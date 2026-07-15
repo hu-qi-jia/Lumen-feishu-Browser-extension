@@ -35,9 +35,38 @@ function detectHeadingLevel(line: TextLine, avgFontSize: number, maxFontSize: nu
   return 0
 }
 
-/** 按连续 2+ 空格分割为列。用于表格检测。 */
-function splitIntoColumns(text: string): string[] {
-  return text.split(/\s{2,}/).map((s) => s.trim()).filter((s) => s.length > 0)
+/**
+ * 将一行拆分为表格列。
+ *
+ * 优先使用 segments 的 X 坐标间距分列（更准确）：
+ *   - 当两个相邻 item 的 X 间距 > 字号 * 1.5 时，认为是列边界
+ *   - 否则合并为同一列
+ *
+ * 回退：当 segments 不可用时，按 2+ 空格分列（旧逻辑）。
+ */
+function splitIntoColumns(line: TextLine): string[] {
+  if (line.segments && line.segments.length > 1) {
+    const fontSize = line.fontSize || 10
+    const threshold = fontSize * 1.5
+    const cols: string[] = []
+    let cur = line.segments[0].text
+    for (let k = 1; k < line.segments.length; k++) {
+      const prev = line.segments[k - 1]
+      const seg = line.segments[k]
+      const prevRight = prev.x + prev.width
+      const gap = seg.x - prevRight
+      if (gap > threshold) {
+        cols.push(cur.trim())
+        cur = seg.text
+      } else {
+        cur += seg.text
+      }
+    }
+    if (cur.trim()) cols.push(cur.trim())
+    return cols
+  }
+  // 回退：2+ 空格分隔
+  return line.text.split(/\s{2,}/).map((s) => s.trim()).filter((s) => s.length > 0)
 }
 
 /** 表格标题行：表 X-Y 后跟标题文字。不应被误判为表格行。 */
@@ -46,27 +75,50 @@ const TABLE_TITLE_RE = /^表\s*\d+[-－‐]\s*\d+/
 /**
  * 检测一行是否可能是表格行。
  *
- * 仅按 2+ 空格分隔检测多列。单空格分隔的短词序列不可靠——
- * 中文 PDF 常在字间插入空格（如"作 者 胡起嘉"），英文标题
- * 也是单空格短词序列（如"Lightweight Design and Service System"），
- * 这些都不是表格行。
- *
+ * 基于 X 坐标间距（优先）或 2+ 空格（回退）检测多列。
  * 排除：列表行、数字编号标题行、表格标题行（表 X-Y ...）
  */
-function isTableRow(text: string): boolean {
-  if (LIST_RE.test(text) || NUM_HEADING_RE.test(text)) return false
-  if (TABLE_TITLE_RE.test(text)) return false
-  const trimmed = text.trim()
-  if (!trimmed) return false
-
-  // 2+ 空格分隔的多列
-  return splitIntoColumns(trimmed).length >= 2
+function isTableRow(line: TextLine): boolean {
+  if (LIST_RE.test(line.text) || NUM_HEADING_RE.test(line.text)) return false
+  if (TABLE_TITLE_RE.test(line.text)) return false
+  if (!line.text.trim()) return false
+  return splitIntoColumns(line).length >= 2
 }
 
-/** 将表格行组转为 Markdown pipe 表格。仅按 2+ 空格分列；无 2+ 空格的行整行作为单个单元格。 */
+/** 将表格行组转为 Markdown pipe 表格。基于 X 坐标对齐列；无法分列的行整行作为单个单元格。 */
 function rowsToTable(rows: TextLine[]): string {
+  // 当所有行都有 segments 时，基于 X 坐标对齐列（解决缺列时的数据错位问题）
+  if (rows.every((r) => r.segments && r.segments.length > 0)) {
+    const headerSegs = rows[0].segments!
+    // 用第一行的 segment 边界定义列范围：相邻列中点为分界
+    const colBounds: Array<{ left: number; right: number }> = []
+    for (let c = 0; c < headerSegs.length; c++) {
+      const seg = headerSegs[c]
+      const left = c === 0 ? -Infinity : (headerSegs[c - 1].x + headerSegs[c - 1].width + seg.x) / 2
+      const right = c === headerSegs.length - 1 ? Infinity : (seg.x + seg.width + headerSegs[c + 1].x) / 2
+      colBounds.push({ left, right })
+    }
+    const colRows = rows.map((r) => {
+      const cells: string[] = new Array(colBounds.length).fill('')
+      for (const seg of r.segments!) {
+        const center = seg.x + seg.width / 2
+        for (let c = 0; c < colBounds.length; c++) {
+          if (center >= colBounds[c].left && center < colBounds[c].right) {
+            cells[c] = cells[c] ? cells[c] + ' ' + seg.text : seg.text
+            break
+          }
+        }
+      }
+      return cells
+    })
+    const header = `| ${colRows[0].join(' | ')} |`
+    const separator = `| ${colRows[0].map(() => '---').join(' | ')} |`
+    const body = colRows.slice(1).map((r) => `| ${r.join(' | ')} |`)
+    return [header, separator, ...body].join('\n')
+  }
+  // 回退：基于 splitIntoColumns 的顺序填充
   const colRows = rows.map((r) => {
-    const multi = splitIntoColumns(r.text)
+    const multi = splitIntoColumns(r)
     return multi.length >= 2 ? multi : [r.text.trim()]
   })
   const maxCols = Math.max(...colRows.map((r) => r.length))
@@ -82,7 +134,7 @@ function rowsToTable(rows: TextLine[]): string {
 
 /**
  * 将行 + 图片组装为 Block 列表（按 Y 坐标从上到下排序）。
- * 包含表格检测：连续 2+ 行有 2+ 列（多空格分隔）→ pipe 表格。
+ * 包含表格检测：连续 2+ 行有 2+ 列（基于 X 坐标或 2+ 空格）→ pipe 表格。
  */
 export function buildBlocks(lines: TextLine[], images: ExtractedImage[]): Block[] {
   if (!lines.length && !images.length) return []
@@ -99,9 +151,9 @@ export function buildBlocks(lines: TextLine[], images: ExtractedImage[]): Block[
   const tableGroups: { start: number; end: number }[] = []
   let i = 0
   while (i < nonEmpty.length) {
-    if (isTableRow(nonEmpty[i].text)) {
+    if (isTableRow(nonEmpty[i])) {
       const start = i
-      while (i < nonEmpty.length && isTableRow(nonEmpty[i].text)) i++
+      while (i < nonEmpty.length && isTableRow(nonEmpty[i])) i++
       if (i - start >= 2) tableGroups.push({ start, end: i - 1 })
     } else {
       i++

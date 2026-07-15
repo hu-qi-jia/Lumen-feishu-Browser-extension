@@ -7,7 +7,7 @@
  *
  * 纯函数、无 IO、无 AI——可单测。
  */
-import type { TextItem, TextLine } from './types'
+import type { TextItem, TextLine, TextSegment } from './types'
 
 /** 行尾标点（中英文）。用于判断是否软折行——有标点说明是句子结束，不合并。 */
 const END_PUNCT = /[。！？；，、：．…）》」』\]\)!?,;:.]$/
@@ -54,7 +54,8 @@ export function groupIntoLines(items: TextItem[], page: number, yTolerance = 2):
   return lines
 }
 
-/** 将同一行的 TextItem 合并为一个 TextLine。 */
+/** 将同一行的 TextItem 合并为一个 TextLine。
+ *  同时保留 item 级别的 X 坐标和宽度（segments），供 layout.ts 基于位置检测表格列。 */
 function mergeItemsToLine(items: TextItem[], page: number, y: number): TextLine {
   const text = items
     .map((it) => it.str)
@@ -66,7 +67,11 @@ function mergeItemsToLine(items: TextItem[], page: number, y: number): TextLine 
   // 字体名：取出现最多的
   const fontNames = items.map((it) => it.fontName).filter(Boolean) as string[]
   const fontName = fontNames.length ? mostFrequent(fontNames) : undefined
-  return { text, y, x, fontSize, fontName, page }
+  // 保留非空 item 的 X 坐标和宽度，用于基于位置的表格列检测
+  const segments: TextSegment[] = items
+    .filter((it) => it.str.trim() !== '')
+    .map((it) => ({ text: it.str.replace(/\s+/g, ' ').trim(), x: it.transform[4], width: it.width || 0 }))
+  return { text, y, x, fontSize, fontName, page, segments }
 }
 
 function mostFrequent<T>(arr: T[]): T {
