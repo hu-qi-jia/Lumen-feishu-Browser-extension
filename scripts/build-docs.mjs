@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(ROOT, 'site')
 const SITE_TITLE = 'Lumen — 飞书文档agent'
-const GH = 'https://github.com/scott987-cmd/feishu-doc-ai-assistant'
+const GH = 'https://github.com/hu-qi-jia/Lumen-feishu-Browser-extension'
 const C0 = '\x01', C1 = '\x02' // 占位哨兵（控制字符；绝不与正文冲突，不被 esc 触碰）
 
 function walk(dir, acc = []) {

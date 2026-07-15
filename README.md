@@ -29,7 +29,7 @@ Lumen 是一个**非官方**的 Chrome MV3 侧边栏扩展，通过自然语言�
 
 侧边栏 4 个主标签：**对话 / 应用 / 资讯 / 设置**。
 
-**对话** — Agentic 循环 + 68 个工具（启用知识库 +3 = 71），覆盖飞书全产品：
+**对话** — Agentic 循环 + 71 个工具，覆盖飞书全产品：
 
 | 域 | 工具数 | 能力 |
 |---|---|---|
@@ -38,10 +38,10 @@ Lumen 是一个**非官方**的 Chrome MV3 侧边栏扩展，通过自然语言�
 | 文档 | 16 | Markdown 转文档 / 插入各类内容块 / 删除 / 复制 / 图片导出 |
 | 白板 | 2 | 创建 / 查询白板 |
 | 复合算子 | 12 | 去重 / 跨表查找 / 条件批改 / 表→表汇总 / 审计 / 数据报告 / 文档总结 / **智能填充预览+写回** |
-| 通用 API | 1 | `feishu_api_call`——按官方文档自造请求，默认拒绝白名单 |
-| 知识库（条件） | 3 | 只读检索 Obsidian 笔记 |
+| 通用 | 2 | `render_data_app`（数据可视化）/ `feishu_api_call`（白名单内自造请求） |
+| 知识库 | 3 | 只读检索 Obsidian 笔记 |
 
-- **越用越聪明**：成功任务提炼经验存本机（最多 300 条），下次相似任务自动参考。
+- **本地经验**：成功任务提炼经验存本机（最多 300 条），下次相似任务自动参考。
 - **Auto 模式**：自动确认内容级删除；**文件级删除始终硬拦**。
 - **用户技能**：常用 prompt 写成带 frontmatter 的 markdown，自动注册为 `skill__<slug>` 工具。
 
@@ -55,14 +55,12 @@ Lumen 是一个**非官方**的 Chrome MV3 侧边栏扩展，通过自然语言�
 
 **资讯** — 聚合 GitHub Trending 与微博热搜，后台定时抓取，GitHub 标题可自动翻译。
 
-**网页剪藏** — 在任意网页右键 / Alt+Shift+C，把选中内容或整页经 AI 整理写入飞书。手势触发 + activeTab，不新增出站端点。
-
 ---
 
 ## 下载到本地
 
 ```bash
-git clone https://github.com/scott987-cmd/feishu-doc-ai-assistant.git
+git clone https://github.com/hu-qi-jia/Lumen-feishu-Browser-extension.git
 cd feishu-doc-ai-assistant
 npm install
 ```
@@ -94,7 +92,7 @@ npm install
 
 ## 许可证
 
-[Elastic License 2.0](LICENSE) © 2026 [scott987-cmd](https://github.com/scott987-cmd)
+[Elastic License 2.0](LICENSE) © 2026 [hu-qi-jia](https://github.com/hu-qi-jia)
 
 个人 / 企业均可免费使用、修改、分发、自行部署（含公司内部商用）；唯独禁止「作为托管 / SaaS
 服务提供给第三方」，且不得绕过授权功能、不得去除版权标识。需要商业授权请在 GitHub Issues

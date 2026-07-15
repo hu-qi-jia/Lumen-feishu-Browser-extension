@@ -1,10 +1,10 @@
 {
   "name": "feishu-doc-ai-assistant",
   "version": "1.0.0",
-  "description": "飞书文档 / 多维表格 / 电子表格的 AI 助手——文档总结·体检·建站·数据报告·智能填充，自然语言搞定",
+  "description": "Lumen — 飞书文档agent：用自然语言操作飞书文档/多维表格/电子表格，数据可视化/PPT/转写，自然语言搞定",
   "license": "Elastic-2.0",
-  "author": "scott987-cmd (https://github.com/scott987-cmd)",
-  "homepage": "https://github.com/scott987-cmd",
+  "author": "hu-qi-jia (https://github.com/hu-qi-jia)",
+  "homepage": "https://github.com/hu-qi-jia/Lumen-feishu-Browser-extension",
   "type": "module",
   "scripts": {
     "dev:ui": "vite --config vite.ui.config.ts",

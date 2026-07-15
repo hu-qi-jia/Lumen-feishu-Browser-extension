@@ -59,4 +59,4 @@ _最后更新：2026-07-15_
 ### 7. 变更与联系
 
 政策更新会修改本文件顶部日期。问题请在仓库提交 issue：
-https://github.com/scott987-cmd/feishu-doc-ai-assistant/issues
+https://github.com/hu-qi-jia/Lumen-feishu-Browser-extension/issues
