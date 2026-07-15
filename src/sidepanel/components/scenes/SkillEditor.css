@@ -13,7 +13,6 @@
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   flex-shrink: 0;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
 }
 .sk-editor-tools { display: flex; align-items: center; gap: 2px; }
 
@@ -82,7 +81,7 @@
   resize: none;
   transition: border-color .15s, box-shadow .15s;
 }
-.sk-editor-textarea::placeholder { color: var(--color-text-secondary); }
+.sk-editor-textarea::placeholder { color: var(--color-text-secondary); white-space: pre-wrap; }
 .sk-editor-textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-soft);

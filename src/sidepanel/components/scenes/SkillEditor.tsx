@@ -160,7 +160,7 @@ export default function SkillEditor({ initialMarkdown, existing, selfId, onSave,
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             spellCheck={false}
-            placeholder="在此编写 Skill 的 Markdown（frontmatter + 指令正文）…"
+            placeholder="在此编写 Skill 的 Markdown：frontmatter + 指令正文"
             autoFocus
           />
         </div>
