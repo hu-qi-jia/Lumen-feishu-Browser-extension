@@ -1,16 +1,14 @@
-> 🌐 [English](DEVELOPMENT.en.md) | **中文**
-
 # 开发手册（面向 AI agent 的快速迭代指南）
 
 > 目标：让一个**新接手的 agent** 在几分钟内能安全地改代码、验证、不破坏既有约束。
-> 深水区结构见 [`ARCHITECTURE.md`](ARCHITECTURE.md)；一站式总览见 [`PROJECT.md`](PROJECT.md)；
-> 安全逐条见 [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md)；部署见 [`DEPLOYMENT.md`](DEPLOYMENT.md)。
+> 深水区结构见 [`ARCHITECTURE.md`](ARCHITECTURE.md)；
+> 安全逐条见 [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md)。
 
 ---
 
 ## 0. 这是什么
 
-Chrome **MV3** 扩展「飞书文档AI助手」：在飞书 多维表格/电子表格/文档 页用自然语言让 AI 操作，并能把数据做成 网站/看板/PPT。**无后端**，全部以**用户本人飞书身份**操作。技术栈：React 18 + TS + Vite + vitest + ECharts。
+Chrome **MV3** 扩展「Lumen — 飞书文档agent」：在飞书 多维表格/电子表格/文档 页用自然语言让 AI 操作，并能把数据做成 看板/PPT。**无后端**，全部以**用户本人飞书身份**操作。技术栈：React 18 + TS + Vite + vitest + ECharts。
 
 ---
 
@@ -20,7 +18,7 @@ Chrome **MV3** 扩展「飞书文档AI助手」：在飞书 多维表格/电子�
 npm install                 # 首次
 # —— 改 src/ 里的代码 ——
 npm run typecheck           # ① 必须 0 错（tsc --noEmit）
-npm test                    # ② 必须全绿（vitest，~355 用例）；新增逻辑要补测试
+npm test                    # ② 必须全绿（vitest，837 passed / 31 skipped）；新增逻辑要补测试
 npm run build               # ③ 必须成功（偶发 TLS 报错→直接重试，是 manifest 插件联网抖动）
 # 真机验证：chrome://extensions → 开发者模式 → 加载 dist/ → 打开飞书页面侧边栏
 ```
@@ -35,16 +33,20 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 
 | 路径 | 职责 |
 |---|---|
-| `src/sidepanel/` | React 侧边栏 UI。`components/*Panel.tsx` 是各功能面板；`App.tsx` 顶层 + 鉴权横幅 |
-| `src/background/` | Service Worker：消息路由、`RESOLVE_PAGE_RESOURCE`（wiki→真实资源）、剪藏/截图、写回桥 |
-| `src/content/` | 注入飞书页的内容脚本。`viz-overlay.ts`=可拖拽浮窗（承载 sandbox iframe）；页面上下文识别 |
-| `src/sandbox/` | **沙箱 iframe**（opaque origin, `connect-src:'none'`）。`main.ts` 跑 LLM 生成的可视化/建站/PPT 代码；`index.html` 内含设计系统 CSS + ECharts |
-| `src/shared/ai/` | `agent.ts`（~50 工具的 tool-calling 主循环，1.3k 行）、`llm.ts`、`slides.ts`、`dataviz.ts`、`docaudit/summary.ts`、`*Store.ts`、`recipes.ts` |
-| `src/shared/feishu/` | `api.ts`(bitable)、`sheets.ts`、`docx.ts`、`http.ts`(`feishuReq`/`feishuFetch`)、`auth.ts`(token 生命周期)、`oauth.ts`、`appSecret.ts`、`pageUrl.ts` |
-| `src/shared/dataviz/` | `store.ts`(已存看板/网站, `dataviz_v1`)、`scope.ts`(归属当前表)、`send.ts`、`data.ts` |
-| `src/shared/` | `config.ts`(所有 `VITE_*` → `BUILD_CONFIG`)、`crypto.ts`(设备加密)、`theme.ts`(配色)、`types.ts` |
-| `src/shared/{templates,smartfill,report,clip}/` | 模版库 / 智能填充 / 数据报告 / 网页剪藏 |
-| `scripts/` | `capture-screenshots.mjs`、`encrypt-secret.mjs`、`check-perm.mjs` |
+| `src/sidepanel/` | React 侧边栏 UI。`components/scenes/*Panel.tsx` 是各功能面板；`App.tsx` 顶层 + 4 标签（对话/应用/资讯/设置） |
+| `src/background/` | Service Worker：消息路由、`RESOLVE_PAGE_RESOURCE`（wiki→真实资源） |
+| `src/content/` | 注入飞书页的内容脚本。`viz-overlay.ts`=可拖拽浮窗（承载 sandbox iframe）；`selection-button.ts`=选区注入按钮；页面上下文识别 |
+| `src/sandbox/` | **沙箱 iframe**（opaque origin, `connect-src:'none'`）。`main.ts` 跑声明式 VizSpec 渲染；`index.html` 内含设计系统 CSS + ECharts |
+| `src/viewer/` | 独立 viewer 页面：`deckViewer.html`（PPT 全屏播放）、`vizViewer.html`（看板预览） |
+| `src/shared/ai/` | `agent.ts`（主循环，MAX_TOOL_CALLS=30）、`agent-executor.ts`（工具执行）、`agent-security.ts`（安全分级）、`tools/`（71 工具）、`llm.ts`、`slides*.ts`、`dataviz.ts`、`docaudit.ts`/`docsummary.ts`、`report.ts`、`recipes.ts`、`builtinSkills.ts`/`userSkills.ts`、`redact.ts`、`smartfill.ts`、`mdPolish.ts` |
+| `src/shared/feishu/` | `api.ts`(bitable)、`sheets.ts`、`docx.ts`、`http.ts`(`feishuReq`/`feishuFetch`)、`auth.ts`(token 生命周期)、`oauth.ts`、`appSecret.ts`、`tenant.ts`、`undo.ts`、`upload.ts`、`media.ts`、`export.ts`、`pageUrl.ts` |
+| `src/shared/dataviz/` | `store.ts`(已存看板, `dataviz_v1`)、`scope.ts`(归属当前表)、`send.ts`、`data.ts` |
+| `src/shared/obsidian/` | Obsidian REST API 集成（loopback only）：`api.ts`/`auth.ts`/`http.ts`/`util.ts` |
+| `src/shared/news/` | 资讯聚合：`alarm.ts`/`github.ts`/`weibo.ts`/`translate.ts`/`store.ts` |
+| `src/shared/pdf/` | PDF 本地解析：`clean.ts`/`extract.ts`/`imageExtract.ts`/`layout.ts`/`textExtract.ts` |
+| `src/shared/clip/` | `file.ts`(CSV/TSV/TXT 文件解析)、`types.ts` |
+| `src/shared/` | `config.ts`(所有 `VITE_*` → `BUILD_CONFIG`)、`crypto.ts`(设备加密)、`network.ts`(CIDR 门)、`providers.ts`(LLM host 白名单)、`theme.ts`(配色)、`types.ts`、`attachments.ts` |
+| `scripts/` | `capture-screenshots.mjs`、`encrypt-secret.mjs`、`check-perm.mjs`、`build-docs.mjs` |
 | `vite.config.ts` | 生产构建 + `transformManifest`（CSP/host_permissions/sandbox 都在这里按 env 生成）|
 
 ---
@@ -54,11 +56,11 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 ```
 侧边栏(React) ──消息──▶ 后台 SW ──▶ 飞书 OpenAPI（用户 token）
      │                                  ▲
-     │ 生成代码 {code,data}              │ feishuReq/feishuFetch（出站守卫+重试+版本回退）
+     │ VizSpec {spec,data}               │ feishuReq/feishuFetch（出站守卫+重试+版本回退）
      ▼                                  │
-内容脚本 viz-overlay ──▶ 沙箱 iframe（跑生成代码、connect-src:none、只回 {ok/err}/写回草稿）
+内容脚本 viz-overlay ──▶ 沙箱 iframe（跑声明式 VizSpec、connect-src:none、只回 {ok/err}/写回草稿）
 ```
-- 沙箱**只**收 `{code,data}`、回 `{ok/err}`；它拿不到 chrome.*/token。
+- 沙箱**只**收 `{spec,data}`、回 `{ok/err}`；它拿不到 chrome.*/token。
 - 跨帧消息有 nonce/source 校验（见 `viz-overlay.ts` 与 `sandbox/main.ts` 的 message 监听）。
 
 ---
@@ -68,23 +70,23 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 这些是**代码里硬编码的安全边界**，提示词不作数。改动若触及，必须保留语义并补测试：
 
 1. **永远以用户身份**：`auth.ts resolveToken` 只返回 user_access_token，**绝不回退 tenant**。
-2. **文件级删除一律拒绝**：`agent.ts isFileLevelDelete`（`delete_table`/`delete_sheet`/任何 `feishu_api_call` DELETE）双重拦截。内容级删除（行/字段/块/去重）进 `DESTRUCTIVE_TOOLS`，**确认门**后才执行。
+2. **文件级删除一律拒绝**：`agent-security.ts isFileLevelDelete`（`delete_table`/`delete_sheet`）硬拒。内容级删除（行/字段/块/去重）进 `DESTRUCTIVE_TOOLS`，**确认门**后才执行。`autoConfirm` 开启后跳过确认门，但文件级删除仍硬拒。
 3. **通用 API 白名单 + 硬禁**：`assertApiCallAllowed`/`API_BLOCKED` 拦截 消息(`im`)/通讯录/权限/所有权/路径穿越。
-4. **出站锁定**：所有飞书请求走 `feishuReq`/`feishuFetch`（`isFeishuOutboundAllowed` 守卫）；大模型由 `assertSafeBaseUrl` 限制。别绕过它们直接 `fetch`。
+4. **出站锁定**：所有飞书请求走 `feishuReq`/`feishuFetch`（`isFeishuOutboundAllowed` 守卫）；Obsidian 走 `isObsidianOutboundAllowed`（loopback only）；大模型由 `assertSafeBaseUrl` 限制。别绕过它们直接 `fetch`。
 5. **沙箱隔离**：生成代码跑在 opaque origin + `connect-src:'none'`。**不要**给沙箱加 `allow-same-origin` 或放开 connect-src。
-6. **secret 不进明文包**：直连用密码加密(`appSecretEnc`)；明文 `VITE_FEISHU_APP_SECRET` 仅本地联调。
+6. **secret 不进明文包**：直连用密码加密(`appSecretEnc`)；明文 `VITE_FEISHU_APP_SECRET` 仅本地联调。企业版 App Secret 绝不进包。
 7. **写操作不自动重试**：`http.ts robustFetch` 对 POST/PUT/PATCH/DELETE 只发一次（超时的创建可能已成功）。
 
-> 改这些区域时，README 顶部也提示：涉及 `isFileLevelDelete`/`assertApiCallAllowed`/`resolveToken` 的改动要格外谨慎并补 harness。
+> 改这些区域时格外谨慎并补 harness。
 
 ---
 
 ## 5. 常见改法（配方）
 
-- **加一个 AI 工具**：在 `agent.ts` 的工具定义数组加 schema + 在 `executeTool` 加分支；按性质加入 `DESTRUCTIVE_TOOLS`/`WRITE_TOOLS`/`FILE_LEVEL_DELETE_TOOLS`/`CREATE_ONCE_TOOLS`；补 `agent.test.ts`。
+- **加一个 AI 工具**：在 `src/shared/ai/tools/` 对应文件加 schema + 在 `agent-executor.ts` 加分支；按性质加入 `agent-security.ts` 的 `DESTRUCTIVE_TOOLS`/`WRITE_TOOLS`/`FILE_LEVEL_DELETE_TOOLS`；补测试。
 - **加一个飞书 API**：在 `api.ts`/`sheets.ts`/`docx.ts` 写 wrapper，**必须**用 `feishuReq`/`req`（自带出站守卫+版本回退）。路径写当前 SaaS 版本（如 `/bitable/v1/...`）。
-- **加一个侧边栏面板**：在 `src/sidepanel/components/` 新建 `XxxPanel.tsx`，挂进 `ScenarioPanel.tsx`（按 `requires: 'table'|'doc'|'any'|'content'` 分组、上下文感知）。生成类要处理 busy/取消/缓存恢复/`isTokenExpiredError` 错误文案。
-- **改沙箱渲染（看板/网站/PPT）**：逻辑在 `sandbox/main.ts`（`ui.*` 助手、`render()`、message 监听）；样式在 `sandbox/index.html` 的设计系统 CSS。浮窗 chrome（🖨/🎨/✕/提交）在 `content/viz-overlay.ts`。
+- **加一个侧边栏面板**：在 `src/sidepanel/components/scenes/` 新建 `XxxPanel.tsx`，挂进 `ScenarioPanel.tsx`。生成类要处理 busy/取消/缓存恢复/`isTokenExpiredError` 错误文案。
+- **改沙箱渲染（看板/PPT）**：逻辑在 `sandbox/main.ts`；样式在 `sandbox/index.html` 的设计系统 CSS。浮窗 chrome（🖨/取色器/✕/提交）在 `content/viz-overlay.ts`。
 - **改配色/主题**：`shared/theme.ts`（`deriveAccent` 侧栏、`vizAccent` 沙箱）。
 - **加构建配置**：在 `config.ts BUILD_CONFIG` 读 `import.meta.env.VITE_XXX`，并在 `.env.example` 记录；若影响 CSP/host，改 `vite.config.ts`。
 
@@ -99,8 +101,9 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 | 环境变量没生效 | **Vite 只读 `.env` 文件里的 `VITE_*`，不读 `process.env`**。多套配置用 `.env.<mode>.local` + `vite build --mode <mode>`。 |
 | `npm run build` 偶发 TLS 报错 | manifest 插件联网抖动，**直接重试**即可。 |
 | 写操作重复（建了两张表） | 别给写方法加重试（`robustFetch` 故意只对 GET 重试）。 |
-| 沙箱里 echarts 不显示/打印缺图 | 容器要有真实尺寸再 `init`；打印走 `@media print` + 一页一张栈（见 `index.html`/`main.ts` slidesPrint）。 |
+| 沙箱里 echarts 不显示/打印缺图 | 容器要有真实尺寸再 `init`；打印走 `@media print` + 一页一张栈。 |
 | dev:ui 崩溃 `chrome.X is not a function` | `src/dev/chrome-mock.ts` 缺对应 API，补齐 mock。 |
+| `manualChunks` 与 `inlineDynamicImports` 冲突 | MV3 background 要求 `inlineDynamicImports`，与 `manualChunks` 互斥。别加 `manualChunks`。 |
 
 ---
 
@@ -108,8 +111,8 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 
 - 纯逻辑（`scope.ts`/`crypto` 等）：`*.test.ts` 单测，**首选**。
 - 需要 chrome/config 的：用 `vi.mock('../config', ...)` 注入。
-- UI：`MessageList.test.tsx` 等用 jsdom + testing-library。
-- 视觉（沙箱渲染/打印/配色）：用 puppeteer + `page.emulateMediaType('print')`/截图，临时脚本验证（参考会话里 `_print_diag`/`_accent_shot` 写法）。
+- UI：`*.test.tsx` 用 jsdom + testing-library。
+- 视觉（沙箱渲染/打印/配色）：用 puppeteer + 截图临时脚本验证。
 - 飞书实测：`FEISHU_LIVE=1 npx vitest run src/shared/feishu/live.test.ts`（需 `feishu-app-config.txt`）。
 
 ---
@@ -129,9 +132,9 @@ npm run build               # ③ 必须成功（偶发 TLS 报错→直接重�
 |---|---|
 | 鉴权/401/续期 | `feishu/auth.ts` + `oauth.ts`（scope 含 offline_access?） |
 | 某飞书调用失败 | `feishu/http.ts`（出站守卫/版本回退）+ 对应 `api/sheets/docx.ts` wrapper |
-| 工具行为/确认门 | `ai/agent.ts`（工具集、`executeTool`、`*_TOOLS` 集合） |
-| 看板/网站/PPT 渲染或导出 | `sandbox/main.ts` + `sandbox/index.html` + `content/viz-overlay.ts` |
-| 面板/分组/上下文 | `sidepanel/components/ScenarioPanel.tsx` + 各 `*Panel.tsx` |
+| 工具行为/确认门 | `ai/agent-security.ts`（工具集、`*_TOOLS` 集合）+ `agent-executor.ts` |
+| 看板/PPT 渲染或导出 | `sandbox/main.ts` + `sandbox/index.html` + `content/viz-overlay.ts` |
+| 面板/分组/上下文 | `sidepanel/components/scenes/ScenarioPanel.tsx` + 各 `*Panel.tsx` |
 | CSP/权限/host | `vite.config.ts transformManifest` + 构建后的 `dist/manifest.json` |
 
 ---

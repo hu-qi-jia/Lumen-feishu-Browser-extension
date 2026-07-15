@@ -1,12 +1,6 @@
-> 🌐 [English](QUICKSTART.en.md) | **中文**
-
 # 个人快速部署（5 步上手）
 
-> 🟢 **免构建（装商店版）**：从 **[Chrome 网上应用店](https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc)** 点「添加至 Chrome」即可省去克隆 / 打包 / 加载。但商店版**不内置凭据**，仍要用**你自己的**飞书应用：按下面**第 1 步**建好应用后，在扩展「**设置 → 自建飞书应用**」里填 **App ID / Secret**（而不是填 `.env`）、登记设置里显示的回调地址、再「用飞书账号授权」+ 填大模型 Key 即可。功能用法见 [`USER_GUIDE.md`](USER_GUIDE.md)。
-> **第 2~4 步**（填 `.env` / 打包 / 加载）是**自行构建**才需要——想把 App ID 直接打进包、二次开发时用。
->
-> 面向**个人自用**（自己装、自己用，不发别人/不上架）。
-> **上架 Chrome 商店 / 公开发行**（包里零凭据、用户自带飞书应用）见 [`STORE_PUBLISHING.md`](STORE_PUBLISHING.md)。
+> 面向**个人自用**（自己装、自己用）。
 > 卡住了看 [`FAQ.md`](FAQ.md)。
 
 整体只需：**配飞书应用 → 填构建配置 → 一键打包 → 加载 → 授权用**。
@@ -31,7 +25,7 @@
    **不要开**（代码也硬禁）：`im`、`contact:contact`、`transfer_owner`、`permissions`、`admin`。
 
 3. **安全设置 → 重定向 URL**：添加 `https://jhdbgegkmhcopcilclkpioilclemkeog.chromiumapp.org/`（含末尾斜杠）。
-   > 这个 ID 对应**自行构建**版（仓库内置签名 key）。**装商店版的人**：扩展 ID 是 `eplcnheinfmkcckelinolhpdagbamdcc`，且扩展「设置 → 自建飞书应用」会**自动显示**要登记的回调地址——直接照抄那串即可（fork 自建并换了 key 同理用你自己的）。
+   > 这个 ID 对应仓库内置签名 key 的自行构建版。fork 后换 key 的请用你自己的扩展 ID。
 4. **可用范围**：把你自己加进去（或全员）。
 5. **发布**：创建版本 → 提交发布（测试阶段也可只把自己加为「测试成员」即时生效）。
 
@@ -63,7 +57,7 @@ VITE_FEISHU_APP_ID=cli_你的AppID
 VITE_FEISHU_APP_SECRET_ENC=上一步输出的密文
 VITE_FEISHU_APP_SECRET=              # 留空！
 ```
-用 B 时，安装后首次在「设置 → 飞书鉴权」**输入一次解锁密码**即可。
+用 B 时，安装后首次在「设置 → 飞书设置」**输入一次解锁密码**即可。
 
 > - `offline_access` 等 scope 代码已**自动请求**，无需在此重复配置。
 > - **大模型 Key 不在构建里**——运行时在扩展「设置」里填（OpenAI 兼容，默认 DeepSeek）。
@@ -76,8 +70,8 @@ VITE_FEISHU_APP_SECRET=              # 留空！
 ```bash
 npm run pack
 ```
-自动完成：构建 → 打 `dist/` →压缩成 `feishu-doc-ai-assistant.zip`（→ 有签名私钥时再出 `.crx`）。
-个人自用**只需 `dist/`**；zip 用于备份/发别人。
+自动完成：构建 → 打 `dist/` → 压缩成 `feishu-doc-ai-assistant.zip`。
+个人自用**只需 `dist/`**；zip 用于备份。
 
 > 只想构建不打包：`npm run build`（产出 `dist/`）。
 
@@ -87,7 +81,7 @@ npm run pack
 
 1. `chrome://extensions` → 右上**开发者模式**打开。
 2. **「加载已解压的扩展程序」** → 选 **`dist/`** 目录。
-3. 固定到工具栏（可选）。扩展 ID 会是 `jhdbgegk…`（与第 1 步重定向 URL 对应）。
+3. 固定到工具栏（可选）。扩展 ID 会是 `jhdbgegkm…`（与第 1 步重定向 URL 对应）。
 
 ---
 

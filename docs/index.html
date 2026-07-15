@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>飞书文档AI助手 · 完整文档（使用 / 部署 / 架构 / 安全）</title>
+<title>Lumen — 飞书文档agent · 完整文档（使用 / 架构 / 安全）</title>
 <style>
   :root{--bg:#fff;--fg:#1d2433;--mut:#5b6478;--line:#e7eaf2;--soft:#f6f8fc;--accent:#4f6bff;--ok:#1a9d6b;--warn:#c47d0a;--danger:#d4380d;--code:#0f1320;--codefg:#e6e9f5}
   @media(prefers-color-scheme:dark){:root{--bg:#0f1320;--fg:#e6e9f5;--mut:#9aa3c7;--line:#262c46;--soft:#171c2e;--accent:#7d93ff;--code:#0b0e18;--codefg:#e6e9f5}}
@@ -61,15 +61,14 @@
 <body>
 <div class="wrap">
 <nav class="toc">
-  <h1>🪶 飞书文档AI助手</h1>
-  <div class="sub">完整文档 · 使用/部署/架构/安全</div>
+  <h1>Lumen — 飞书文档agent</h1>
+  <div class="sub">完整文档 · 使用/架构/安全</div>
   <div class="g">开始</div>
   <a href="#overview">概览</a>
   <a href="#usage">使用</a>
-  <div class="g">部署</div>
-  <a href="#package-wizard">🧰 一键打包向导</a>
+  <div class="g">构建</div>
+  <a href="#package-wizard">一键打包向导</a>
   <a href="#deploy-personal">个人 / 直连</a>
-  <a href="#deploy-store">商店 / BYO 包</a>
   <a href="#env">环境变量速查</a>
   <div class="g">深入</div>
   <a href="#arch">架构</a>
@@ -88,15 +87,14 @@
 <table>
 <tr><th>能力</th><th>说明</th><th>需要服务端？</th></tr>
 <tr><td>自然语言操作多维表格/电子表格/文档</td><td>读、写、批量改、行级写回、建表/字段，全程用户身份 + 危险操作确认门</td><td>否</td></tr>
-<tr><td>看板 / AI建站 / PPT / 文档质检</td><td>把数据做成 ECharts 看板、自包含网站、可翻页 PPT；通读文档挑质量问题</td><td>否</td></tr>
+<tr><td>看板 / PPT / 文档质检</td><td>把数据做成 ECharts 看板、可翻页 PPT；通读文档挑质量问题</td><td>否</td></tr>
 <tr><td>越用越聪明（本地经验）</td><td>成功套路在<b>本机</b>沉淀，下次自动参考</td><td>否</td></tr>
 <tr><td>本地配置备份</td><td>导出/导入文件防个人数据丢失（<b>所有版本</b>可用）</td><td>否</td></tr>
 </table>
 
 <h2 id="usage">使用</h2>
 <h3>安装与上手</h3>
-<div class="note ok"><b>🟢 免构建（装商店版）</b>：从 <a href="https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc" target="_blank" rel="noopener">Chrome 网上应用店</a> 点「添加至 Chrome」省去克隆/构建/加载。商店版<b>不内置凭据</b>，仍用<b>你自己的</b>飞书应用：建好应用后在扩展「设置 → 自建飞书应用」填 App ID/Secret + 登记设置里显示的回调 + 飞书授权 + 大模型 Key。</div>
-<p>下面的命令是<b>自行构建</b>才需要（想把 App ID 打进包、二次开发）：</p>
+<div class="note ok"><b>自行构建</b>：克隆仓库 → npm install → npm run build → 加载 dist/。完整步骤见 QUICKSTART.md。</div>
 <pre><code>1) git clone &amp;&amp; npm i
 2) npm run build            # 产物在 dist/
 3) chrome://extensions → 打开「开发者模式」→「加载已解压的扩展程序」→ 选 dist/
@@ -106,16 +104,13 @@
 <h3>能做什么（侧边栏对话即可）</h3>
 <ul>
 <li><b>操作数据</b>：「把 A 列按月汇总」「筛掉重复行」「给这几行建任务」——批量改一次性提交、删除走确认门、可一键撤销。</li>
-<li><b>看板/小程序</b>：「按分类做个销售额柱状图」→ 浮窗渲染，可导出 PDF / 生成飞书文档 / 推送到群。</li>
-<li><b>AI 建站</b>：把当前表做成一个自包含网站。</li>
+<li><b>看板</b>：「按分类做个销售额柱状图」→ 浮窗渲染，可导出 PDF / 生成飞书文档 / 推送到群。</li>
 <li><b>AI 幻灯片</b>：文档/数据一键转可翻页 PPT。</li>
 <li><b>文档质检</b>：通读整篇，挑出逻辑断点、未定义术语、前后矛盾、遗留 TODO、空小节等。</li>
-<li><b>网页剪藏</b>：把当前网页内容剪藏进多维表格。</li>
 </ul>
 <div class="shots">
   <figure><img src="screenshots/01-chat-welcome.png" alt="侧边栏对话界面" loading="lazy"><figcaption>侧边栏对话 · 一句话下指令</figcaption></figure>
-  <figure><img src="screenshots/04-dataviz-panel.png" alt="数据看板/小程序" loading="lazy"><figcaption>看板 / 小程序（ECharts）</figcaption></figure>
-  <figure><img src="screenshots/05-aisite-panel.png" alt="AI 建站" loading="lazy"><figcaption>AI 建站 · 自包含网站</figcaption></figure>
+  <figure><img src="screenshots/04-dataviz-panel.png" alt="数据看板" loading="lazy"><figcaption>数据看板（ECharts）</figcaption></figure>
   <figure><img src="screenshots/03-slides-panel.png" alt="AI 幻灯片" loading="lazy"><figcaption>AI 幻灯片（PPT）</figcaption></figure>
   <figure><img src="screenshots/09-docsummary-panel.png" alt="文档质检 / 总结" loading="lazy"><figcaption>文档质检 / 总结</figcaption></figure>
   <figure><img src="screenshots/10-settings.png" alt="设置" loading="lazy"><figcaption>设置 · 模型 + 飞书授权</figcaption></figure>
@@ -124,13 +119,13 @@
 <h2 id="package-wizard">🧰 一键打包向导（图形化 · 给小白）</h2>
 <p>不想碰命令行 / <code>.env</code>？跑一条命令打开网页向导，<b>选模式 → 改名称 / 换图标 → 填参数 → 一键打包下载</b>，全程不用敲配置：</p>
 <pre><code>npm run package:ui   # 打开 http://localhost:8799（仅本机）</code></pre>
-<figure><img src="screenshots/package-wizard.png" alt="打包向导" loading="lazy" style="max-width:560px"><figcaption>打包向导：2 种模式 + 品牌定制 + 连接/高级参数 → 预览配置 / 一键打包</figcaption></figure>
+<figure><img src="screenshots/package-wizard.png" alt="打包向导" loading="lazy" style="max-width:560px"><figcaption>打包向导：品牌定制 + 连接/高级参数 → 预览配置 / 一键打包</figcaption></figure>
 <ul>
-  <li><b>2 种模式</b>：个人·直连 / 商店·BYO——选哪个就只显示哪些字段，不会填错。</li>
+  <li><b>模式</b>：个人·直连——选填 App ID / Secret（明文或密码加密），不填则运行时手填。</li>
   <li><b>品牌定制</b>：改扩展名称、描述；上传一张方形 PNG，自动缩成 16/32/48/128 写进 <code>manifest</code>（不动源文件）。</li>
   <li><b>连接</b>：App ID、大模型域名白名单、外发脱敏，勾选即配。</li>
-  <li><b>高级</b>：无远程代码、单次外发上限、OAuth scope、IP CIDR、剥 manifest key。</li>
-  <li><b>安全</b>：表单只落到本机 <code>.env.package.local</code>（已 gitignore）；打包前临时挪开你的 <code>.env.local</code> 保证产物“只含这次填的”；构建结束自动还原。商店模式强制不内置任何凭据并剥 key。</li>
+  <li><b>高级</b>：无远程代码、单次外发上限、OAuth scope、IP CIDR。</li>
+  <li><b>安全</b>：表单只落到本机 <code>.env.package.local</code>（已 gitignore）；打包前临时挪开你的 <code>.env.local</code> 保证产物"只含这次填的"；构建结束自动还原。</li>
 </ul>
 <p>打完点「下载」拿到 <code>.zip</code> 解压，<code>chrome://extensions</code> → 开发者模式 →「加载已解压」即可；也可直接加载项目里的 <code>dist/</code>。底层就是驱动 <code>npm run build -- --mode &lt;模式&gt;</code> + 后处理 <code>manifest</code>/图标，和手动构建产物一致。</p>
 
@@ -146,12 +141,6 @@ node scripts/encrypt-secret.mjs
 # 填 .env.local：VITE_FEISHU_APP_ID=cli_xxx  VITE_FEISHU_APP_SECRET_ENC=&lt;密文&gt;  VITE_FEISHU_APP_SECRET=（留空）
 npm run build</code></pre>
 
-<h2 id="deploy-store">部署 · 商店 / BYO 包</h2>
-<p>对外上架版：用户自带飞书应用（填 App ID + Secret），不内置任何凭据，剥掉 manifest <code>key</code>。</p>
-<pre><code>npm run build -- --mode store     # VITE_WEBSTORE=1：剥 key + 商店名/描述；不内置 secret
-# 校验：dist 里无 appid、无 secret</code></pre>
-<div class="note ok"><b>本地配置备份</b>等无服务端依赖的能力照常可用。</div>
-
 <h2 id="env">环境变量速查</h2>
 <h4>客户端（构建期 <code>VITE_*</code>，写在 <code>.env.&lt;mode&gt;.local</code>）</h4>
 <table>
@@ -159,7 +148,7 @@ npm run build</code></pre>
 <tr><td><code>VITE_FEISHU_APP_ID</code></td><td>内置 App ID</td></tr>
 <tr><td><code>VITE_FEISHU_APP_SECRET / _ENC</code></td><td>明文 / 密文 secret</td></tr>
 <tr><td><code>VITE_LLM_REDACT</code> / <code>_MAX_PAYLOAD_CHARS</code></td><td>外发 LLM 前脱敏 / 单载荷上限</td></tr>
-<tr><td><code>VITE_WEBSTORE</code> / <code>VITE_NO_REMOTE_CODE</code></td><td>商店打包(剥 key) / 无远程代码(声明式渲染)</td></tr>
+<tr><td><code>VITE_NO_REMOTE_CODE</code></td><td>无远程代码（声明式渲染，去掉 unsafe-eval）</td></tr>
 </table>
 
 <h2 id="arch">架构</h2>
@@ -231,10 +220,10 @@ npm run build            # 必须成功
 
 <h2 id="faq">FAQ</h2>
 <div class="card"><b>个人用，必须自建服务端吗？</b><br>不用。个人版零服务端，用「飞书账号授权」即可。</div>
-<div class="card"><b>更多</b><br>见 <code>docs/FAQ.md</code> · <code>docs/USER_GUIDE.md</code> · <code>docs/STORE_PUBLISHING.md</code>。</div>
+<div class="card"><b>更多</b><br>见 <code>docs/FAQ.md</code> · <code>docs/USER_GUIDE.md</code>。</div>
 
 <hr>
-<p class="kbd">本页为离线单文件文档（零依赖）。源与更多细节：<code>README.md</code> · <code>docs/ARCHITECTURE.md</code> · <code>docs/SECURITY_AUDIT.md</code> · <code>docs/DEPLOYMENT.md</code>。</p>
+<p class="kbd">本页为离线单文件文档（零依赖）。源与更多细节：<code>README.md</code> · <code>docs/ARCHITECTURE.md</code> · <code>docs/SECURITY_AUDIT.md</code>。</p>
 </main>
 </div>
 <script>

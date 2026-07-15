@@ -1,219 +1,101 @@
 <div align="center">
 
-🌐 [English](README.en.md) | **中文**
+# Lumen — 飞书文档 agent
 
-# 🪶 飞书文档AI助手
-
-**用一句话操作飞书文档 / 多维表格 / 电子表格的 Chrome 侧边栏 AI 助手**
-
-*Feishu Document AI Assistant — operate Docs / Base / Sheet in natural language, from a side panel.*
+**Chrome 侧边栏 AI agent，用一句话操作飞书文档 / 多维表格 / 电子表格。**
 
 [![License: Elastic License 2.0](https://img.shields.io/badge/License-Elastic%202.0-005571.svg)](LICENSE)
 ![Chrome MV3](https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-build-646CFF?logo=vite&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-371%20passing-success)
-![No backend](https://img.shields.io/badge/backend-none-lightgrey)
 
 </div>
 
-用自然语言经 AI 直接操作**飞书多维表格(Base) / 电子表格(Sheet) / 文档(Docs)**——
-建表、填数、写公式、生成文档、按评论改稿、跨表查找、去重、审计，一句话搞定。
+Lumen 是一个**非官方**的 Chrome MV3 侧边栏扩展，通过自然语言让 AI 直接操作你的飞书
+**多维表格（Base）/ 电子表格（Sheet）/ 文档（Docs）/ 白板（Board）**——建表、填数、写公式、
+生成文档、按评论改稿、跨表查找、去重、审计，一句话搞定。
 
-- **🤖 AI**：OpenAI 兼容接口，默认中国大模型（DeepSeek），模型 / Key / Base URL 运行时可配。
-- **🧩 形态**：侧边栏 + 注入飞书页的内容脚本 + 后台 Service Worker。运行时依赖仅 React + openai SDK，**无后端**。
-- **🔒 安全优先**：助手始终以**用户本人身份**操作、绝不越权；所有权限边界**硬编码在代码里**（提示词不作安全边界）。
+- **AI**：OpenAI 兼容接口，默认中国大模型（DeepSeek）；模型 / Key / Base URL 运行时可配。
+- **形态**：侧边栏 + 注入飞书页的内容脚本 + 后台 Service Worker；运行时依赖仅 React + openai SDK，**无后端**。
+- **安全**：助手始终以**用户本人身份**操作、绝不越权；权限边界**硬编码在代码里**。
+- **本地优先**：PDF 解析、CSV 导入、Obsidian 知识库、经验记忆全部在本地；出站仅飞书、LLM、Obsidian REST API 三个方向。
 
-## 🎬 演示
-
-[![观看演示视频](https://img.youtube.com/vi/JhPNeOK1n8g/hqdefault.jpg)](https://youtu.be/JhPNeOK1n8g)
-
-▶️ [YouTube 观看](https://youtu.be/JhPNeOK1n8g) ·  打不开 YouTube？[下载本地演示 mp4](docs/media/demo.mp4)
-
-> 📚 **完整文档** → [`docs/PROJECT.md`](docs/PROJECT.md)（架构 / 功能 / 安全 / 部署 / 配置一站式）
-> · **部署指南（个人/商店快速上手）** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-> · 使用手册（含截图）[`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-> · 模块细节 [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 安全审计 [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md)
-
----
-
-## 🚀 个人快速上手
-
-> 🟢 **免构建（装商店版）**：从 **[Chrome 网上应用店](https://chromewebstore.google.com/detail/eplcnheinfmkcckelinolhpdagbamdcc)** 点「添加至 Chrome」省去克隆/打包/加载。商店版**不内置凭据**，仍用**你自己的**飞书应用：先按下方**第 1 步**建应用，再在扩展「设置 → 自建飞书应用」填 **App ID/Secret** + 登记设置里显示的回调 + 飞书授权 + 大模型 Key。用法见 [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)。
-
-### 自行构建 / 用自己的飞书应用（5 步）
-
-> 想把 App ID/Secret 直接**打进包**（免去每台设备在设置里填）、二次开发时才需要。完整版（每个权限的说明、加密模式、排错）见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)。
-
-1. **配飞书应用**（[open.feishu.cn](https://open.feishu.cn) → 创建企业自建应用）：记下 App ID / Secret；「权限管理」开通 `offline_access`（必须）+ 按需 `bitable:app` `docx:document` `sheets:spreadsheet` `drive:drive` `wiki:wiki` `contact:user.base:readonly`（**都勾「用户身份」**）；「重定向 URL」加 `https://jhdbgegkmhcopcilclkpioilclemkeog.chromiumapp.org/`；把自己加进「可用范围」并**发布**。
-2. **填配置**：`cp .env.example .env.local` → 填 `VITE_FEISHU_APP_ID` + `VITE_FEISHU_APP_SECRET`（或 `node scripts/encrypt-secret.mjs` 出密文填 `VITE_FEISHU_APP_SECRET_ENC`、明文留空）。
-3. **一键打包**：`npm install && npm run pack`（产出 `dist/` 与 `feishu-doc-ai-assistant.zip`）。
-4. **加载**：`chrome://extensions` → 开发者模式 → 「加载已解压」→ 选 `dist/`。
-5. **用**：打开飞书 多维表格/文档 → 侧边栏 → 设置里「飞书授权」+ 填大模型 Key →（加密模式先输解锁密码）→ 一句话开干。
+> 本工具与飞书 / Lark 官方无任何 affiliation 关系。"飞书"是北京飞书科技有限公司的商标。
 
 ---
 
 ## 功能
 
-- **AI 对话操作**：~50 个工具覆盖多维表格(建/改表、字段、视图、记录增改删、结构化搜索)、
-  电子表格(读写区间、填列、查找替换、行列增删)、文档(Markdown 转文档、插入各类内容块、按评论改稿)。
-- **复合能力**：去重 / 跨表查找 / 条件批量更新 / 表→表汇总 / 审计（带原子性与部分失败上报）。
-- **通用 API**：覆盖不到的需求按官方文档自造请求——**默认拒绝白名单**严格限制。
-- **场景模板**：内置 CRM / 电商 / 项目管理，可配远程模板库，一键建库（表结构 + 示例数据 + 仪表盘）。
-- **越用越聪明**：每次成功后把「下次怎么做最稳」用模型**提炼成一条经验**存在**本机**（最多 300 条、只存做法不存数据），
-  下次相似任务自动参考、少走弯路；重复任务只累计次数不重复消耗，可关闭/清空。
-- **Auto 模式**：自动确认文档内的内容删除（文件级删除始终硬拦）；**语音输入** 🎤（公网构建，zh-CN）。
-- **网页剪藏** 📎：在任意网页右键 / 快捷键，把选中内容或整页表格 **AI 整理后写入飞书多维表格 / 电子表格 / 文档**；也可拖入 CSV 文件导入。
-  仅在你**手势触发**时读取**当前页** DOM（`activeTab`，本地、无新增出站、无需放开 host_permissions）；发送前先**预览**。
-- **AI 小程序** 🧩：一句话把当前表做成飞书页面上的悬浮窗小程序（可拖拽/四角缩放）——
-  **图表看板**(ECharts) / **计算器·交互工具** / **可打印报表**(window.print) / **汇报幻灯片** / **卡片墙·时间线等自定义视图**。
-  生成代码与数据**分离**——保存后下次用**最新数据**一键打开、零 LLM；一页可挂多个独立小程序（各自浮标）；
-  代码跑在 **MV3 沙箱**（null 源、`connect-src 'none'`）里**只读渲染**，**拿了数据也发不出去**。详见 [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
-- **AI 建站** 🌐：一句话（可附**参考站点 URL** 作风格提示）把当前表做成一个**完整的网站页面**（导航 / 英雄区 / 指标卡 / 明细表），
-  渲染成页面浮窗。沙箱里**预置了一套设计系统**——即使描述很简略也能生成**好看、统一、符合插件风格**的页面；
-  **离线自包含**（系统字体、无外链/CDN）、数据绑定（重开拉最新数据）、可先出方案确认、可用语言微调、可保存。
-- **AI 智能填充** 🪄：在**多维表格 / 电子表格**里选一列，AI 参考同行其它列（和你已填好的示例）推断该列**空缺**的值——
-  自动分类 / 打标签 / 归类 / 补全。**预览每一处再写回**；单选/多选只会落到**已有选项**（绝不新建），数字/日期解析失败即跳过；
-  仅**更新**、以用户身份、只动当前表（默认只填空白格）；写入数**按飞书实际确认计数**，不会虚报。
-- **数据分析报告** 📈：读当前**多维表格 / 电子表格**的数据，本地先算统计摘要，AI 写一篇**带真实数字**的分析报告
-  （摘要 / 关键发现 / 趋势异常 / 建议），生成飞书**文档**并在文末附上源数据表。飞书有「引用」但没有 AI 数据叙事——这是结合表格 + 文档写入的闭环。
-- **文档体检** 🩺：通读当前文档，AI 找出**逻辑断点 / 未定义术语 / 前后矛盾 / 遗留 TODO / 过期数据 / 空小节**，
-  给出按严重度排序、可定位的问题清单（只读、不改文档）。文档版的 `auditTable`，飞书无系统化审稿。
-  **检查项可直接点开编辑、本机持久化**——你定义体检什么。
-- **文档总结** 📝：通读当前文档，按你的要求生成总结（摘要 / 要点 / 待办…），可复制。
-  **总结要求（prompt）可直接编辑、本机持久化**——飞书原生 AI 速览是固定的，这里你说了算。
-- **本地备份与恢复** 💾：把配置 + 保存的小程序/建站/PPT + 本地经验 + 会话**导出成文件**，换设备/重装后导入恢复，防个人数据丢失（密钥默认不导出，可勾选）。
+侧边栏 4 个主标签：**对话 / 应用 / 资讯 / 设置**。
+
+**对话** — Agentic 循环 + 68 个工具（启用知识库 +3 = 71），覆盖飞书全产品：
+
+| 域 | 工具数 | 能力 |
+|---|---|---|
+| 多维表格 | 22 | 表 / 字段 / 视图 / 记录增改删 / 结构化搜索 / 仪表盘复制 |
+| 电子表格 | 14 | 读写区间 / 追加行 / 填充列 / 查找替换 / 行列增删 |
+| 文档 | 16 | Markdown 转文档 / 插入各类内容块 / 删除 / 复制 / 图片导出 |
+| 白板 | 2 | 创建 / 查询白板 |
+| 复合算子 | 12 | 去重 / 跨表查找 / 条件批改 / 表→表汇总 / 审计 / 数据报告 / 文档总结 / **智能填充预览+写回** |
+| 通用 API | 1 | `feishu_api_call`——按官方文档自造请求，默认拒绝白名单 |
+| 知识库（条件） | 3 | 只读检索 Obsidian 笔记 |
+
+- **越用越聪明**：成功任务提炼经验存本机（最多 300 条），下次相似任务自动参考。
+- **Auto 模式**：自动确认内容级删除；**文件级删除始终硬拦**。
+- **用户技能**：常用 prompt 写成带 frontmatter 的 markdown，自动注册为 `skill__<slug>` 工具。
+
+**应用** — 高级能力卡片：
+
+- **AI 看板**：把表格数据做成 ECharts 看板，渲染成飞书页面内可拖拽悬浮窗。声明式 VizSpec（非 LLM 代码），保存后用最新数据零 LLM 重开。
+- **AI 演示文稿**：多文档 / 表格链接聚合成 deck，12 种 layout，可导出 HTML 或 PPTX。
+- **PDF / 文件转写**：pdfjs-dist 本地解析 PDF（不上传服务器）→ Markdown + AI 润色；支持拖拽 CSV/TSV/TXT。
+- **技能库**：管理用户技能。
+- **Obsidian 知识库**：连接 Local REST API（loopback only），浏览 / 搜索 / 读笔记。
+
+**资讯** — 聚合 GitHub Trending 与微博热搜，后台定时抓取，GitHub 标题可自动翻译。
+
+**网页剪藏** — 在任意网页右键 / Alt+Shift+C，把选中内容或整页经 AI 整理写入飞书。手势触发 + activeTab，不新增出站端点。
 
 ---
 
-## 快速开始（开发）
+## 下载到本地
 
 ```bash
+git clone https://github.com/scott987-cmd/feishu-doc-ai-assistant.git
+cd feishu-doc-ai-assistant
 npm install
-cp .env.example .env.local      # 按需填写（见下方「配置」），可全空先跑通
-npm run build                   # 产物 dist/
-# chrome://extensions → 开发者模式 → 「加载已解压的扩展程序」→ 选 dist/
 ```
 
-开发与质量：
-```bash
-npm run dev:ext     # 扩展热更新（加载到 Chrome）
-npm run dev:ui      # 纯 UI 预览（mock chrome，不连飞书）
-npm run typecheck && npm run test
-```
-
----
-
-## 配置（全部可选，见 [`.env.example`](.env.example)）
-
-**运行时**（侧边栏 → 设置）：大模型供应商 / Base URL / API Key / 模型；飞书账号授权；强调色；
-模板库地址；「越用越聪明」开关。
-
-**构建时**（`.env.local`，决定部署形态）：
-
-| 变量 | 作用 |
-|---|---|
-| `VITE_FEISHU_APP_ID` | 飞书 App ID |
-| `VITE_FEISHU_APP_SECRET` | 明文 secret（个人·明文，会进包） |
-| `VITE_FEISHU_APP_SECRET_ENC` | 密码加密的 secret（个人·加密，`scripts/encrypt-secret.mjs` 生成） |
-| `VITE_OPENAI_ALLOWED_HOSTS` | 大模型 host 白名单（设了则 CSP 也锁死） |
-| `VITE_ALLOWED_CIDRS` | 设备内网 CIDR 门 |
-| `VITE_MAX_TOOL_CALLS` | 单轮工具调用上限（默认 30） |
-| `VITE_CLIP_ENABLED` | 网页剪藏开关（默认开；设 `false` 不带剪藏功能） |
-
----
-
-## 安全设计（要点）
-
-助手**以用户本人 user_access_token 操作**，权限边界全部代码强制：
-
-- **身份不超用户**：用户读不了的文档 AI 也读不了；不回退应用(tenant)身份。
-- **禁文件级删除**：绝不删整表/电子表格/文档/云文件；内容级删除需按钮确认。
-- **防注入**：通用 API 默认拒绝白名单 + 硬阻断消息/通讯录/权限/所有权。
-- **凭据保护**：storage 内 AES-256-GCM；App Secret 支持明文 / 密码加密两档。
-- **出站锁定**：只访问飞书 + 大模型两类端点（代码层白名单 + CSP 双重）。
-
-逐条见 [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md)。
-
----
-
-## 想给自己的组织打包？（fork / 自建）
-
-> 🧰 **不想碰命令行？** 跑 `npm run package:ui` 打开图形化**打包向导**（仅本机 `http://localhost:8799`）：
-> 选模式（个人/商店）→ 改名称、上传图标、勾选参数 → **一键打包下载 `.zip`**。
-> 底层即驱动下方的 `npm run build`，产物一致。详见[完整指南 · 打包向导](https://scott987-cmd.github.io/feishu-doc-ai-assistant/docs/index.html#package-wizard)。
-
-本仓库 `manifest.json` 的 `key` 与 `extension-key.pem`（已 gitignore）固定了**作者的**扩展 ID。
-自建分发时请**生成你自己的签名密钥**并替换：
-
-```bash
-# 1) 生成你自己的私钥
-openssl genrsa 2048 > my-extension-key.pem
-# 2) 取它的公钥(base64 DER) 替换 manifest.json 的 "key" 字段
-openssl rsa -in my-extension-key.pem -pubout -outform DER | openssl base64 -A
-# 3) 用你的私钥打 .crx（chrome --pack-extension=dist --pack-extension-key=my-extension-key.pem）
-```
-
-这样你拥有独立的扩展 ID 与签名权，能自行平滑更新。**切勿提交任何 `*.pem` / `.env.local` /
-解锁密码到仓库**（已在 `.gitignore`）。
+依赖：Node.js 18+，npm。后续开发与构建命令见 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)。
 
 ---
 
 ## 文档导航
 
-> 📖 **完整文档（离线单页 HTML，零依赖）**：[`docs/index.html`](docs/index.html) —— 使用 / 部署 / 架构 / 安全 一站读完，浏览器直接打开。
->
-> 🌐 **在线文档站**：本仓库所有 Markdown 已可一键生成静态站并**免费托管在 GitHub Pages**——
-> `npm run docs:html`（零依赖，产物在 `site/`）本地预览；推送到 `main` 由 [`.github/workflows/pages.yml`](https://github.com/scott987-cmd/feishu-doc-ai-assistant/blob/main/.github/workflows/pages.yml) 自动构建发布。
-> 一次性开启：仓库 **Settings → Pages → Source = "GitHub Actions"**，之后访问 `https://<用户名>.github.io/<仓库名>/`。
-
 | 文档 | 内容 |
 |---|---|
-| [`docs/index.html`](docs/index.html) | **完整文档站**（单文件 HTML）：概览 / 使用 / 部署（个人·商店）/ 架构 / 安全 / FAQ |
-| [`docs/QUICKSTART.md`](docs/QUICKSTART.md) | **个人快速部署**：配飞书应用权限 → 填配置 → `npm run pack` 一键打包 → 加载使用（5 步） |
-| [`docs/STORE_PUBLISHING.md`](docs/STORE_PUBLISHING.md) | **上架 Chrome 商店**：零凭据公开版构建 + 用户自带应用首配 + 上架清单 + 审核风险规避 |
-| [`PRIVACY.md`](PRIVACY.md) | **隐私政策**（中英）：上架必填的隐私权 URL，可直接托管使用 |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | **部署指南**：个人 / 商店快速上手（选路 + 命令 + 变量速查） |
-| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | **使用手册**：全功能图文说明（含截图） |
-| [`docs/FAQ.md`](docs/FAQ.md) | **常见问题**：鉴权/导出/升级 排错 |
-| [`CLAUDE.md`](CLAUDE.md) · [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | **开发手册**：面向 agent 的快速迭代（循环 / 仓库地图 / 硬约束 / 地雷区） |
-| [`docs/PROJECT.md`](docs/PROJECT.md) | **一站式**：架构 / 功能 / 安全 / 部署 / 配置 |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 深水区：模块结构、工具清单、字段类型、API 实测坑、模板引擎内部 |
-| [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md) | 安全设计逐条审计 + 攻击场景 + 修复（含 App Secret/OAuth 图解） |
-| [`.env.example`](.env.example) | 全部构建时配置项 |
-| [`CHANGELOG.md`](docs/CHANGELOG.md) | 版本更新日志 |
+| [QUICKSTART.md](docs/QUICKSTART.md) | 个人快速部署：配飞书应用 → 填配置 → 打包 → 加载 |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | 开发手册：环境 / 命令 / 仓库地图 / 硬约束 |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用手册：全功能图文说明 |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 模块结构、工具清单、字段类型、API 实测坑 |
+| [SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) | 安全设计逐条审计 + 攻击场景 + 修复 |
+| [FAQ.md](docs/FAQ.md) | 常见问题排错 |
+| [PRIVACY.md](PRIVACY.md) | 隐私政策 |
+| [.env.example](.env.example) | 全部构建时配置项 |
 
 ---
 
-## 贡献
+## 免责声明
 
-欢迎 Issue / PR。提交前请跑通：
-
-```bash
-npm run typecheck && npm run test && npm run build
-```
-
-> 改动若涉及安全卡点（`isFileLevelDelete` / `assertApiCallAllowed` / `resolveToken` /
-> `assertSafeBaseUrl` 等），请同步更新 [`SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md) 与对应单测。
-> **切勿提交任何密钥 / 密码 / 私钥**（`.gitignore` 已覆盖 `*.pem` / `*password*.txt` / `.env.*` 等）。
-
-## ⚠️ 免责声明
-
-本工具通过大模型对你的飞书数据执行真实操作（建表、写入、删除内容等）。虽然内置了
-「文件级删除一律拒绝」「内容删除需确认」「以用户本人权限操作」等多重护栏，**仍建议在重要数据上
-谨慎使用、必要时先备份**。开启「Auto 模式」会跳过内容删除的逐次确认，请知悉风险。
+本工具通过大模型对飞书数据执行真实操作（建表、写入、删除内容等）。虽内置多重护栏，
+**仍建议在重要数据上谨慎使用、必要时先备份**。开启 Auto 模式会跳过内容删除的逐次确认。
 作者不对因使用本工具造成的数据损失负责（详见 [`LICENSE`](LICENSE)）。
 
 ## 许可证
 
-[Elastic License 2.0](LICENSE) © 2026 [scott987-cmd](https://github.com/scott987-cmd) — **源代码可见**（非 OSI 严格意义的"开源"；与 Elasticsearch 同款协议）。
+[Elastic License 2.0](LICENSE) © 2026 [scott987-cmd](https://github.com/scott987-cmd)
 
-一句话（以 [`LICENSE`](LICENSE) 原文为准）：**个人 / 企业均可免费使用、复制、修改、分发、自行部署（含公司内部商用）；
-唯独禁止「把它作为托管 / SaaS 服务提供给第三方」**，且不得绕过授权功能、不得去除版权/许可标识。
-
-### 商业授权
-需要「作为托管 / SaaS 服务对外提供」等受限用途授权？
-请在本仓库 **GitHub Issues 开一个标注 `commercial` 的 issue**（说明用途与规模）联系作者 [scott987-cmd](https://github.com/scott987-cmd) 洽谈。
-
-> 🍴 Fork / 二次分发：必须替换 `manifest.json` 的 `key`（换成你自己的扩展 ID/签名私钥）并改掉文档中的扩展 ID / 重定向 / `ALLOW_ORIGIN` 占位，详见 [`docs/DEPLOYMENT.md` §5](docs/DEPLOYMENT.md)。
+个人 / 企业均可免费使用、修改、分发、自行部署（含公司内部商用）；唯独禁止「作为托管 / SaaS
+服务提供给第三方」，且不得绕过授权功能、不得去除版权标识。需要商业授权请在 GitHub Issues
+开 `commercial` 标签的 issue 联系作者。

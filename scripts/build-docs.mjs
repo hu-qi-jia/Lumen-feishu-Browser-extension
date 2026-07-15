@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = path.join(ROOT, 'site')
-const SITE_TITLE = '飞书文档AI助手'
+const SITE_TITLE = 'Lumen — 飞书文档agent'
 const GH = 'https://github.com/scott987-cmd/feishu-doc-ai-assistant'
 const C0 = '\x01', C1 = '\x02' // 占位哨兵（控制字符；绝不与正文冲突，不被 esc 触碰）
 
@@ -178,10 +178,8 @@ function mdToHtml(md) {
 // ── 站点导航（分组）──────────────────────────────────────────────────────────
 const GROUPS = [
   ['指南', ['README.md', 'docs/QUICKSTART.md', 'docs/USER_GUIDE.md', 'docs/FAQ.md']],
-  ['部署', ['docs/DEPLOYMENT.md', 'docs/STORE_PUBLISHING.md']],
-  ['架构与安全', ['docs/ARCHITECTURE.md', 'docs/SECURITY_AUDIT.md', 'docs/PROJECT.md', 'PRIVACY.md']],
-  ['开发', ['CLAUDE.md', 'docs/DEVELOPMENT.md', 'docs/CHANGELOG.md']],
-  ['English', ['README.en.md', 'docs/DEPLOYMENT.en.md', 'docs/STORE_PUBLISHING.en.md', 'docs/USER_GUIDE.en.md', 'docs/FAQ.en.md', 'docs/ARCHITECTURE.en.md', 'docs/SECURITY_AUDIT.en.md', 'docs/PROJECT.en.md', 'docs/DEVELOPMENT.en.md', 'docs/QUICKSTART.en.md']],
+  ['架构与安全', ['docs/ARCHITECTURE.md', 'docs/SECURITY_AUDIT.md', 'PRIVACY.md']],
+  ['开发', ['docs/DEVELOPMENT.md']],
 ]
 const htmlPath = (mdRel) => mdRel.replace(/\.md$/, '.html')
 const depthPrefix = (htmlRel) => '../'.repeat(htmlRel.split('/').length - 1)
@@ -324,13 +322,12 @@ const landing = `<!DOCTYPE html><html lang="zh"><head>
 <button class="navtoggle" onclick="document.body.classList.toggle('navopen')" aria-label="菜单">☰</button>
 <nav class="toc">${renderNav(titles, 'index.html')}</nav>
 <div class="page"><main>
-<div class="hero"><h1>🪶 ${SITE_TITLE}</h1><p>Chrome MV3 扩展 · 用自然语言操作飞书多维表格/电子表格/文档，并做成 看板/网站/PPT。完整文档一站读完。</p></div>
-<p><a class="dcard" style="display:inline-block;border-color:var(--accent)" href="docs/index.html"><b>📖 完整指南（单页）</b><span>概览 / 使用 / 部署 / 架构 / 安全 —— 最快上手入口</span></a></p>
+<div class="hero"><h1>${SITE_TITLE}</h1><p>Chrome MV3 扩展 · 用自然语言操作飞书多维表格/电子表格/文档，并做成 看板/PPT。完整文档一站读完。</p></div>
+<p><a class="dcard" style="display:inline-block;border-color:var(--accent)" href="docs/index.html"><b>📖 完整指南（单页）</b><span>概览 / 使用 / 架构 / 安全 —— 最快上手入口</span></a></p>
 <div class="gtitle">入门</div><div class="cards">${card('README.md', '项目说明 + 个人 5 步上手')}${card('docs/QUICKSTART.md', '个人快速部署（5 步）')}${card('docs/USER_GUIDE.md', '使用手册（图文）')}${card('docs/FAQ.md', '常见问题排错')}</div>
-<div class="gtitle">部署</div><div class="cards">${card('docs/DEPLOYMENT.md', '部署指南：个人/商店')}${card('docs/STORE_PUBLISHING.md', '上架 Chrome 商店')}</div>
-<div class="gtitle">架构与安全</div><div class="cards">${card('docs/ARCHITECTURE.md', '深结构：模块/工具/坑')}${card('docs/SECURITY_AUDIT.md', '安全逐条审计 + 攻击场景')}${card('docs/PROJECT.md', '一站式：架构/功能/安全/部署')}${card('PRIVACY.md', '隐私政策')}</div>
-<div class="gtitle">开发</div><div class="cards">${card('CLAUDE.md', 'Agent 快速上手')}${card('docs/DEVELOPMENT.md', '开发手册')}${card('docs/CHANGELOG.md', '更新日志')}</div>
-<p class="foot" style="margin-top:30px">英文文档见左侧 English 分组 · 本站由 <code>scripts/build-docs.mjs</code> 生成 · <a href="${GH}">GitHub</a></p>
+<div class="gtitle">架构与安全</div><div class="cards">${card('docs/ARCHITECTURE.md', '深结构：模块/工具/坑')}${card('docs/SECURITY_AUDIT.md', '安全逐条审计 + 攻击场景')}${card('PRIVACY.md', '隐私政策')}</div>
+<div class="gtitle">开发</div><div class="cards">${card('docs/DEVELOPMENT.md', '开发手册')}</div>
+<p class="foot" style="margin-top:30px">本站由 <code>scripts/build-docs.mjs</code> 生成 · <a href="${GH}">GitHub</a></p>
 </main></div>
 <script src="assets/site.js"></script></body></html>`
 fs.writeFileSync(path.join(OUT, 'index.html'), landing)
