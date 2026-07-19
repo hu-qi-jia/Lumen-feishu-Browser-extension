@@ -22,6 +22,7 @@ export default function SwitchDocDialog({ toTitle, dontAsk, onDontAskChange, onN
   return (
     <ConfirmModal
       open
+      align="left"
       title="切换工作文档？"
       message={
         <>

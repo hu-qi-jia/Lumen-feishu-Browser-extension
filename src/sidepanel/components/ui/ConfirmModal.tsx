@@ -9,6 +9,9 @@ interface Props {
   confirmText?: string
   cancelText?: string
   danger?: boolean
+  /** Body alignment: 'center' (default, iOS-alert style) or 'left' (for longer
+   *  message + inline option rows, e.g. SwitchDocDialog). */
+  align?: 'center' | 'left'
   onConfirm: () => void
   onCancel: () => void
 }
@@ -22,6 +25,7 @@ export default function ConfirmModal({
   confirmText = '确认',
   cancelText = '取消',
   danger = false,
+  align = 'center',
   onConfirm,
   onCancel,
 }: Props) {
@@ -32,7 +36,7 @@ export default function ConfirmModal({
   return (
     <div className="confirm-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
       <div className="confirm-card view-enter" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-body">
+        <div className={`confirm-body${align === 'left' ? ' confirm-body--left' : ''}`}>
           <h3 className="confirm-title">{title}</h3>
           {message && <div className="confirm-msg">{message}</div>}
         </div>

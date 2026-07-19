@@ -32,6 +32,11 @@
   padding: 18px 16px 14px;
   text-align: center;
 }
+/* Left-aligned variant — for dialogs with a longer message + inline option rows
+   (e.g. SwitchDocDialog's "不再询问" checkbox). */
+.confirm-body--left {
+  text-align: left;
+}
 .confirm-title {
   font-size: 16px;
   font-weight: 600;
@@ -45,10 +50,11 @@
   margin: 0;
 }
 .confirm-msg b { color: var(--color-text); font-weight: 600; }
-/* Inline option row (e.g. the "不再询问" checkbox inside SwitchDocDialog's message). */
+/* Inline option row (e.g. the "不再询问" checkbox inside SwitchDocDialog's message).
+   Left-aligned to match the left-aligned dialog body. */
 .confirm-options {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: 12px;
 }
 .confirm-warn {
