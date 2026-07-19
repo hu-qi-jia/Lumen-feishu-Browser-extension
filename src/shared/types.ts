@@ -124,6 +124,9 @@ export interface AppSettings {
   /** Auto mode: auto-approve CONTENT-level deletes (rows/fields/blocks/dedupe) within a
    *  document — no per-action button click. File-level deletes stay hard-blocked. Default off. */
   autoConfirm?: boolean
+  /** Follow 模式切标签页到别的文档时不再弹"切换工作文档？"询问，直接静默跟随新文档
+   *  （旧会话保留在历史里）。Default off — 保留原有的确认弹窗行为。 */
+  skipSwitchDocPrompt?: boolean
   /** API 协议格式。仅支持 'openai'（Chat Completions）；字段保留以兼容旧存储。 */
   llmFormat?: 'openai' | 'anthropic'
   /** Obsidian Local REST API base URL (loopback only). Default http://127.0.0.1:27123. */
@@ -186,6 +189,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   feishuOwnerOpenId: '',
   learnFromHistory: true,
   autoConfirm: false,
+  skipSwitchDocPrompt: false,
   llmFormat: 'openai',
   obsidianBaseUrl: 'http://127.0.0.1:27123',
   obsidianInboxPath: '',

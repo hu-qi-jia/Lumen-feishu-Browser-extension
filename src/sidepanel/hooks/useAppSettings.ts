@@ -32,6 +32,7 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: stored.feishuOwnerOpenId ?? '',
         learnFromHistory: (stored.learnFromHistory as unknown as boolean | undefined) !== false,
         autoConfirm: (stored.autoConfirm as unknown as boolean | undefined) === true,
+        skipSwitchDocPrompt: (stored.skipSwitchDocPrompt as unknown as boolean | undefined) === true,
         llmFormat: 'openai',
         obsidianBaseUrl: stored.obsidianBaseUrl ?? DEFAULT_SETTINGS.obsidianBaseUrl,
         obsidianInboxPath: stored.obsidianInboxPath ?? DEFAULT_SETTINGS.obsidianInboxPath,
@@ -56,6 +57,7 @@ export function useAppSettings(): AppSettingsApi {
         feishuOwnerOpenId: s.feishuOwnerOpenId,
         learnFromHistory: s.learnFromHistory !== false,
         autoConfirm: s.autoConfirm === true,
+        skipSwitchDocPrompt: s.skipSwitchDocPrompt === true,
         llmFormat: s.llmFormat ?? 'openai',
         // Obsidian 接入（非密钥；API Key 走独立加密键 _obsidian_token_v1，不在此 blob）
         obsidianBaseUrl: s.obsidianBaseUrl,

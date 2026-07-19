@@ -442,8 +442,9 @@ export default function App() {
       ) : doc.pendingSwitch && !chatStreaming ? (
         <SwitchDocDialog
           toTitle={cleanDocTitle(ctx.title) || '当前文档'}
+          dontAsk={settings.skipSwitchDocPrompt === true}
+          onDontAskChange={(checked) => { void saveSettings({ ...settings, skipSwitchDocPrompt: checked }) }}
           onNew={doc.handleSwitchNew}
-          onStay={doc.handleSwitchStay}
           onCancel={doc.handleSwitchStay}
         />
       ) : null}

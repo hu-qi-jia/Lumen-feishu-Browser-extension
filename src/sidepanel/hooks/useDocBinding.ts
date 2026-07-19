@@ -256,6 +256,9 @@ export function useDocBinding(a: Args): DocBindingApi {
   // value lands in the same commit — no one-frame flash of the new doc's title either.
   const prevLiveRef = useRef<string | null>(liveResource)
   const justFollowedRef = useRef(false)
+  // User opted out of the SwitchDocDialog: follow-mode tab switches follow the new doc silently
+  // (no hold, no prompt). The old doc's session is preserved in history by useSessions.
+  const skipSwitchPrompt = settings.skipSwitchDocPrompt === true
   useLayoutEffect(() => {
     if (docMode !== 'follow') { justFollowedRef.current = false; setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     if (justFollowedRef.current) {
@@ -266,6 +269,8 @@ export function useDocBinding(a: Args): DocBindingApi {
     // doc — let effectiveResource fall to null so the workspace switches to the general session
     // (the user's expectation: a non-doc tab means "back to general").
     if (!liveResource) { setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
+    // "不再询问" — skip the hold + the SwitchDocDialog and just follow the live tab.
+    if (skipSwitchPrompt) { setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     const sess = sessionsRef.current
     const sessionTok = sess.activeSession?.appToken ?? null
     const liveChanged = liveResource !== prevLiveRef.current
@@ -275,7 +280,7 @@ export function useDocBinding(a: Args): DocBindingApi {
     setHeldResource(sessionTok)
     if (!liveChanged || chatStreaming) { setPendingSwitch(null); return }
     setPendingSwitch({ to: liveResource })
-  }, [liveResource, docMode, chatStreaming])
+  }, [liveResource, docMode, chatStreaming, skipSwitchPrompt])
 
   // Pin mode: resolve a pinned wiki node to its real resource. Reuses the shared cache.
   useEffect(() => {

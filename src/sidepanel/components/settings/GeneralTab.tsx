@@ -12,6 +12,7 @@ import type { TranslationEngine } from '@/shared/news/types'
 import { clearRecipes, recipeCount } from '@/shared/ai/recipes'
 
 const AUTO_CONFIRM_TIP = '删除文档行、字段、内容块及去重等操作不再确认。文件级删除始终拦截。'
+const SWITCH_DOC_TIP = 'Follow（跟随标签页）模式下，切到别的文档时不再弹出"切换工作文档？"询问，直接跟随新文档；原会话保留在历史里。'
 const TRANSLATION_TIP = 'Bing 翻译免费，AI 翻译使用已配置模型。翻译结果会缓存。'
 
 /** 通用 tab：删除自动确认、本地经验、GitHub Trending翻译。 */
@@ -47,6 +48,21 @@ export default function GeneralTab({ form, patch }: SettingsTabProps) {
             <FormSwitch
               checked={form.autoConfirm === true}
               onChange={(checked) => patch({ autoConfirm: checked })}
+            />
+          </span>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-main">
+            <span className="settings-row-title">
+              切换文档不再询问
+              <HelpIcon tip={SWITCH_DOC_TIP} />
+            </span>
+            <span className="settings-row-desc">Follow 模式切到别的文档时直接跟随，不弹确认</span>
+          </div>
+          <span className="settings-row-control">
+            <FormSwitch
+              checked={form.skipSwitchDocPrompt === true}
+              onChange={(checked) => patch({ skipSwitchDocPrompt: checked })}
             />
           </span>
         </div>
