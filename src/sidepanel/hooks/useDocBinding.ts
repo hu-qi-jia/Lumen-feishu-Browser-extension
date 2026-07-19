@@ -159,22 +159,32 @@ export function useDocBinding(a: Args): DocBindingApi {
   //  examples from jittering between the old doc and the general session.
   const seenDocCtxRef = useRef<Map<string, PageContext>>(new Map())
   if (rawResource) {
-    // Only (re)cache ctx for this resource when a meaningful field changed — title or any
-    // feishu identity token. Reference-only churn (a new ctx object with the same content)
-    // is already filtered by the idempotent setCtx wrapper in usePageContext, but this gate
-    // is a second line of defense: it prevents any future code path that bypasses the
-    // wrapper from needlessly updating the cache and re-firing chatContext's useMemo (which
-    // would cascade to ChatPanel/DocSelector re-renders — the tab-switch jitter).
+    // Before caching, if ctx is wiki-typed, substitute the resolved feishu from the shared
+    // wikiCacheRef. This ensures the cached ctx always carries the RESOLVED kind (doc/base/
+    // sheet) whenever the wiki has been resolved before — preventing the wiki→doc kind flicker
+    // when useWikiResolve's async setCtx lands. On first visit (wikiCacheRef empty) the ctx is
+    // cached as-is (kind=wiki); on every subsequent visit the cache holds the resolved kind
+    // from the start, so chatContext returns a stable kind with NO flicker.
+    let ctxToCache = ctx
+    if (ctx.feishu?.kind === 'wiki' && ctx.feishu.wikiToken) {
+      const resolved = wikiCacheRef.current.get(ctx.feishu.wikiToken)
+      if (resolved && resolved.kind !== 'wiki') {
+        ctxToCache = { ...ctx, feishu: resolved }
+      }
+    }
+    // Only (re)cache when a meaningful field changed — title or any feishu identity token.
+    // Reference-only churn is already filtered by the idempotent setCtx wrapper in
+    // usePageContext; this gate is a second line of defense.
     const prev = seenDocCtxRef.current.get(rawResource)
     if (!prev
-        || prev.title !== ctx.title
-        || prev.feishu?.kind !== ctx.feishu?.kind
-        || prev.feishu?.documentId !== ctx.feishu?.documentId
-        || prev.feishu?.appToken !== ctx.feishu?.appToken
-        || prev.feishu?.spreadsheetToken !== ctx.feishu?.spreadsheetToken
-        || prev.feishu?.wikiToken !== ctx.feishu?.wikiToken
-        || prev.feishu?.slideToken !== ctx.feishu?.slideToken) {
-      seenDocCtxRef.current.set(rawResource, ctx)
+        || prev.title !== ctxToCache.title
+        || prev.feishu?.kind !== ctxToCache.feishu?.kind
+        || prev.feishu?.documentId !== ctxToCache.feishu?.documentId
+        || prev.feishu?.appToken !== ctxToCache.feishu?.appToken
+        || prev.feishu?.spreadsheetToken !== ctxToCache.feishu?.spreadsheetToken
+        || prev.feishu?.wikiToken !== ctxToCache.feishu?.wikiToken
+        || prev.feishu?.slideToken !== ctxToCache.feishu?.slideToken) {
+      seenDocCtxRef.current.set(rawResource, ctxToCache)
     }
   }
   // Stable fallback for the "no effective resource" branch. During a tab switch, ctx thrashes

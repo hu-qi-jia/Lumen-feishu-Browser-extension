@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS } from '@/shared/config'
 import { checkNetworkAccess } from '@/shared/network'
 import { isFeishuConfigured, resolveToken } from '@/shared/feishu/auth'
@@ -114,11 +114,6 @@ export default function App() {
   // DOCUMENT/TABLE name (never the session title); the count badge is how many sessions are
   // bound to this doc token. `activeDocToken` is reused for docActiveToken below (single source).
   const activeDocToken = docMode === 'pin' ? (pinned?.token ?? null) : (sessions.activeSession?.appToken ?? null)
-  const docTitle = docMode === 'pin' && pinned
-    ? pinned.title
-    : chatContext.feishu
-      ? (cleanDocTitle(chatContext.title) || '飞书文档')
-      : (sessions.activeSession?.title || '新会话')
   // Memoized: the session index is touched by every streamed token (the active session's
   // messages write back through useSessions → index.updatedAt), so a raw .filter() here would
   // re-scan the whole index per token. Depends only on the index array + the active token.
@@ -128,6 +123,31 @@ export default function App() {
       : 0,
     [activeDocToken, sessions.index.sessions],
   )
+
+  // Memoize the topbar doc title — cleanDocTitle is cheap but runs on every render, and more
+  // importantly returning a STABLE string reference (same value) lets ChatPanel's memo skip
+  // re-renders when chatContext churns but the cleaned title doesn't actually change (the
+  // common case during wiki resolution: "Name - 飞书云文档" and "Name" both clean to "Name").
+  const docTitle = useMemo(() => {
+    if (docMode === 'pin' && pinned) return pinned.title
+    if (chatContext.feishu) return cleanDocTitle(chatContext.title) || '飞书文档'
+    return sessions.activeSession?.title || '新会话'
+  }, [docMode, pinned, chatContext.feishu, chatContext.title, sessions.activeSession?.title])
+
+  // ── Stable callbacks for ChatPanel ──────────────────────────────────────
+  // These MUST be useCallback-wrapped (not inline arrows) so ChatPanel's memo() can skip
+  // re-renders when only App re-renders (e.g. ctx churn during a tab switch). Inline arrows
+  // are new references every render → ChatPanel re-renders every App render → the tab-switch
+  // title/kind jitter is visible even when chatContext itself is stable.
+  const activeSessionIdForKb = sessions.activeSession?.id
+  const onBaseName = useCallback((appToken: string, name: string) => {
+    sessions.resolveTitle(ctx.feishu?.wikiToken ?? appToken, name, 'base')
+  }, [sessions, ctx.feishu?.wikiToken])
+  const onOpenSessions = useCallback(() => setDrawerOpen(true), [])
+  const onStagedConsumed = useCallback(() => setStagedSelection(null), [])
+  const onToggleKb = useCallback((on: boolean) => {
+    if (activeSessionIdForKb) sessions.setKbEnabled(activeSessionIdForKb, on)
+  }, [activeSessionIdForKb, sessions])
 
   // A doc selection staged from the page (SELECTION_INCOMING) — consumed once by InputBar
   // (via ChatPanel) on the next send.
@@ -363,10 +383,10 @@ export default function App() {
                   setMessagesFor={sessions.setMessagesFor}
                   activeSessionId={sessions.activeSession?.id}
                   onStreamingChange={setChatStreaming}
-                  onBaseName={(appToken, name) => sessions.resolveTitle(ctx.feishu?.wikiToken ?? appToken, name, 'base')}
+                  onBaseName={onBaseName}
                   docTitle={docTitle}
                   docSessionCount={docSessionCount}
-                  onOpenSessions={() => setDrawerOpen(true)}
+                  onOpenSessions={onOpenSessions}
                   onNewSession={doc.handleNewSession}
                   chatBusy={chatStreaming}
                   docMode={docMode}
@@ -378,13 +398,10 @@ export default function App() {
                   recentFiles={recentFiles}
                   onRemoveRecent={removeFromRecent}
                   stagedSelection={stagedSelection}
-                  onStagedConsumed={() => setStagedSelection(null)}
+                  onStagedConsumed={onStagedConsumed}
                   workDocToken={workDocToken}
                   kbEnabled={sessions.activeSession?.kbEnabled === true}
-                  onToggleKb={(on: boolean) => {
-                    const id = sessions.activeSession?.id
-                    if (id) sessions.setKbEnabled(id, on)
-                  }}
+                  onToggleKb={onToggleKb}
                 />
               ) : (
                 <ScenarioPanel settings={settings} context={ctx} disabled={!canOperate} recentFiles={recentFiles} onRemoveRecent={removeFromRecent} resolveWikiKind={resolveWikiKind} resolveWikiNode={resolveWikiNode} onGoToSettings={() => setTab('settings')} />
