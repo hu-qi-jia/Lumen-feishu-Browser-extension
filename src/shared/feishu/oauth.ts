@@ -47,6 +47,29 @@ async function resolveAppId(): Promise<string> {
 }
 
 /**
+ * fetch + read-as-text + parse-JSON for OAuth endpoints (token + user_info).
+ * Mirrors feishuReq's text-first pattern: a 401/4xx with a non-JSON body (e.g. an
+ * HTML error page from a misrouted request) surfaces a clear error instead of a
+ * cryptic "Unexpected non-whitespace character after JSON" or a bare
+ * "Failed to load resource: the server responded with a status of 401" console line
+ * that hides the real reason (invalid client, expired refresh_token, wrong redirect_uri).
+ * Returns { ok, status, json } so callers can craft specific error messages.
+ */
+async function oauthFetch(url: string, init: RequestInit): Promise<{ ok: boolean; status: number; json: any }> {
+  const res = await fetch(url, init)
+  const raw = await res.text()
+  let json: any = {}
+  if (raw) {
+    try {
+      json = JSON.parse(raw)
+    } catch {
+      throw new Error(`OAuth 端点返回非 JSON 响应（HTTP ${res.status}）：${raw.slice(0, 200) || '(空)'}`)
+    }
+  }
+  return { ok: res.ok, status: res.status, json }
+}
+
+/**
  * Request a token from Feishu. The client_secret is sent in the POST body
  * (baked-plaintext, password-unlocked, or user-entered). Returns the parsed token response.
  */
@@ -62,12 +85,12 @@ async function requestToken(payload: Record<string, unknown>): Promise<TokenResp
   if (!isFeishuOutboundAllowed(TOKEN)) {
     throw new Error(`出站被拦截：${new URL(TOKEN).hostname} 不在允许的飞书主机列表内`)
   }
-  const res = await fetch(TOKEN, {
+  const { json } = await oauthFetch(TOKEN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...payload, client_id: clientId, client_secret: clientSecret }),
   })
-  return (await res.json()) as TokenResp
+  return json as TokenResp
 }
 
 /** OAuth is usable when an app id is configured AND we can obtain tokens — a baked secret
@@ -137,11 +160,11 @@ export async function fetchUserOpenId(userToken: string): Promise<{ openId: stri
   if (!isFeishuOutboundAllowed(USER_INFO)) {
     throw new Error(`出站被拦截：${new URL(USER_INFO).hostname} 不在允许的飞书主机列表内`)
   }
-  const ui = (await (await fetch(USER_INFO, {
+  const { status, json: ui } = await oauthFetch(USER_INFO, {
     headers: { Authorization: `Bearer ${token}` },
-  })).json()) as { code: number; msg: string; data?: { open_id: string; name: string } }
-  if (ui.code !== 0 || !ui.data) {
-    throw new Error(`获取用户信息失败（code=${ui.code}）：${ui.msg}。请确认 token 有效且未过期。`)
+  })
+  if (!ui || ui.code !== 0 || !ui.data) {
+    throw new Error(`获取用户信息失败（HTTP ${status}, code=${ui?.code}）：${ui?.msg || 'access token 无效或已过期'}。请确认 token 有效且未过期。`)
   }
   return { openId: ui.data.open_id, name: ui.data.name }
 }
@@ -207,10 +230,10 @@ export async function authorizeFeishuUser(): Promise<OAuthResult> {
   if (!isFeishuOutboundAllowed(USER_INFO)) {
     throw new Error(`出站被拦截：${new URL(USER_INFO).hostname} 不在允许的飞书主机列表内`)
   }
-  const ui = (await (await fetch(USER_INFO, {
+  const { status, json: ui } = await oauthFetch(USER_INFO, {
     headers: { Authorization: `Bearer ${tj.access_token}` },
-  })).json()) as { code: number; msg: string; data?: { open_id: string; name: string } }
-  if (ui.code !== 0 || !ui.data) throw new Error('获取用户信息失败：' + ui.msg)
+  })
+  if (!ui || ui.code !== 0 || !ui.data) throw new Error(`获取用户信息失败（HTTP ${status}, code=${ui?.code}）：${ui?.msg}`)
 
   return {
     userToken: tj.access_token,
