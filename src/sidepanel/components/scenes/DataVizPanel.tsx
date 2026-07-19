@@ -182,6 +182,17 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
     tableId: sourceData.kind === 'base' ? sourceData.tableId : undefined,
   } : null
   const curKey = sourceCtx ? ctxScopeKey(sourceCtx) : null
+  // Memoized: the drawer sort depends on `list` + `sourceCtx`, but the panel re-renders on
+  // every status update during generation — without memo each render re-sorts the full list
+  // AND re-evaluates savedVizMatchesCtx for every entry.
+  const sortedList = useMemo(() => {
+    return [...list].sort((a, b) => {
+      const aInScope = sourceCtx ? (savedVizMatchesCtx(a, sourceCtx) ? 0 : 1) : 1
+      const bInScope = sourceCtx ? (savedVizMatchesCtx(b, sourceCtx) ? 0 : 1) : 1
+      if (aInScope !== bInScope) return aInScope - bInScope
+      return b.createdAt - a.createdAt
+    })
+  }, [list, sourceCtx])
 
   // Restore the last generation for this source (survives tab-switch unmount).
   useEffect(() => {
@@ -646,15 +657,7 @@ export default function DataVizPanel({ settings, disabled, onBack, recentFiles, 
         <SideDrawer title="历史记录" onClose={() => setDrawerOpen(false)}>
           <div className="sl-decks">
             {list.length === 0 && <p className="sl-decks-empty">还没有保存过的看板</p>}
-            {[...list]
-              .sort((a, b) => {
-                // 当前表格的看板置顶，再按创建时间倒序。
-                const aInScope = sourceCtx ? (savedVizMatchesCtx(a, sourceCtx) ? 0 : 1) : 1
-                const bInScope = sourceCtx ? (savedVizMatchesCtx(b, sourceCtx) ? 0 : 1) : 1
-                if (aInScope !== bInScope) return aInScope - bInScope
-                return b.createdAt - a.createdAt
-              })
-              .map((v) => {
+            {sortedList.map((v) => {
                 const inScope = !sourceCtx || savedVizMatchesCtx(v, sourceCtx)
                 return (
                   <HistoryRow

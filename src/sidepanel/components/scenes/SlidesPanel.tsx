@@ -65,6 +65,9 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
   const [genChars, setGenChars] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [decks, setDecks] = useState<SavedDeck[]>([])
+  // Memoized: the panel re-renders frequently (status updates during generation, theme picker
+  // changes, etc.) — without memo, each render re-sorts the full deck list.
+  const sortedDecks = useMemo(() => [...decks].sort((a, b) => b.createdAt - a.createdAt), [decks])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeDeckId, setActiveDeckId] = useState('')
   const [adjReq, setAdjReq] = useState('')
@@ -471,7 +474,7 @@ export default function SlidesPanel({ settings, disabled, onBack, recentFiles, o
         <SideDrawer title="历史记录" onClose={() => setDrawerOpen(false)}>
           <div className="sl-decks">
             {decks.length === 0 && <p className="sl-decks-empty">还没有生成过的演示</p>}
-            {[...decks].sort((a, b) => b.createdAt - a.createdAt).map((d) => (
+            {sortedDecks.map((d) => (
               <HistoryRow key={d.id}
                 name={d.name}
                 meta={`${sourceLabel(d)} · ${timeAgo(d.createdAt)}`}

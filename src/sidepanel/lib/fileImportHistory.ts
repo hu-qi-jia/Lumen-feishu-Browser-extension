@@ -14,6 +14,19 @@ export interface SavedFileImport {
 
 const KEY = 'fileImportHistory_v1'
 export const MAX_FILE_IMPORTS = 20
+// Per-entry byte cap. `content` holds the parsed Markdown of an entire imported file (CSV/TSV/TXT),
+// which for a large dataset can be hundreds of KB. chrome.storage.local's 10MB quota is shared
+// with sessions/settings/etc. — cap each entry's footprint so one big import can't evict the rest.
+// Oversized imports save with content truncated.
+const MAX_FILE_IMPORT_BYTES = 800_000
+
+function sanitizeFileImport(p: SavedFileImport): SavedFileImport {
+  const json = JSON.stringify(p)
+  if (json.length <= MAX_FILE_IMPORT_BYTES) return p
+  const overhead = json.length - p.content.length
+  const keep = Math.max(0, MAX_FILE_IMPORT_BYTES - overhead - 20)
+  return { ...p, content: p.content.slice(0, keep) + '\n\n[已截断]', truncated: true }
+}
 
 function get(): Promise<SavedFileImport[]> {
   return new Promise((res) => {
@@ -38,7 +51,7 @@ export async function loadFileImports(): Promise<SavedFileImport[]> {
 /** Upsert（按 id 去重并提到队首）并截断到 MAX_FILE_IMPORTS。返回新列表。 */
 export async function saveFileImport(p: SavedFileImport): Promise<SavedFileImport[]> {
   const list = await get()
-  const next = [p, ...list.filter((x) => x.id !== p.id)].slice(0, MAX_FILE_IMPORTS)
+  const next = [sanitizeFileImport(p), ...list.filter((x) => x.id !== p.id)].slice(0, MAX_FILE_IMPORTS)
   await set(next)
   return next
 }

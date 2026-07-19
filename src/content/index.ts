@@ -77,15 +77,28 @@ let pushTimer: ReturnType<typeof setTimeout> | undefined
 function pushSoon(delay = 150) { clearTimeout(pushTimer); pushTimer = setTimeout(pushContext, delay) }
 
 // SPA navigation: a content script runs in an ISOLATED world and can't hook the page's
-// history API, so we detect URL changes by watching the DOM. Debounced.
-const navObserver = new MutationObserver(() => {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href
-    void refreshLauncher() // resource changed → re-check for a saved viz launcher
-    pushSoon()
-  }
+// history API, so we detect URL changes by polling. A MutationObserver on
+// `document.documentElement` (the previous approach) fires on EVERY DOM mutation across the
+// entire page — on a heavy SPA like Feishu that's hundreds of callbacks per second during
+// interaction, each one running `location.href !== lastUrl`. Polling at 750ms is O(1) per
+// tick, catches navigation within one frame of human perception, and never thrashes.
+let navPollTimer: ReturnType<typeof setInterval> | undefined
+function startNavPoll() {
+  if (navPollTimer) return
+  navPollTimer = setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href
+      void refreshLauncher() // resource changed → re-check for a saved viz launcher
+      pushSoon()
+    }
+  }, 750)
+}
+startNavPoll()
+// Visibility-aware: pause the poll while the tab is hidden (no point burning cycles), resume on focus.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') startNavPoll()
+  else if (navPollTimer) { clearInterval(navPollTimer); navPollTimer = undefined }
 })
-navObserver.observe(document.documentElement, { subtree: true, childList: true })
 
 // Feishu updates document.title a beat AFTER the route changes, so a push fired on the URL
 // change carries the PREVIOUS doc's name. Watch <head>/<title> and re-push when the real

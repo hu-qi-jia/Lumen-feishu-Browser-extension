@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BUILD_CONFIG, HAS_NETWORK_RESTRICTION, HAS_BUILTIN_CREDS } from '@/shared/config'
 import { checkNetworkAccess } from '@/shared/network'
 import { isFeishuConfigured, resolveToken } from '@/shared/feishu/auth'
@@ -27,6 +27,56 @@ import './App.css'
 import './Scrollbar.css'
 
 type NetworkState = 'checking' | 'allowed' | 'blocked'
+
+// Static NavRail entries — the SVG icons are content-identical across renders, so hoisting
+// this to module scope (a) avoids rebuilding 4 inline JSX subtrees per render and (b) gives
+// NavRail a referentially-stable `items` prop, which lets any internal memo actually short-circuit.
+const NAV_RAIL_ITEMS = [
+  {
+    id: 'chat',
+    label: '对话',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />
+      </svg>
+    ),
+  },
+  {
+    id: 'scenes',
+    label: '应用',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'news',
+    label: '资讯',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
+        <path d="M18 8h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2" />
+        <line x1="8" y1="8" x2="14" y2="8" />
+        <line x1="8" y1="12" x2="14" y2="12" />
+        <line x1="8" y1="16" x2="12" y2="16" />
+      </svg>
+    ),
+  },
+  {
+    id: 'settings',
+    label: '设置',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+  },
+]
 
 export default function App() {
   const { theme, setTheme, accent, setAccent } = useThemeAccent()
@@ -69,9 +119,15 @@ export default function App() {
     : chatContext.feishu
       ? (cleanDocTitle(chatContext.title) || '飞书文档')
       : (sessions.activeSession?.title || '新会话')
-  const docSessionCount = activeDocToken
-    ? sessions.index.sessions.filter((s) => s.appToken === activeDocToken).length
-    : 0
+  // Memoized: the session index is touched by every streamed token (the active session's
+  // messages write back through useSessions → index.updatedAt), so a raw .filter() here would
+  // re-scan the whole index per token. Depends only on the index array + the active token.
+  const docSessionCount = useMemo(
+    () => activeDocToken
+      ? sessions.index.sessions.filter((s) => s.appToken === activeDocToken).length
+      : 0,
+    [activeDocToken, sessions.index.sessions],
+  )
 
   // A doc selection staged from the page (SELECTION_INCOMING) — consumed once by InputBar
   // (via ChatPanel) on the next send.
@@ -258,52 +314,7 @@ export default function App() {
             aria-label="主导航"
             activeId={tab === 'chat' || tab === 'scenes' || tab === 'news' || tab === 'settings' ? tab : undefined}
             onSelect={(id) => setTab(id as AppTab)}
-            items={[
-              {
-                id: 'chat',
-                label: '对话',
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />
-                  </svg>
-                ),
-              },
-              {
-                id: 'scenes',
-                label: '应用',
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                  </svg>
-                ),
-              },
-              {
-                id: 'news',
-                label: '资讯',
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V4z" />
-                    <path d="M18 8h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2" />
-                    <line x1="8" y1="8" x2="14" y2="8" />
-                    <line x1="8" y1="12" x2="14" y2="12" />
-                    <line x1="8" y1="16" x2="12" y2="16" />
-                  </svg>
-                ),
-              },
-              {
-                id: 'settings',
-                label: '设置',
-                icon: (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                ),
-              },
-            ]}
+            items={NAV_RAIL_ITEMS}
           />
         </div>
 

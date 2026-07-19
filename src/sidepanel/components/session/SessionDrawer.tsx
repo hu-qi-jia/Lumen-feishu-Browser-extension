@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type { SessionKind, SessionMeta } from '@/shared/types'
 import type { SessionsApi } from '../../sessions/useSessions'
 import { groupSessions, GENERAL_GROUP_KEY, type SessionGroup } from '../../sessions/logic'
@@ -190,7 +190,11 @@ export default function SessionDrawer({ sessions, busy, onClose, resolveWikiKind
 
 // A doc bucket: a collapsible header (icon + doc name + session count) over its sessions.
 // Collapsed by default except the active session's group (see one-shot init above).
-function SessionGroupView({
+// Memoized: when one group's collapsed state flips, the parent re-renders and would otherwise
+// re-render EVERY group's header + body. The collapsed prop is the only thing that changes
+// for a non-toggled group, so memo skips re-rendering them. (Callback identity is ignored via
+// the custom comparator — the callbacks are behavior-only, they don't affect render output.)
+const SessionGroupView = memo(function SessionGroupView({
   group, collapsed, activeId, busy, editingId, draft,
   onToggle, onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete, onDeleteGroup,
 }: {
@@ -253,9 +257,20 @@ function SessionGroupView({
       )}
     </div>
   )
-}
+// Custom comparator: the parent passes inline arrow callbacks (new identity each render),
+// which would defeat default shallow-compare memo. The callbacks are behavior-only (they fire
+// on click, never affect render output), so comparing just the data-bearing props is correct
+// AND lets memo actually short-circuit when only one group's collapsed state changed.
+}, (prev, next) =>
+  prev.group === next.group &&
+  prev.collapsed === next.collapsed &&
+  prev.activeId === next.activeId &&
+  prev.busy === next.busy &&
+  prev.editingId === next.editingId &&
+  prev.draft === next.draft
+)
 
-function SessionRow({
+const SessionRow = memo(function SessionRow({
   meta, active, busy, editing, draft, docBadge,
   onPick, onStartRename, onDraft, onCommit, onCancelRename, onDelete,
 }: {
@@ -320,7 +335,17 @@ function SessionRow({
       )}
     </div>
   )
-}
+// Same rationale as SessionGroupView: parent passes inline arrow callbacks, so default
+// shallow-compare memo would never short-circuit. Compare only data-bearing props — the
+// callbacks fire on click but don't affect what's rendered.
+}, (prev, next) =>
+  prev.meta === next.meta &&
+  prev.active === next.active &&
+  prev.busy === next.busy &&
+  prev.editing === next.editing &&
+  prev.draft === next.draft &&
+  prev.docBadge === next.docBadge
+)
 
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000)

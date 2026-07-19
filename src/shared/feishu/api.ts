@@ -34,6 +34,11 @@ async function req<T = unknown>(
 interface CacheEntry<T> { ts: number; data: T }
 const META_CACHE_TTL = 60_000
 const metaCache = new Map<string, CacheEntry<unknown>>()
+// Sweep amortization: clean expired entries every N writes so the Map doesn't grow unbounded
+// on a long-lived SW (cacheGet only cleans the key it touches, leaving other expired entries
+// to leak until they're re-accessed). 32 keeps amortized sweep cost at ~O(1) per write.
+const META_CACHE_SWEEP_INTERVAL = 32
+let metaCacheWriteCount = 0
 
 function cacheGet<T>(key: string): T | undefined {
   const e = metaCache.get(key)
@@ -44,6 +49,14 @@ function cacheGet<T>(key: string): T | undefined {
 
 function cacheSet<T>(key: string, data: T): void {
   metaCache.set(key, { ts: Date.now(), data })
+  // Periodic sweep — clears ALL expired entries, not just this key. Keeps the Map from
+  // accumulating stale entries for resources the user visited once and never returned to.
+  if (++metaCacheWriteCount % META_CACHE_SWEEP_INTERVAL === 0) {
+    const now = Date.now()
+    for (const [k, e] of metaCache) {
+      if (now - e.ts >= META_CACHE_TTL) metaCache.delete(k)
+    }
+  }
 }
 
 /** 按前缀失效缓存（如 createTable 后失效该 app 下所有 table/field/view 缓存）。 */

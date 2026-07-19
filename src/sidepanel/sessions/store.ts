@@ -8,6 +8,33 @@ import type { ChatMessage, SessionIndex } from '@/shared/types'
 
 const IDX_KEY = 'sessions_index_v1'
 const MSG_PREFIX = 'session_msgs_v1::'
+// Per-attachment dataUrl byte cap. Image attachments can be large base64 blobs, and a single
+// session with several high-res uploads could otherwise dominate chrome.storage.local's 10MB
+// quota. Oversized dataUrls are dropped on save (the attachment metadata + filename stay, so
+// the chat still shows the chip — just without the inline image on reload).
+const MAX_ATTACHMENT_DATAURL_BYTES = 500_000
+
+/** Strip oversized attachment dataUrls before persistence. Returns a shallow-cloned array
+ *  only when sanitization actually changed a message; otherwise returns the input untouched
+ *  so callers that just persist an unmodified array don't pay the clone cost. */
+function sanitizeMessages(messages: ChatMessage[]): ChatMessage[] {
+  let modified = false
+  const out = messages.map((m) => {
+    if (!m.attachments?.length) return m
+    let mModified = false
+    const atts = m.attachments.map((a) => {
+      if (a.dataUrl && a.dataUrl.length > MAX_ATTACHMENT_DATAURL_BYTES) {
+        mModified = true
+        return { ...a, dataUrl: undefined }
+      }
+      return a
+    })
+    if (!mModified) return m
+    modified = true
+    return { ...m, attachments: atts }
+  })
+  return modified ? out : messages
+}
 
 function get<T>(key: string): Promise<T | undefined> {
   return new Promise((resolve) =>
@@ -36,7 +63,7 @@ export async function loadMessages(id: string): Promise<ChatMessage[]> {
 }
 
 export function saveMessages(id: string, messages: ChatMessage[]): Promise<void> {
-  return set({ [MSG_PREFIX + id]: messages })
+  return set({ [MSG_PREFIX + id]: sanitizeMessages(messages) })
 }
 
 export function removeMessages(id: string): Promise<void> {

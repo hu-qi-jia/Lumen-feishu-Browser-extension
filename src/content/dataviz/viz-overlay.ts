@@ -108,6 +108,11 @@ function ensure(id: string): Overlay {
   const existing = overlays.get(id)
   if (existing) return existing
 
+  // rAF state for the custom color picker's oninput — declared at function scope so the
+  // oninput closure below can read+update them without re-allocating per event.
+  let accentRafId: number | null = null
+  let pendingAccent: string = '#4f6bff'
+
   const idx = overlays.size
   const el = document.createElement('div')
   el.style.cssText =
@@ -174,7 +179,17 @@ function ensure(id: string): Overlay {
     dot.onclick = () => { custom.value = preset.hex; sendAccent(preset.hex); pop.style.display = 'none' }
     sw.append(dot)
   }
-  custom.oninput = () => sendAccent(custom.value)
+  custom.oninput = () => {
+    // rAF-coalesce: dragging the color picker fires oninput per pixel of slider movement,
+    // each one postMessage'ing into the sandbox and triggering a full chart re-render. Batch
+    // to one postMessage per frame; the latest color wins.
+    pendingAccent = custom.value
+    if (accentRafId != null) return
+    accentRafId = requestAnimationFrame(() => {
+      accentRafId = null
+      sendAccent(pendingAccent)
+    })
+  }
   const reset = document.createElement('button'); reset.textContent = '恢复默认'
   reset.style.cssText = 'border:none;background:#eef1ff;color:#3a55ee;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;padding:6px 10px;'
   reset.onclick = () => { custom.value = '#4f6bff'; sendAccent(null); pop.style.display = 'none' }
@@ -233,6 +248,11 @@ function flash(o: Overlay, text: string) {
 
 function makeDraggable(el: HTMLElement, handle: HTMLElement) {
   let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false
+  // rAF coalescing: pointermove fires faster than 60fps during a drag, and writing
+  // el.style.left/top per event forces layout recalc on the entire overlay tree (iframe
+  // reflow is expensive). Coalesce to one write per frame; the latest event wins.
+  let rafId: number | null = null
+  let lastEvt: PointerEvent | null = null
   const front = () => { el.style.zIndex = String(++zTop) }
   handle.addEventListener('pointerdown', (e) => {
     front()
@@ -245,10 +265,20 @@ function makeDraggable(el: HTMLElement, handle: HTMLElement) {
   })
   handle.addEventListener('pointermove', (e) => {
     if (!dragging) return
-    el.style.left = Math.max(0, ox + e.clientX - sx) + 'px'
-    el.style.top = Math.max(0, oy + e.clientY - sy) + 'px'
+    lastEvt = e
+    if (rafId != null) return
+    rafId = requestAnimationFrame(() => {
+      rafId = null
+      if (!lastEvt || !dragging) return
+      el.style.left = Math.max(0, ox + lastEvt.clientX - sx) + 'px'
+      el.style.top = Math.max(0, oy + lastEvt.clientY - sy) + 'px'
+    })
   })
-  handle.addEventListener('pointerup', (e) => { dragging = false; try { handle.releasePointerCapture(e.pointerId) } catch { /* */ } })
+  handle.addEventListener('pointerup', (e) => {
+    dragging = false
+    if (rafId != null) { cancelAnimationFrame(rafId); rafId = null }
+    try { handle.releasePointerCapture(e.pointerId) } catch { /* */ }
+  })
 }
 
 // Resize from all 4 corners + 4 edges (CSS `resize` only gives the SE corner). Handles sit
@@ -270,6 +300,20 @@ function makeResizable(el: HTMLElement) {
     grip.style.cssText = 'position:absolute;z-index:6;' + h.css
     el.appendChild(grip)
     let sx = 0, sy = 0, sl = 0, st = 0, sw = 0, sh = 0, active = false
+    // Same rAF coalescing as makeDraggable — resize pointermove writes 4 style props per event.
+    let rafId: number | null = null
+    let lastEvt: PointerEvent | null = null
+    const apply = () => {
+      rafId = null
+      if (!lastEvt || !active) return
+      const dx = lastEvt.clientX - sx, dy = lastEvt.clientY - sy
+      let w = sw, ht = sh, left = sl, top = st
+      if (h.r) w = Math.max(MIN_W, sw + dx)
+      if (h.l) { w = Math.max(MIN_W, sw - dx); left = sl + (sw - w) }
+      if (h.b) ht = Math.max(MIN_H, sh + dy)
+      if (h.t) { ht = Math.max(MIN_H, sh - dy); top = st + (sh - ht) }
+      el.style.width = w + 'px'; el.style.height = ht + 'px'; el.style.left = left + 'px'; el.style.top = top + 'px'
+    }
     grip.addEventListener('pointerdown', (e) => {
       e.stopPropagation(); e.preventDefault(); active = true
       el.style.zIndex = String(++zTop)
@@ -280,15 +324,14 @@ function makeResizable(el: HTMLElement) {
     })
     grip.addEventListener('pointermove', (e) => {
       if (!active) return
-      const dx = e.clientX - sx, dy = e.clientY - sy
-      let w = sw, ht = sh, left = sl, top = st
-      if (h.r) w = Math.max(MIN_W, sw + dx)
-      if (h.l) { w = Math.max(MIN_W, sw - dx); left = sl + (sw - w) }
-      if (h.b) ht = Math.max(MIN_H, sh + dy)
-      if (h.t) { ht = Math.max(MIN_H, sh - dy); top = st + (sh - ht) }
-      el.style.width = w + 'px'; el.style.height = ht + 'px'; el.style.left = left + 'px'; el.style.top = top + 'px'
+      lastEvt = e
+      if (rafId == null) rafId = requestAnimationFrame(apply)
     })
-    grip.addEventListener('pointerup', (e) => { active = false; try { grip.releasePointerCapture(e.pointerId) } catch { /* */ } })
+    grip.addEventListener('pointerup', (e) => {
+      active = false
+      if (rafId != null) { cancelAnimationFrame(rafId); rafId = null }
+      try { grip.releasePointerCapture(e.pointerId) } catch { /* */ }
+    })
   }
 }
 

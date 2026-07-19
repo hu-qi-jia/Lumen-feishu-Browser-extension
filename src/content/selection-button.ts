@@ -14,6 +14,10 @@ let host: HTMLDivElement | null = null   // shadow host (injected into toolbar)
 let btn: HTMLButtonElement | null = null  // the button inside the shadow root
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 let isDragging = false
+// Cached toolbar container — `ensureButton` runs on every refresh() (which itself runs on
+// every selectionchange). Skipping the `.docx-menu-container` querySelector + getComputedStyle
+// when our button is already happily attached avoids per-event layout queries (forced reflow).
+let cachedContainer: HTMLElement | null = null
 
 /** 'doc' | 'wiki' on a doc/wiki page, else null. */
 function docKind(): 'doc' | 'wiki' | null {
@@ -35,14 +39,26 @@ function currentSelection(): { text: string } | null {
  * Returns the button, or null if the toolbar isn't available / visible yet.
  */
 function ensureButton(): HTMLButtonElement | null {
-  const container = document.querySelector('.docx-menu-container') as HTMLElement | null
-  if (!container) return null
-  // Skip containers that are present in the DOM but not actually shown.
-  const cs = getComputedStyle(container)
-  if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return null
+  // Fast path: if our host is still attached inside the cached container, the button is
+  // already visible — skip both the querySelector AND the getComputedStyle (which forces
+  // layout reflow). This is the common case on every selectionchange while the toolbar is up.
+  if (btn && host && cachedContainer && host.isConnected && cachedContainer.isConnected && cachedContainer.contains(host)) {
+    return btn
+  }
 
-  // Already injected and still in place — reuse.
-  if (btn && host && host.isConnected && container.contains(host)) return btn
+  const container = document.querySelector('.docx-menu-container') as HTMLElement | null
+  if (!container) { cachedContainer = null; return null }
+  // `offsetParent === null` is a cheap check that covers display:none + not-in-render-tree
+  // WITHOUT forcing a full computed-style recalc. Only fall back to getComputedStyle for the
+  // rarer visibility:hidden / opacity:0 cases when the element DOES have layout.
+  if (container.offsetParent === null) {
+    const cs = getComputedStyle(container)
+    if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) {
+      cachedContainer = null
+      return null
+    }
+  }
+  cachedContainer = container
 
   // Clean up orphaned previous instance.
   if (host) { try { host.remove() } catch { /* detached */ } }
@@ -106,6 +122,8 @@ function hide() {
   if (host) { try { host.remove() } catch { /* detached */ } }
   host = null
   btn = null
+  // Don't clear cachedContainer: the toolbar element may still be live in the DOM (just
+  // our button removed). Re-injection next show() can still fast-path on offsetParent.
 }
 
 function refresh() {

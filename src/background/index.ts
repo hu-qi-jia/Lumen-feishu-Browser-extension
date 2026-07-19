@@ -90,6 +90,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // mount (mirrors the CLIP_REQUEST pattern — covers the open→message race where the panel
 // isn't listening yet). The button click is the user gesture MV3 requires for sidePanel.open.
 let pendingSelection: { payload: DocSelectionPayload; at: number } | null = null
+let pendingSelectionTimer: ReturnType<typeof setTimeout> | undefined
 const SELECTION_TTL_MS = 3000
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
@@ -97,6 +98,11 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   const payload = msg.payload as DocSelectionPayload | undefined
   if (!payload?.docToken || !payload?.selectedText) return undefined
   pendingSelection = { payload, at: Date.now() }
+  // GC the stash after the TTL — otherwise a selection whose panel never opens (user dismissed
+  // the popup, or the click was lost) stays in SW memory for the whole SW lifetime. The
+  // SELECTION_REQUEST handler also clears on read, so this is a belt-and-suspenders cleanup.
+  if (pendingSelectionTimer) clearTimeout(pendingSelectionTimer)
+  pendingSelectionTimer = setTimeout(() => { pendingSelection = null; pendingSelectionTimer = undefined }, SELECTION_TTL_MS + 500)
   const tabId = sender.tab?.id
   if (tabId != null) chrome.sidePanel.open({ tabId }).catch(() => {})
   // Best-effort push to an already-open panel (no-op if none listening yet — the pull covers it).
@@ -109,6 +115,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== 'SELECTION_REQUEST') return undefined
   const s = pendingSelection
   pendingSelection = null
+  if (pendingSelectionTimer) { clearTimeout(pendingSelectionTimer); pendingSelectionTimer = undefined }
   if (s && Date.now() - s.at > SELECTION_TTL_MS) { sendResponse(null); return false } // stale → drop
   sendResponse(s?.payload ?? null)
   return false

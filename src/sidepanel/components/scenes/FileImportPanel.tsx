@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppSettings, PageContext } from '@/shared/types'
 import type { ClipCapture } from '@/shared/clip/types'
 import { fileToClip } from '@/shared/clip/file'
@@ -55,6 +55,9 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
   const [busyLabel, setBusyLabel] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [imports, setImports] = useState<SavedFileImport[]>([])
+  // Memoized: the panel re-renders on every keystroke into the editor (content field) —
+  // without memo, each keystroke re-sorts the full import history list.
+  const sortedImports = useMemo(() => [...imports].sort((a, b) => b.createdAt - a.createdAt), [imports])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -269,7 +272,7 @@ export default function FileImportPanel({ settings, context, disabled, onBack, r
         <SideDrawer title="导入历史" onClose={() => setHistoryOpen(false)}>
           <div className="fi-history-list">
             {imports.length === 0 && <p className="fi-history-empty">还没有导入过的文件</p>}
-            {[...imports].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
+            {sortedImports.map((p) => (
               <HistoryRow key={p.id}
                 name={p.fileName}
                 meta={timeAgo(p.createdAt)}

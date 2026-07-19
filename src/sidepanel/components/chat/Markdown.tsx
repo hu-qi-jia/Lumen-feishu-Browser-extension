@@ -1,10 +1,15 @@
-import type { ReactNode, MouseEvent, Key } from 'react'
+import { memo, type ReactNode, type MouseEvent, type Key } from 'react'
 import { openUrlInNewTab } from '@/shared/url'
 import './Markdown.css'
 
 /** Hand-rolled minimal markdown → React (headings, lists, tables, code, links).
- *  Extracted from MessageList so chat + PDF preview share one renderer. */
-export default function Markdown({ children }: { children: string }) {
+ *  Extracted from MessageList so chat + PDF preview share one renderer.
+ *
+ *  Memoized: ChatPanel rebuilds the messages array every streamed token, but only the
+ *  in-flight item's `content` changes — stable messages have the same `children` string
+ *  reference. Without memo, every historical message re-parses its markdown per token
+ *  (O(n²) on long conversations). A shallow `children` compare skips the stable ones. */
+const MarkdownImpl = function Markdown({ children }: { children: string }) {
   // HTML comments aren't visible content (pdf2md emits <!-- PAGE_BREAK --> between pages).
   // Strip them at the render layer so a stray marker can never show up as literal text,
   // even if it survived into the source (e.g. a history item saved before the extract-time strip).
@@ -67,6 +72,9 @@ export default function Markdown({ children }: { children: string }) {
   }
   return <div className="md-content">{elements}</div>
 }
+
+const Markdown = memo(MarkdownImpl)
+export default Markdown
 
 const safeHref = (url: string): string | null => (/^https?:\/\//i.test(url) ? url : null)
 

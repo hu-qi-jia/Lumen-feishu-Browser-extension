@@ -36,6 +36,24 @@ export interface SourceRef {
 }
 
 const KEY = 'slides_decks_v1'
+// Per-deck byte cap on the persisted JSON. Decks can carry a large image pool (base64
+// dataUrls in `images`), and chrome.storage.local has a 10MB total quota — a single
+// oversized deck (many high-res uploads) could blow the budget for EVERYTHING else (sessions,
+// settings, news cache). Cap a single deck's serialized footprint; oversized decks still save
+// but their image pool is dropped (the slides themselves stay).
+const MAX_DECK_BYTES = 1_500_000
+
+function sanitizeDeck(d: SavedDeck): SavedDeck {
+  let json = JSON.stringify(d)
+  if (json.length <= MAX_DECK_BYTES) return d
+  // Strip the image pool first — it's the only field that can be huge, and decks still
+  // render without it (image-split slides just show placeholder gradients).
+  const stripped: SavedDeck = { ...d, images: undefined }
+  json = JSON.stringify(stripped)
+  if (json.length <= MAX_DECK_BYTES) return stripped
+  // Still too big (very long slides[]) — drop the source too as a last resort.
+  return { ...stripped, source: undefined }
+}
 
 function get(): Promise<SavedDeck[]> {
   return new Promise((res) => {
@@ -59,11 +77,11 @@ export async function loadDecks(): Promise<SavedDeck[]> {
 }
 /** Bulk overwrite — used by backup restore (merge) to write the merged list back. */
 export async function replaceDecks(list: SavedDeck[]): Promise<void> {
-  await set(list.slice(0, 50))
+  await set(list.slice(0, 50).map(sanitizeDeck))
 }
 export async function saveDeck(d: SavedDeck): Promise<SavedDeck[]> {
   const list = await get()
-  const next = [d, ...list.filter((x) => x.id !== d.id)].slice(0, 50)
+  const next = [sanitizeDeck(d), ...list.filter((x) => x.id !== d.id)].slice(0, 50)
   await set(next)
   return next
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { AppSettings, Attachment, ChatMessage, DocSelectionPayload, PageContext, SessionKind } from '@/shared/types'
 import type { BaseCtx } from '@/shared/feishu/context'
 import { fetchBaseCtx, fetchSheetCtx } from '@/shared/feishu/context'
@@ -75,7 +75,7 @@ interface Props {
   onToggleKb: (on: boolean) => void
 }
 
-export default function ChatPanel({
+export default memo(function ChatPanel({
   settings, context, disabled, stagedSelection, onStagedConsumed, workDocToken,
   messages, setMessages, setMessagesFor, activeSessionId,
   onStreamingChange, onBaseName, docTitle, docSessionCount, onOpenSessions, onNewSession, chatBusy,
@@ -83,7 +83,13 @@ export default function ChatPanel({
   kbEnabled, onToggleKb,
 }: Props) {
   const [streaming, setStreaming] = useState(false)
-  useEffect(() => { onStreamingChange?.(streaming) }, [streaming, onStreamingChange])
+  // onStreamingChange may be a new inline fn each parent render — depending on it directly
+  // fires the effect every render. Hold the latest callback in a ref and depend only on
+  // `streaming` so the parent re-render storm (e.g. per-token state updates elsewhere)
+  // doesn't cascade this side effect.
+  const onStreamingChangeRef = useRef(onStreamingChange)
+  onStreamingChangeRef.current = onStreamingChange
+  useEffect(() => { onStreamingChangeRef.current?.(streaming) }, [streaming])
 
   // Cancels the in-flight turn only when a NEW send supersedes it. We deliberately do
   // NOT abort on unmount: the agent writes to App-level session state (setMessagesFor),
@@ -97,6 +103,17 @@ export default function ChatPanel({
   const [pendingConfirm, setPendingConfirm] = useState<
     { req: ConfirmRequest; resolve: (c: ConfirmChoice) => void } | null
   >(null)
+  // Mirror pendingConfirm into a ref so the unmount-only cleanup below can read the
+  // LATEST value without re-subscribing the effect each time it changes. Without this,
+  // unmounting the panel mid-confirm (tab switch / view swap) leaves the agent loop
+  // awaiting a promise that never resolves — the turn silently hangs forever.
+  const pendingConfirmRef = useRef(pendingConfirm)
+  pendingConfirmRef.current = pendingConfirm
+  useEffect(() => {
+    return () => {
+      if (pendingConfirmRef.current) pendingConfirmRef.current.resolve('cancel')
+    }
+  }, [])
 
   // Image export card state (set from onToolMessage when __image_export marker detected)
   const [imageExport, setImageExport] = useState<{
@@ -104,9 +121,9 @@ export default function ChatPanel({
     docTitle: string
   } | null>(null)
 
-  function requestConfirmation(req: ConfirmRequest): Promise<ConfirmChoice> {
+  const requestConfirmation = useCallback((req: ConfirmRequest): Promise<ConfirmChoice> => {
     return new Promise((resolve) => setPendingConfirm({ req, resolve }))
-  }
+  }, [])
 
   const inputRef = useRef<InputBarHandle>(null)
 
@@ -525,4 +542,4 @@ export default function ChatPanel({
       )}
     </div>
   )
-}
+})

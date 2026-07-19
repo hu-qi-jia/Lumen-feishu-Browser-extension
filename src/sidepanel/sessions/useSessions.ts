@@ -6,6 +6,11 @@ import { emptyIndex, ensureSession as ensureSessionPure, removeSession as remove
 const uid = () => crypto.randomUUID()
 const now = () => Date.now()
 const FLUSH_MS = 800
+// Cap on concurrently-cached session message arrays. Each entry holds the FULL message history
+// (incl. attachment dataUrls), so an unbounded Map leaks memory as the user opens more sessions
+// over the panel's lifetime. 5 covers heavy multi-doc switching; evicted sessions re-load from
+// storage on next visit (one extra storage.local.get — cheap).
+const MAX_CACHED_SESSIONS = 5
 
 type Updater = ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
 
@@ -112,9 +117,32 @@ export function useSessions(activeAppToken: string | null, streaming: boolean, a
   const loadInto = useCallback(async (id: string) => {
     activeIdRef.current = id
     const cached = cache.current.get(id)
-    if (cached) { setMessagesState(cached); return }
+    if (cached) {
+      // LRU touch: Map preserves insertion order, so delete + re-set moves this entry to the
+      // end (most-recently-used). The eviction below deletes from the front (least-recent).
+      cache.current.delete(id)
+      cache.current.set(id, cached)
+      setMessagesState(cached)
+      return
+    }
     const msgs = await store.loadMessages(id) // full history — no per-session message cap
     cache.current.set(id, msgs)
+    // Evict LRU non-active entries over the cap. NEVER evict the active session — even if it
+    // is the LRU, it's the in-flight streaming write target (setMessagesFor writes here) and
+    // dropping it would lose unsaved streamed tokens before the FLUSH_MS debounce fires.
+    // Also skip sessions with a pending flush — they're mid-write (e.g. another session still
+    // receiving streamed tokens) and evicting them would lose unsaved history on next write.
+    while (cache.current.size > MAX_CACHED_SESSIONS) {
+      let evicted = false
+      for (const key of cache.current.keys()) {
+        if (key === activeIdRef.current) continue
+        if (flushTimers.current.has(key)) continue
+        cache.current.delete(key)
+        evicted = true
+        break
+      }
+      if (!evicted) break // every remaining entry is active or pending-flush — stop
+    }
     if (activeIdRef.current === id) setMessagesState(msgs)
   }, [])
 

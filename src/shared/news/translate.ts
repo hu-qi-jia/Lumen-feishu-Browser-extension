@@ -66,8 +66,17 @@ export async function translateViaBing(texts: string[]): Promise<(string | undef
   }
   // Final fallback: one-by-one with spacing + per-item retry. Each item gets its own
   // error boundary so one failure doesn't kill the rest.
+  //
+  // CAP at BING_FALLBACK_MAX items: each item can take up to ~3.5s in the worst case
+  // (request + 1s retry sleep + 0.5s spacing), so 8 items ≈ 28s worst case — keeps us
+  // under Chrome's MV3 service-worker idle teardown window. Items beyond the cap return
+  // undefined (the user can hit the translate button again to retry the rest, which will
+  // mostly hit the translation cache for the already-translated ones).
+  const BING_FALLBACK_MAX = 8
   const results: (string | undefined)[] = []
-  for (const t of texts) {
+  for (let i = 0; i < texts.length; i++) {
+    if (i >= BING_FALLBACK_MAX) { results.push(undefined); continue }
+    const t = texts[i]
     let translated: string | undefined
     for (let attempt = 0; attempt < 2 && translated === undefined; attempt++) {
       try {

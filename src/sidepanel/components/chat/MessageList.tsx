@@ -109,13 +109,23 @@ export default function MessageList({ messages, onExample, onRetry, kind, stream
 
   const groups = useMemo(() => groupTurns(visible), [visible])
 
+  // rAF-throttled scroll-to-bottom: streaming delivers tokens faster than 60fps, and a
+  // synchronous scrollIntoView per token forces layout reflow on the entire message list
+  // (layout thrashing). Coalesce to one scroll per animation frame; if a new token lands
+  // while a frame is pending, the latest bottomRef is used when the frame fires.
+  const scrollRafRef = useRef<number | null>(null)
   useEffect(() => {
-    // `behavior:'auto'` (instant), not 'smooth' — this fires on every streamed token (a new
-    // messages ref per chunk), and a smooth scroll restarting mid-animation each token stutters
-    // and never catches the bottom. Instant pins to the bottom per token cleanly.
-    // 依赖最后一条可见消息的 id + 内容长度，而非整个 messages 数组引用（流式时每个 token
-    // 都会生成新数组引用，但只有末尾消息在变化）。
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    if (scrollRafRef.current != null) return // already scheduled — the latest deps are captured by the closure
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    })
+    return () => {
+      if (scrollRafRef.current != null) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = null
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在末尾可见消息变化时滚动
   }, [visible.length, visible[visible.length - 1]?.id, visible[visible.length - 1]?.content])
   const lastGroup = groups[groups.length - 1]
@@ -226,7 +236,10 @@ const ReplyItem = React.memo(function ReplyItem({ msg }: { msg: ChatMessage }) {
   )
 })
 
-function UserBubble({ msg }: { msg: ChatMessage }) {
+// Memoized: same rationale as ReplyItem — the user bubble is stable once sent, but
+// streaming-driven rebuilds of `messages` would otherwise re-render it (and its attachments)
+// per token. A shallow `msg` compare skips it entirely.
+const UserBubble = React.memo(function UserBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="msg-row msg-row--user">
       <div className="bubble bubble--user">
@@ -247,7 +260,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
       </div>
     </div>
   )
-}
+})
 
 // Inner 思考中… content (spinner + text + animated dots) — shared by the inline indicator
 // (inside a reply block) and the standalone indicator (turn start). Pure CSS, no emoji.

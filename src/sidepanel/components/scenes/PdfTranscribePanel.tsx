@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppSettings, PageContext } from '@/shared/types'
 import type { RecentFile } from '../../services/recentFiles'
 import { resolveToken } from '@/shared/feishu/auth'
@@ -55,6 +55,9 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
   const [createErr, setCreateErr] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [pdfs, setPdfs] = useState<SavedPdf[]>([])
+  // Memoized: sort is O(n log n) and the panel re-renders on every keystroke into the editor
+  // (markdown field) — without memo, each keystroke re-sorts the whole history list.
+  const sortedPdfs = useMemo(() => [...pdfs].sort((a, b) => b.createdAt - a.createdAt), [pdfs])
   const pickedFile = useRef<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
@@ -351,7 +354,7 @@ export default function PdfTranscribePanel({ settings, context, disabled, onBack
         <SideDrawer title="历史记录" onClose={() => setHistoryOpen(false)}>
           <div className="pdf-history-list">
             {pdfs.length === 0 && <p className="pdf-history-empty">还没有转换过的文件</p>}
-            {[...pdfs].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
+            {sortedPdfs.map((p) => (
               <HistoryRow key={p.id}
                 name={`${p.fileName}.pdf`}
                 meta={timeAgo(p.createdAt)}
