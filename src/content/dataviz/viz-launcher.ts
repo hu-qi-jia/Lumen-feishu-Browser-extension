@@ -45,50 +45,62 @@ function clearBar() { if (host) { host.remove(); host = null; bar = null } }
 const PILL_IDLE = '0.55'   // translucent at rest, so it barely obscures the document
 const PILL_HOVER = '1'     // deepens to full color on hover
 
+/** Shared capsule visual: blue pill, translucent at rest, opaque on hover. */
+const PILL_STYLE =
+  'flex:0 0 auto;box-sizing:border-box;display:flex;align-items:center;gap:6px;max-width:240px;padding:9px 14px;border:none;border-radius:999px;' +
+  'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 6px 24px rgba(79,107,255,.4);' +
+  "font:13px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
+  'overflow:hidden;text-overflow:ellipsis;opacity:' + PILL_IDLE + ';transition:opacity .18s ease, box-shadow .18s ease;'
+
 /**
- * Build a launcher pill. The pill itself is a <button>; when `onDelete` is provided, a ×
- * affordance is rendered as a sibling inside a wrapper <div> so the delete click never reaches
- * the pill's onClick (stopPropagation). Both share the pill's hover-opacity behavior.
+ * Build a launcher pill.
+ *
+ * Without `onDelete`: returns a <button> (the whole pill is clickable).
+ *
+ * With `onDelete`: returns a <div role=button> containing a label <span> + a × <button> INSIDE
+ * the capsule. Nested buttons are invalid HTML, so the capsule becomes a div; the × lives inside
+ * the blue pill so it's always visible against the blue background (not against the page).
+ * stopPropagation keeps × clicks from firing the pill's onClick.
  */
-function makePill(label: string, title: string, onClick: () => void, onDelete?: () => void): HTMLButtonElement {
-  const b = document.createElement('button')
-  b.style.cssText =
-    'flex:0 0 auto;box-sizing:border-box;display:flex;align-items:center;gap:6px;max-width:240px;padding:9px 14px;border:none;border-radius:999px;' +
-    'cursor:pointer;background:#4f6bff;color:#fff;box-shadow:0 6px 24px rgba(79,107,255,.4);' +
-    "font:13px/1.2 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;white-space:nowrap;" +
-    'overflow:hidden;text-overflow:ellipsis;opacity:' + PILL_IDLE + ';transition:opacity .18s ease, box-shadow .18s ease;'
-  b.textContent = label
-  b.title = title
-  // Dynamic transparency: faded while idle (doesn't block content), color deepens on hover.
-  b.onmouseenter = () => { b.style.opacity = PILL_HOVER }
-  b.onmouseleave = () => { b.style.opacity = PILL_IDLE }
-  b.onclick = onClick
-  if (onDelete) {
-    const x = document.createElement('button')
-    x.title = '删除'
-    x.textContent = '×'
-    x.style.cssText =
-      'flex:0 0 auto;box-sizing:border-box;padding:0 4px;border:none;background:transparent;color:#fff;' +
-      'font:16px/1 -apple-system,sans-serif;cursor:pointer;opacity:.7;transition:opacity .15s ease;'
-    x.onmouseenter = () => { x.style.opacity = '1' }
-    x.onmouseleave = () => { x.style.opacity = '.7' }
-    x.onclick = (e) => { e.stopPropagation(); onDelete() }
-    // Wrap pill + × in a row so they visually belong together
-    const wrap = document.createElement('div')
-    wrap.style.cssText = 'display:flex;align-items:center;gap:2px;'
-    // The wrapper inherits the pill's hover-opacity by listening on the wrapper itself.
-    wrap.onmouseenter = () => { b.style.opacity = PILL_HOVER; x.style.opacity = '1' }
-    wrap.onmouseleave = () => { b.style.opacity = PILL_IDLE; x.style.opacity = '.7' }
-    wrap.appendChild(b)
-    wrap.appendChild(x)
-    // Return the button (for backwards-compat with callers that only need the clickable pill),
-    // but the caller actually appends the wrapper — see makePillWrapper below.
-    ;(b as HTMLButtonElement & { _wrapper?: HTMLDivElement })._wrapper = wrap
+function makePill(label: string, title: string, onClick: () => void, onDelete?: () => void): HTMLElement {
+  if (!onDelete) {
+    const b = document.createElement('button')
+    b.style.cssText = PILL_STYLE
+    b.textContent = label
+    b.title = title
+    b.onmouseenter = () => { b.style.opacity = PILL_HOVER }
+    b.onmouseleave = () => { b.style.opacity = PILL_IDLE }
+    b.onclick = onClick
+    return b
   }
-  return b
+  // Capsule with inline delete: div role=button so we can nest a × <button> inside.
+  const cap = document.createElement('div')
+  cap.style.cssText = PILL_STYLE
+  cap.title = title
+  cap.setAttribute('role', 'button')
+  cap.setAttribute('tabindex', '0')
+  cap.onclick = onClick
+  cap.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
+  cap.onmouseenter = () => { cap.style.opacity = PILL_HOVER; x.style.opacity = '1' }
+  cap.onmouseleave = () => { cap.style.opacity = PILL_IDLE; x.style.opacity = '.8' }
+
+  const labelEl = document.createElement('span')
+  labelEl.textContent = label
+  labelEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'
+  cap.appendChild(labelEl)
+
+  const x = document.createElement('button')
+  x.title = '删除'
+  x.textContent = '×'
+  x.style.cssText =
+    'flex:0 0 auto;box-sizing:border-box;margin-left:2px;padding:0 2px;border:none;background:transparent;color:#fff;' +
+    'font:16px/1 -apple-system,sans-serif;cursor:pointer;opacity:.8;transition:opacity .15s ease;'
+  x.onclick = (e) => { e.stopPropagation(); onDelete() }
+  cap.appendChild(x)
+  return cap
 }
 
-function pill(v: SavedViz): HTMLButtonElement {
+function pill(v: SavedViz): HTMLElement {
   return makePill(v.name, '点击展开/收起「' + v.name + '」', () => {
     if (isVizOpen(v.id)) closeViz(v.id) // collapse
     else { try { chrome.runtime.sendMessage({ type: 'DATAVIZ_OPEN_SAVED', vizId: v.id }) } catch { /* */ } }
@@ -97,14 +109,15 @@ function pill(v: SavedViz): HTMLButtonElement {
 
 /**
  * PPT deck pill: click → open the standalone viewer page (deckViewer.html) in a new tab via
- * the background, matching SlidesPanel's "查看 PPT". A × button deletes the deck after confirm.
+ * the background, matching SlidesPanel's "查看 PPT". A × button inside the capsule deletes the
+ * deck after confirm.
  *
  * Why not the page overlay like 看板/图表? The overlay path (DATAVIZ_OPEN_DECK → background →
  * DATAVIZ_RENDER → sandbox iframe) is fragile on Feishu pages (z-index fights, sandbox CSP,
  * message routing). The standalone viewer is page-independent and the same code path the
  * sidebar uses, so it's the reliable choice for "click → see my PPT".
  */
-function deckPill(d: SavedDeck): HTMLButtonElement {
+function deckPill(d: SavedDeck): HTMLElement {
   return makePill(d.name, '点击查看「' + d.name + '」演示', () => {
     // Fire-and-forget: the background opens the standalone viewer page. Content scripts can't
     // open extension URLs directly (chrome.tabs is unavailable here), so route via background.
@@ -151,17 +164,8 @@ export async function refreshLauncher() {
   if (!matches.length && !decks.length) { clearBar(); return }
   const c = ensureBar()
   c.innerHTML = ''
-  for (const v of matches) {
-    const p = pill(v)
-    // pill() never passes onDelete → no wrapper; append the button directly.
-    c.appendChild(p)
-  }
-  for (const d of decks) {
-    const p = deckPill(d)
-    // deckPill() passes onDelete → the button carries a _wrapper div (pill + ×); append that.
-    const wrap = (p as HTMLButtonElement & { _wrapper?: HTMLDivElement })._wrapper
-    c.appendChild(wrap ?? p)
-  }
+  for (const v of matches) c.appendChild(pill(v))
+  for (const d of decks) c.appendChild(deckPill(d))
 }
 
 // Saving/deleting a viz OR a slides deck updates storage → refresh pills without a page reload.
