@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from '@/shared/types'
 import { cleanDocTitle } from '@/shared/feishu/pageUrl'
 import { resolveToken } from '@/shared/feishu/auth'
@@ -236,14 +236,27 @@ export function useDocBinding(a: Args): DocBindingApi {
       sessions.activeSession?.title, sessions.activeSession?.kind,
       ctxTitle, ctxFeishuKind, ctxFeishuToken])
 
-  // follow mode: HOLD the session on its current doc when the live tab differs, so the
-  // auto-switch can't yank it back. `justFollowedRef` suppresses the hold for one cycle after
-  // an explicit follow-switch — otherwise switching to follow on a tab whose doc differs
-  // from the active session loops heldResource↔liveResource (the "title flips between two
-  // docs" oscillation); with the suppress, follow mode follows the live tab as intended.
+  // follow mode: HOLD the session on its current doc when the live tab moves away from it, so
+  // the resource-driven auto-switch in useSessions can't yank the conversation away before the
+  // user confirms (the SwitchDocDialog asks whether to follow). `justFollowedRef` suppresses
+  // the hold for one cycle after an explicit follow-switch (pin→follow) so follow mode follows
+  // the LIVE tab instead of holding the previously-pinned session.
+  //
+  // WHY this is a useLayoutEffect and WHY sessions.activeSession?.appToken is NOT a dep:
+  // The hold reads the active session's token (sessionsRef) and writes heldResource →
+  // effectiveResource → useSessions' auto-switch effect → the active session's token. That's a
+  // feedback loop. An earlier version listed sessions.activeSession?.appToken as a dep, so this
+  // effect re-fired every time the auto-switch (which runs AFTER commit) changed it. The
+  // one-render lag between effectiveResource and the activeSession.appToken it just produced
+  // made the effect read a STALE token and flip heldResource A→null→A…, oscillating
+  // effectiveResource between the old and new doc — the topbar title flickered continuously
+  // ("来回切换"). Depending only on liveResource/docMode/chatStreaming fires the effect on the
+  // real trigger (the tab change) and reads the pre-switch session ONCE, breaking the loop.
+  // useLayoutEffect runs before paint AND before useSessions' passive auto-switch, so the held
+  // value lands in the same commit — no one-frame flash of the new doc's title either.
   const prevLiveRef = useRef<string | null>(liveResource)
   const justFollowedRef = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (docMode !== 'follow') { justFollowedRef.current = false; setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     if (justFollowedRef.current) {
       justFollowedRef.current = false
@@ -251,10 +264,7 @@ export function useDocBinding(a: Args): DocBindingApi {
     }
     // Non-Feishu tab (liveResource is null after the debounce): don't hold the session on its
     // doc — let effectiveResource fall to null so the workspace switches to the general session
-    // (the user's expectation: a non-doc tab means "back to general"). Holding here was the
-    // jitter root cause: liveResource settled to null while heldResource was set to the old
-    // doc, and the async gap between the two state updates made effectiveResource flip
-    // null→old-doc→null, oscillating the session between general and doc.
+    // (the user's expectation: a non-doc tab means "back to general").
     if (!liveResource) { setHeldResource(null); setPendingSwitch(null); prevLiveRef.current = liveResource; return }
     const sess = sessionsRef.current
     const sessionTok = sess.activeSession?.appToken ?? null
@@ -265,8 +275,7 @@ export function useDocBinding(a: Args): DocBindingApi {
     setHeldResource(sessionTok)
     if (!liveChanged || chatStreaming) { setPendingSwitch(null); return }
     setPendingSwitch({ to: liveResource })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveResource, docMode, chatStreaming, sessions.activeSession?.appToken])
+  }, [liveResource, docMode, chatStreaming])
 
   // Pin mode: resolve a pinned wiki node to its real resource. Reuses the shared cache.
   useEffect(() => {
