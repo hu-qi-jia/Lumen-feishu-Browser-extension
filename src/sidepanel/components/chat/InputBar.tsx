@@ -1019,7 +1019,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.tsv,.txt,image/*"
+              accept="image/*"
               className="input-file-hidden"
               onChange={onFileChange}
               tabIndex={-1}
@@ -1031,13 +1031,13 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
               role="menu"
               menuClassName="inputbar-plus-menu"
               trigger={
-                <Tooltip content="添加附件、工具">
+                <Tooltip content="添加图片、工具">
                   <IconButton
                     size="md"
                     active={plusOpen}
                     onClick={() => setPlusOpen((v) => !v)}
                     disabled={blocked}
-                    aria-label="添加附件、工具"
+                    aria-label="添加图片、工具"
                     tabIndex={-1}
                   >
                     <IconPlus width={16} height={16} />
@@ -1055,7 +1055,7 @@ const InputBar = forwardRef<InputBarHandle, Props>(function InputBar(
                 <span className="plus-menu-icon plus-menu-icon--upload">
                   <IconUpload width={15} height={15} />
                 </span>
-                <span className="plus-menu-title">添加附件</span>
+                <span className="plus-menu-title">添加图片</span>
               </button>
               <button
                 className="plus-menu-item"

@@ -211,7 +211,7 @@ export async function fileToAttachment(file: File): Promise<Attachment> {
     }
   }
 
-  throw new Error('暂不支持该文件类型。请上传图片、CSV、TSV 或 TXT 文件。')
+  throw new Error('暂不支持该文件类型。请上传图片文件。')
 }
 
 export function formatBytes(bytes: number): string {
