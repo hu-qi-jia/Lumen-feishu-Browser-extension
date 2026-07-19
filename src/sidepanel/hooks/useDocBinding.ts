@@ -158,7 +158,25 @@ export function useDocBinding(a: Args): DocBindingApi {
   //  the live tab, which flips immediately on tab switch) is what stops the title/kind/
   //  examples from jittering between the old doc and the general session.
   const seenDocCtxRef = useRef<Map<string, PageContext>>(new Map())
-  if (rawResource) seenDocCtxRef.current.set(rawResource, ctx)
+  if (rawResource) {
+    // Only (re)cache ctx for this resource when a meaningful field changed — title or any
+    // feishu identity token. Reference-only churn (a new ctx object with the same content)
+    // is already filtered by the idempotent setCtx wrapper in usePageContext, but this gate
+    // is a second line of defense: it prevents any future code path that bypasses the
+    // wrapper from needlessly updating the cache and re-firing chatContext's useMemo (which
+    // would cascade to ChatPanel/DocSelector re-renders — the tab-switch jitter).
+    const prev = seenDocCtxRef.current.get(rawResource)
+    if (!prev
+        || prev.title !== ctx.title
+        || prev.feishu?.kind !== ctx.feishu?.kind
+        || prev.feishu?.documentId !== ctx.feishu?.documentId
+        || prev.feishu?.appToken !== ctx.feishu?.appToken
+        || prev.feishu?.spreadsheetToken !== ctx.feishu?.spreadsheetToken
+        || prev.feishu?.wikiToken !== ctx.feishu?.wikiToken
+        || prev.feishu?.slideToken !== ctx.feishu?.slideToken) {
+      seenDocCtxRef.current.set(rawResource, ctx)
+    }
+  }
   // Stable fallback for the "no effective resource" branch. During a tab switch, ctx thrashes
   // (onActivated → onUpdated loading → complete → async title API), and using ctx directly
   // here made the topbar title/identity flicker. Keep the LAST effectiveResource's context

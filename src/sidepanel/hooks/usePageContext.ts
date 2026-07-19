@@ -15,6 +15,35 @@ export interface PageContextApi {
   refreshCtx: (tabId?: number) => Promise<void>
 }
 
+/** Compare two feishu resource descriptors by their meaningful identity fields only
+ *  (kind + all token variants + isBase + tableId). Reference-unequal but content-equal
+ *  feishu objects are treated as equal so async enrichment (wiki resolve, title fetch)
+ *  doesn't churn the ctx reference and propagate jitter to chatContext/ChatPanel. */
+function feishuEqual(a: PageContext['feishu'], b: PageContext['feishu']): boolean {
+  if (a === b) return true
+  if (!a || !b) return a === b
+  return a.kind === b.kind
+    && a.isBase === b.isBase
+    && a.appToken === b.appToken
+    && a.spreadsheetToken === b.spreadsheetToken
+    && a.documentId === b.documentId
+    && a.wikiToken === b.wikiToken
+    && a.slideToken === b.slideToken
+    && a.whiteboardId === b.whiteboardId
+    && a.tableId === b.tableId
+}
+
+/** Compare two PageContexts by meaningful fields. Used by the setCtx wrapper to skip
+ *  reference-only updates (a new object with the same url/title/selectedText/feishu content)
+ *  that would otherwise cascade through seenDocCtxRef → chatContext → ChatPanel and cause
+ *  the tab-switch title/kind jitter. */
+function pageContextEqual(a: PageContext, b: PageContext): boolean {
+  return a.url === b.url
+    && a.title === b.title
+    && a.selectedText === b.selectedText
+    && feishuEqual(a.feishu, b.feishu)
+}
+
 /**
  * The focused tab's Feishu page context: acquisition (tab/message listeners → ctx) and
  * enrichment (real doc/sheet titles via API, since the SPA document.title is unreliable on
@@ -25,7 +54,25 @@ export function usePageContext(
   settings: AppSettings,
   wikiCacheRef: React.MutableRefObject<Map<string, NonNullable<PageContext['feishu']>>>,
 ): PageContextApi {
-  const [ctx, setCtx] = useState<PageContext>({ url: '', title: '', selectedText: '' })
+  const [ctx, setCtxRaw] = useState<PageContext>({ url: '', title: '', selectedText: '' })
+
+  // Idempotent setCtx wrapper: skip the update when the next ctx is meaningfully equal to
+  // the prev (same url/title/selectedText/feishu identity fields). Without this, the tab-
+  // switch enrichment chain (applyCtx → wiki resolve → doc/sheet/base title fetch) creates
+  // a new ctx reference on every step even when nothing meaningful changed, and each new
+  // reference cascades through seenDocCtxRef → chatContext useMemo → ChatPanel/DocSelector
+  // re-renders — the visible "title flickers between two values" jitter. Returning the SAME
+  // prev reference makes React bail out of the state update entirely.
+  const setCtx = useCallback<React.Dispatch<React.SetStateAction<PageContext>>>((updater) => {
+    setCtxRaw((prev) => {
+      const next = typeof updater === 'function'
+        ? (updater as (c: PageContext) => PageContext)(prev)
+        : updater
+      if (next === prev) return prev
+      if (pageContextEqual(next, prev)) return prev
+      return next
+    })
+  }, [])
 
   // Real titles of /docx/ and /sheets/ pages — cached per id for an instant apply, with a
   // fresh fetch on each visit so a rename syncs in.
@@ -38,7 +85,7 @@ export function usePageContext(
       if (cached) feishu = cached
     }
     setCtx({ ...next, feishu })
-  }, [wikiCacheRef])
+  }, [wikiCacheRef, setCtx])
 
   const refreshCtx = useCallback(async (tabId?: number) => {
     try {
