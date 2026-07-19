@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PageContext, SessionKind, SessionMeta, DocSelectionPayload } from '@/shared/types'
 import { cleanDocTitle } from '@/shared/feishu/pageUrl'
 import { resolveToken } from '@/shared/feishu/auth'
@@ -174,19 +174,39 @@ export function useDocBinding(a: Args): DocBindingApi {
   useEffect(() => {
     if (liveResource === null) lastStableCtxRef.current = null
   }, [liveResource])
-  const chatContext: PageContext =
-    docMode === 'pin' && pinned
-      ? pinned.kind === 'wiki'
-        ? { url: '', title: pinned.title, selectedText: '', feishu: pinnedResolved ?? { isBase: false, kind: 'wiki', wikiToken: pinned.token } }
-        : { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
-      : effectiveResource
-        ? (seenDocCtxRef.current.get(effectiveResource) ?? {
-            url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
-            feishu: sessionFeishu(effectiveResource, sessions.activeSession?.kind, wikiCacheRef.current),
-          })
-        : (liveResource === null && lastStableCtxRef.current === null)
-          ? ctx
-          : (lastStableCtxRef.current ?? ctx)
+  // Memoize chatContext so the downstream ChatPanel/docTitle don't re-render on every ctx
+  // mutation (title API callback, onUpdated re-fire, etc.) when the effective resource and
+  // its cached context haven't actually changed. Keyed on primitive identity fields.
+  const ctxTitle = ctx.title
+  const ctxFeishuKind = ctx.feishu?.kind
+  const ctxFeishuToken = ctx.feishu?.kind === 'doc' ? ctx.feishu.documentId
+    : ctx.feishu?.kind === 'sheet' ? ctx.feishu.spreadsheetToken
+    : ctx.feishu?.kind === 'base' ? ctx.feishu.appToken
+    : ctx.feishu?.kind === 'wiki' ? ctx.feishu.wikiToken
+    : ctx.feishu?.kind === 'ppt' ? ctx.feishu.slideToken
+    : undefined
+  const chatContext: PageContext = useMemo(() => {
+    if (docMode === 'pin' && pinned) {
+      if (pinned.kind === 'wiki') {
+        return { url: '', title: pinned.title, selectedText: '', feishu: pinnedResolved ?? { isBase: false, kind: 'wiki', wikiToken: pinned.token } }
+      }
+      return { url: '', title: pinned.title, selectedText: '', feishu: pinnedFeishu(pinned) }
+    }
+    if (effectiveResource) {
+      const cached = seenDocCtxRef.current.get(effectiveResource)
+      if (cached) return cached
+      return {
+        url: '', title: sessions.activeSession?.title || '飞书文档', selectedText: '',
+        feishu: sessionFeishu(effectiveResource, sessions.activeSession?.kind, wikiCacheRef.current),
+      }
+    }
+    // effectiveResource is null — hold the last stable ctx until liveResource confirms null.
+    if (liveResource === null && lastStableCtxRef.current === null) return ctx
+    return lastStableCtxRef.current ?? ctx
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docMode, pinned, pinnedResolved, effectiveResource, liveResource,
+      sessions.activeSession?.title, sessions.activeSession?.kind,
+      ctxTitle, ctxFeishuKind, ctxFeishuToken])
 
   // follow mode: HOLD the session on its current doc when the live tab differs, so the
   // auto-switch can't yank it back. `justFollowedRef` suppresses the hold for one cycle after
