@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
-import type { AppSettings, SessionKind } from '@/shared/types'
+import type { AppSettings, PageContext, SessionKind } from '@/shared/types'
 import { resolveToken } from '@/shared/feishu/auth'
 import { getDocumentMeta } from '@/shared/feishu/docx'
 import { getSpreadsheet } from '@/shared/feishu/sheets'
 import { getApp, getWikiNode } from '@/shared/feishu/api'
+import { wikiToFeishu } from './useWikiResolve'
 import type { RecentFile } from '../services/recentFiles'
 
 interface Args {
@@ -14,6 +15,11 @@ interface Args {
   /** Drop an entry whose underlying resource no longer exists (404/permission). */
   removeFromRecent: (token: string) => void
   settings: AppSettings
+  /** Shared wiki-resolution cache (App owns the ref). Backfill populates it for every wiki
+   *  entry it resolves so subsequent recordRecent calls can normalize (token, kind) to the
+   *  wiki form — without this, the dedup pass in recordRecent can't see the wiki→doc mapping
+   *  for entries the user hasn't visited in this session. */
+  wikiCacheRef: React.MutableRefObject<Map<string, NonNullable<PageContext['feishu']>>>
 }
 
 /** Result of a resource lookup — distinguishes "found with title" from "not found / gone"
@@ -33,8 +39,15 @@ function isGoneError(err: unknown): boolean {
 }
 
 /** Fetch the real title of a resource by token + kind, distinguishing "not found" (gone)
- *  from transient/network errors. All four are read-only GETs. */
-async function lookupResource(kind: SessionKind, token: string, userToken: string): Promise<LookupResult> {
+ *  from transient/network errors. All four are read-only GETs. For wiki entries, also
+ *  populate the shared wiki cache with the resolved obj_type/obj_token so the caller's
+ *  recordRecent can dedupe a legacy (docToken, 'doc') entry for the same resource. */
+async function lookupResource(
+  kind: SessionKind,
+  token: string,
+  userToken: string,
+  wikiCacheRef: React.MutableRefObject<Map<string, NonNullable<PageContext['feishu']>>>,
+): Promise<LookupResult> {
   try {
     if (kind === 'doc') {
       const m = await getDocumentMeta(userToken, token) as { document?: { title?: string } }
@@ -52,8 +65,15 @@ async function lookupResource(kind: SessionKind, token: string, userToken: strin
       return t ? { found: true, title: t } : { found: false, gone: false }
     }
     if (kind === 'wiki') {
-      const r = await getWikiNode(userToken, token) as { node?: { title?: string } }
-      const t = r?.node?.title?.trim()
+      const r = await getWikiNode(userToken, token) as { node?: { title?: string; obj_type?: string; obj_token?: string } }
+      const n = r?.node
+      const t = n?.title?.trim()
+      // Populate the shared wiki cache so recordRecent can normalize (docToken, 'doc') →
+      // (wikiToken, 'wiki') for this resource, dropping any legacy duplicate.
+      if (n?.obj_type && n?.obj_token) {
+        const resolved = wikiToFeishu(n.obj_type, n.obj_token)
+        if (resolved) wikiCacheRef.current.set(token, { ...resolved, wikiToken: token })
+      }
       return t ? { found: true, title: t } : { found: false, gone: false }
     }
   } catch (err) {
@@ -77,9 +97,14 @@ async function lookupResource(kind: SessionKind, token: string, userToken: strin
  *    doesn't show stale "会话XXXXX" docs the agent can't operate on. Non-gone errors (network,
  *    auth) leave the entry untouched to avoid nuking the list on a transient blip.
  *
+ * Side effect: resolving a wiki entry populates the shared wiki cache (wikiToken → resolved
+ * feishu), so the subsequent recordRecent call normalizes to the wiki form AND drops any
+ * legacy (docToken, 'doc') duplicate — the "same doc appears twice" fix for entries already
+ * in storage before the recordRecent normalization landed.
+ *
  * Bounded + safe: at most once per token per session, ≤ MAX_RECENT entries, read-only GETs.
  */
-export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, removeFromRecent, settings }: Args) {
+export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, removeFromRecent, settings, wikiCacheRef }: Args) {
   const doneRef = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (!ready) return
@@ -92,11 +117,13 @@ export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, remov
       const userToken = await resolveToken(settings).catch(() => undefined)
       if (!userToken || cancelled) return
       await Promise.all(pending.map(async (f) => {
-        const r = await lookupResource(f.kind, f.token, userToken)
+        const r = await lookupResource(f.kind, f.token, userToken, wikiCacheRef)
         doneRef.current.add(f.token) // even on failure — don't retry all session
         if (cancelled) return
         if (r.found) {
           // Real title → upsert overwrites (also refreshes a renamed doc's title).
+          // For wiki entries, lookupResource just populated the wiki cache, so recordRecent
+          // can normalize (wikiToken, 'wiki') AND dedupe any (docToken, 'doc') duplicate.
           recordRecent(f.token, r.title, f.kind)
         } else if (r.gone) {
           // Resource deleted/revoked — prune so the dropdown stays clean.
@@ -107,5 +134,5 @@ export function useRecentTitleBackfill({ recentFiles, ready, recordRecent, remov
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentFiles, ready, settings.feishuAccessToken, recordRecent, removeFromRecent])
+  }, [recentFiles, ready, settings.feishuAccessToken, recordRecent, removeFromRecent, wikiCacheRef])
 }

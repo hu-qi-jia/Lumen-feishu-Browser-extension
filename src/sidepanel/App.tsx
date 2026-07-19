@@ -88,11 +88,11 @@ export default function App() {
 
   const { ctx, setCtx, applyCtx } = usePageContext(settings, wikiCacheRef)
   const { resolveWikiKind, resolveWikiNode, authExpired } = useWikiResolve(settings, ctx, setCtx, wikiCacheRef)
-  const { recentFiles, ready: recentReady, recordRecent, removeFromRecent } = useRecentFiles(ctx.feishu, ctx.title)
+  const { recentFiles, ready: recentReady, recordRecent, removeFromRecent } = useRecentFiles(ctx.feishu, ctx.title, wikiCacheRef)
   // Recover real names for recent docs whose title is unknown (closed tab / reloaded mid-load):
   // fetch the name from the Feishu API by token so the dropdown never shows a blank/placeholder row.
   // Also prunes entries whose underlying resource has been deleted/revoked (404 → remove).
-  useRecentTitleBackfill({ recentFiles, ready: recentReady, recordRecent, removeFromRecent, settings })
+  useRecentTitleBackfill({ recentFiles, ready: recentReady, recordRecent, removeFromRecent, settings, wikiCacheRef })
 
   const [tab, setTab] = useState<AppTab>('chat')
   // Read the live tab inside the auto-default effect WITHOUT re-triggering it (no dep).

@@ -68,7 +68,17 @@ export function buildFeishuUrl(kind: SessionKind, token: string): string {
  * titles ("飞书", "Loading", empty) that Feishu's SPA briefly shows DURING navigation —
  * those used to get written as the session name, which is the visible "unstable name" bug.
  * Returns '' when the title isn't a real, settled name (caller should then keep the old one).
+ *
+ * Also strips a trailing resource-kind label (" - 多维表格" / " - 电子表格" / " - 知识库" /
+ * " - 演示文稿" / " - 画板") that Feishu's SPA inserts between the doc name and the brand
+ * suffix — without this, a base titled "Q3 复盘 - 多维表格 - 飞书云文档" cleaned to
+ * "Q3 复盘 - 多维表格" (only half-cleaned). The kind label is anchored to a preceding
+ * dash + end-of-string, so a real name ending in one of these words (e.g. "接口设计Docs")
+ * is never truncated.
  */
+// Anchored to end + a preceding dash/pipe so a real title containing these words
+// (e.g. "电子表格使用指南") is NOT truncated — only a standalone trailing kind label is.
+const KIND_LABEL_RE = /\s*[-–—|]\s*(多维表格|电子表格|知识库|演示文稿|画板)\s*$/i
 export function cleanDocTitle(title: string): string {
   // Some (esp. private/on-prem) doc pages briefly expose the URL itself as document.title —
   // never use a URL as the doc name (it produced "name = full URL" on kastd01.*).
@@ -82,7 +92,12 @@ export function cleanDocTitle(title: string): string {
     // is also fetched cleanly via API now (getDocumentMeta/getSpreadsheet), so this is just a
     // fallback for document.title.
     .replace(/\s*[-–—|]\s*[^-–—|]*?(云文档|云空间)\s*$/i, '')
+    // Resource-kind label that Feishu's SPA inserts before the brand suffix on base/sheet/
+    // wiki/ppt/whiteboard pages. Run AFTER brand stripping so "X - 多维表格 - 飞书云文档"
+    // → "X - 多维表格" → "X". A preceding dash + end-anchor means a real name ending in
+    // (e.g.) "电子表格" without a dash is left intact.
+    .replace(KIND_LABEL_RE, '')
     .trim()
-  if (!name || /^(飞书|feishu|lark|飞书云文档|云文档|loading|加载中)$/i.test(name)) return ''
+  if (!name || /^(飞书|feishu|lark|飞书云文档|云文档|loading|加载中|多维表格|电子表格|知识库|演示文稿|画板)$/i.test(name)) return ''
   return name
 }

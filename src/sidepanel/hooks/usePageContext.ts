@@ -4,6 +4,7 @@ import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 import { resolveToken } from '@/shared/feishu/auth'
 import { getDocumentMeta } from '@/shared/feishu/docx'
 import { getSpreadsheet } from '@/shared/feishu/sheets'
+import { getApp } from '@/shared/feishu/api'
 
 export interface PageContextApi {
   ctx: PageContext
@@ -115,6 +116,28 @@ export function usePageContext(
     })()
     return () => { cancelled = true }
   }, [sheetToken, settings])
+
+  // Base (多维表格) — same enrichment as doc/sheet: the SPA tab.title is "Name - 多维表格 - 飞书云文档"
+  // and only half-cleans to "Name - 多维表格" via cleanDocTitle. The bitable API returns the real
+  // app.name, which then propagates to the recent-files list via the useRecentFiles title-dep effect.
+  const appToken = ctx.feishu?.kind === 'base' ? ctx.feishu.appToken : undefined
+  useEffect(() => {
+    if (!appToken) return
+    const cacheKey = 'base:' + appToken
+    const applyTitle = (t: string) => setCtx((c) =>
+      c.feishu?.kind === 'base' && c.feishu.appToken === appToken ? { ...c, title: t } : c)
+    const cached = docTitleCacheRef.current.get(cacheKey)
+    if (cached) applyTitle(cached)
+    let cancelled = false
+    void (async () => {
+      try {
+        const meta = (await getApp(await resolveToken(settings), appToken)) as { app?: { name?: string } }
+        const t = meta?.app?.name?.trim()
+        if (t && !cancelled) { docTitleCacheRef.current.set(cacheKey, t); applyTitle(t) }
+      } catch { /* keep document.title fallback */ }
+    })()
+    return () => { cancelled = true }
+  }, [appToken, settings])
 
   return { ctx, setCtx, applyCtx, refreshCtx }
 }
