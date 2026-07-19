@@ -161,6 +161,24 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   return undefined
 })
 
+// Launcher pill for a saved PPT deck → open the standalone viewer page (deckViewer.html) in a
+// new tab. Mirrors SlidesPanel.openDeck so the page-content pill and the sidebar button share
+// the same reliable code path (the page overlay path was fragile on Feishu pages).
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.type !== 'OPEN_DECK_VIEWER') return undefined
+  void (async () => {
+    try {
+      const deck = (await loadDecks()).find((d) => d.id === msg.deckId)
+      if (!deck) return
+      await chrome.storage.session.set({
+        deckView: { slides: deck.slides, name: deck.name, themeId: deck.themeId ?? 'business', print: false, images: deck.images ?? [] },
+      })
+      await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/deckViewer.html') })
+    } catch { /* ignore — the pill stays, the user can retry */ }
+  })()
+  return undefined
+})
+
 // Write-back: the overlay's 提交 button (already user-confirmed) sends staged edits here; we
 // batch_update the Base table AS THE USER, then report back so the overlay can clear drafts.
 chrome.runtime.onMessage.addListener((msg, sender) => {

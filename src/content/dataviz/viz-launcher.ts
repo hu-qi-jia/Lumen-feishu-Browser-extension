@@ -2,13 +2,16 @@
  * Floating launchers: a Feishu page can have SEVERAL saved dashboards bound to its resource.
  * Each gets its own pill (stacked bottom-left). Click a pill → expand that dashboard (its own
  * overlay window); click again → collapse it. Multiple dashboards can be open at once.
+ *
+ * PPT decks: click → open the standalone viewer page (deckViewer.html) in a new tab, matching
+ * SlidesPanel's "查看 PPT" behavior. A × button on the right of the pill deletes the deck.
  */
 import { parseFeishuContext } from '@/shared/feishu/pageUrl'
 import { loadVizList } from '@/shared/dataviz/store'
-import { loadDecks, type SavedDeck } from '@/shared/ai/slidesStore'
+import { loadDecks, deleteDeck, type SavedDeck } from '@/shared/ai/slidesStore'
 import { ctxDocKey, deckScopeKey, savedVizMatchesCtx } from '@/shared/dataviz/scope'
 import type { SavedViz } from '@/shared/dataviz/types'
-import { isVizOpen, closeViz } from './viz-overlay'
+import { isVizOpen, closeViz, customConfirm } from './viz-overlay'
 
 let host: HTMLDivElement | null = null // shadow host (page-fixed anchor)
 let bar: HTMLDivElement | null = null  // flex row INSIDE the shadow root (holds the pills)
@@ -42,7 +45,12 @@ function clearBar() { if (host) { host.remove(); host = null; bar = null } }
 const PILL_IDLE = '0.55'   // translucent at rest, so it barely obscures the document
 const PILL_HOVER = '1'     // deepens to full color on hover
 
-function makePill(label: string, title: string, onClick: () => void): HTMLButtonElement {
+/**
+ * Build a launcher pill. The pill itself is a <button>; when `onDelete` is provided, a ×
+ * affordance is rendered as a sibling inside a wrapper <div> so the delete click never reaches
+ * the pill's onClick (stopPropagation). Both share the pill's hover-opacity behavior.
+ */
+function makePill(label: string, title: string, onClick: () => void, onDelete?: () => void): HTMLButtonElement {
   const b = document.createElement('button')
   b.style.cssText =
     'flex:0 0 auto;box-sizing:border-box;display:flex;align-items:center;gap:6px;max-width:240px;padding:9px 14px;border:none;border-radius:999px;' +
@@ -55,6 +63,28 @@ function makePill(label: string, title: string, onClick: () => void): HTMLButton
   b.onmouseenter = () => { b.style.opacity = PILL_HOVER }
   b.onmouseleave = () => { b.style.opacity = PILL_IDLE }
   b.onclick = onClick
+  if (onDelete) {
+    const x = document.createElement('button')
+    x.title = '删除'
+    x.textContent = '×'
+    x.style.cssText =
+      'flex:0 0 auto;box-sizing:border-box;padding:0 4px;border:none;background:transparent;color:#fff;' +
+      'font:16px/1 -apple-system,sans-serif;cursor:pointer;opacity:.7;transition:opacity .15s ease;'
+    x.onmouseenter = () => { x.style.opacity = '1' }
+    x.onmouseleave = () => { x.style.opacity = '.7' }
+    x.onclick = (e) => { e.stopPropagation(); onDelete() }
+    // Wrap pill + × in a row so they visually belong together
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'display:flex;align-items:center;gap:2px;'
+    // The wrapper inherits the pill's hover-opacity by listening on the wrapper itself.
+    wrap.onmouseenter = () => { b.style.opacity = PILL_HOVER; x.style.opacity = '1' }
+    wrap.onmouseleave = () => { b.style.opacity = PILL_IDLE; x.style.opacity = '.7' }
+    wrap.appendChild(b)
+    wrap.appendChild(x)
+    // Return the button (for backwards-compat with callers that only need the clickable pill),
+    // but the caller actually appends the wrapper — see makePillWrapper below.
+    ;(b as HTMLButtonElement & { _wrapper?: HTMLDivElement })._wrapper = wrap
+  }
   return b
 }
 
@@ -65,10 +95,25 @@ function pill(v: SavedViz): HTMLButtonElement {
   })
 }
 
+/**
+ * PPT deck pill: click → open the standalone viewer page (deckViewer.html) in a new tab via
+ * the background, matching SlidesPanel's "查看 PPT". A × button deletes the deck after confirm.
+ *
+ * Why not the page overlay like 看板/图表? The overlay path (DATAVIZ_OPEN_DECK → background →
+ * DATAVIZ_RENDER → sandbox iframe) is fragile on Feishu pages (z-index fights, sandbox CSP,
+ * message routing). The standalone viewer is page-independent and the same code path the
+ * sidebar uses, so it's the reliable choice for "click → see my PPT".
+ */
 function deckPill(d: SavedDeck): HTMLButtonElement {
-  return makePill(d.name, '点击展开/收起「' + d.name + '」演示', () => {
-    if (isVizOpen(d.id)) closeViz(d.id) // collapse
-    else { try { chrome.runtime.sendMessage({ type: 'DATAVIZ_OPEN_DECK', deckId: d.id }) } catch { /* */ } }
+  return makePill(d.name, '点击查看「' + d.name + '」演示', () => {
+    // Fire-and-forget: the background opens the standalone viewer page. Content scripts can't
+    // open extension URLs directly (chrome.tabs is unavailable here), so route via background.
+    // .catch swallows the "no receiver" rejection when the SW is asleep — the pill stays, retry on next click.
+    void chrome.runtime.sendMessage({ type: 'OPEN_DECK_VIEWER', deckId: d.id }).catch(() => {})
+  }, () => {
+    void customConfirm(`确认删除「${d.name}」？此操作不可撤销。`).then((ok) => {
+      if (ok) deleteDeck(d.id).then(() => refreshLauncher()).catch(() => {})
+    })
   })
 }
 
@@ -106,8 +151,17 @@ export async function refreshLauncher() {
   if (!matches.length && !decks.length) { clearBar(); return }
   const c = ensureBar()
   c.innerHTML = ''
-  for (const v of matches) c.appendChild(pill(v))
-  for (const d of decks) c.appendChild(deckPill(d))
+  for (const v of matches) {
+    const p = pill(v)
+    // pill() never passes onDelete → no wrapper; append the button directly.
+    c.appendChild(p)
+  }
+  for (const d of decks) {
+    const p = deckPill(d)
+    // deckPill() passes onDelete → the button carries a _wrapper div (pill + ×); append that.
+    const wrap = (p as HTMLButtonElement & { _wrapper?: HTMLDivElement })._wrapper
+    c.appendChild(wrap ?? p)
+  }
 }
 
 // Saving/deleting a viz OR a slides deck updates storage → refresh pills without a page reload.

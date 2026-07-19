@@ -53,7 +53,7 @@ function newNonce(): string {
  * 部分页面抑制或样式突兀；这里用 DOM 构建一个轻量模态，与 overlay 视觉风格一致。
  * 返回 Promise<boolean>：true=确认，false=取消。
  */
-function customConfirm(message: string): Promise<boolean> {
+export function customConfirm(message: string): Promise<boolean> {
   return new Promise((resolve) => {
     const overlay = document.createElement('div')
     overlay.style.cssText = `position:fixed;inset:0;z-index:${zTop + 100};background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;`
